@@ -23,17 +23,18 @@ func rebuild_regions() -> void:
 	var viewport=get_viewport_rect().size
 	var edge=viewport.x
 	var bottom=viewport.y-14
-	var b=58.0 if viewport.x < 520 else 64.0 if viewport.x < 700 else 72.0
-	var gap=7.0
+	# Large touch targets: minimum ~84px and up to 112px on wide phones/tablets.
+	var b=84.0 if viewport.x < 520 else 96.0 if viewport.x < 700 else 112.0
+	var gap=10.0
 	regions={
-		"left":Rect2(14,bottom-b,b,b),
-		"right":Rect2(14+b+gap,bottom-b,b,b),
-		"jump":Rect2(edge-14-b,bottom-b*2-gap,b,b),
-		"down":Rect2(edge-14-b,bottom-b,b,b),
-		"mine":Rect2(edge-14-b*2-gap,bottom-b*2-gap,b,b),
-		"place":Rect2(edge-14-b*2-gap,bottom-b,b,b),
-		"attack":Rect2(edge-14-b*3-gap*2,bottom-b*2-gap,b,b),
-		"inventory":Rect2(edge-14-b,bottom-b*3-gap*2,b,b)
+		"left":Rect2(18,bottom-b,b,b),
+		"right":Rect2(18+b+gap,bottom-b,b,b),
+		"jump":Rect2(edge-18-b,bottom-b*2-gap,b,b),
+		"down":Rect2(edge-18-b,bottom-b,b,b),
+		"mine":Rect2(edge-18-b*2-gap,bottom-b*2-gap,b,b),
+		"place":Rect2(edge-18-b*2-gap,bottom-b,b,b),
+		"attack":Rect2(edge-18-b*3-gap*2,bottom-b*2-gap,b,b),
+		"inventory":Rect2(edge-18-b,bottom-b*3-gap*2,b,b)
 	}
 	release_all()
 	queue_redraw()
@@ -138,14 +139,14 @@ func _draw() -> void:
 		var rect: Rect2=regions[action]
 		var active=action in fingers.values()
 		draw_style_box(style(active),rect)
-		draw_string(font,rect.position+Vector2(0,rect.size.y/2+4),captions[action],HORIZONTAL_ALIGNMENT_CENTER,rect.size.x,10 if rect.size.x<70 else 11,Color("efdfcc"))
+		draw_string(font,rect.position+Vector2(0,rect.size.y/2+6),captions[action],HORIZONTAL_ALIGNMENT_CENTER,rect.size.x,15 if rect.size.x>=96 else 13,Color("efdfcc"))
 
 func style(active: bool) -> StyleBoxFlat:
 	var box=StyleBoxFlat.new()
 	box.bg_color=Color("50335bed") if active else Color("14101bd9")
 	box.border_color=Color("d6ab79") if active else Color("88705e")
-	box.set_border_width_all(2)
-	box.set_corner_radius_all(14)
+	box.set_border_width_all(3)
+	box.set_corner_radius_all(18)
 	return box
 
 func _notification(what: int) -> void:
