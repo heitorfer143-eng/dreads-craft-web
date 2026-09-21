@@ -1455,11 +1455,21 @@ func _process(delta: float) -> void:
 	if modal:
 		return
 	update_purity_hud()
+	if in_structure!="":
+		mining_held=false
+		message_time=maxf(0,message_time-delta)
+		if message_time==0 and player.position.distance_to(Vector2(110,600))<150:
+			status.text="FALAR / ENTRAR: sair pela porta"
+		queue_redraw()
+		return
 	update_target()
 	if not in_purity:
 		var near_npc=find_near_npc()
+		var near_building=find_near_structure()
 		if near_npc!=null and message_time<=0:
-			status.text="E / TOCAR: conversar com "+near_npc.npc_name
+			status.text="R / FALAR: conversar com "+near_npc.npc_name
+		elif near_building!=null and message_time<=0:
+			status.text="BOTÃO DIREITO / FALAR: entrar em "+near_building.display_name
 	if target!=last_target:
 		progress=0
 		last_target=target
@@ -1764,6 +1774,9 @@ func meter_style(color: Color) -> StyleBoxFlat:
 	return style
 
 func use_selected() -> void:
+	if in_structure!="":
+		interact_nearby()
+		return
 	if interact_nearby():
 		return
 	if target.x>=0 and world.get_cell(target)==16:
