@@ -59,7 +59,7 @@ func _physics_process(delta: float) -> void:
 	var distance=position.distance_to(player.position)
 	if distance<48 and attack_timer<=0:
 		attack_timer=1.1
-			player.take_damage(damage)
+		player.take_damage(damage)
 		player.velocity.x=direction*150
 	sprite.play("attack" if attack_timer>.75 else "walk")
 	sprite.modulate=Color(1.0,0.55,0.55) if hit_flash>0 else Color.WHITE
