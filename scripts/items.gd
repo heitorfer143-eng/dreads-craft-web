@@ -42,7 +42,7 @@ const CRAFT_ICONS = {
 const TILE_TEXTURES = {
 	1: "res://assets/tiles/grass.png",
 	2: "res://assets/tiles/dirt.png",
-	3: "res://assets/tiles/stone.png",
+	3: "res://assets/tiles/stone_world.svg",
 	4: "res://assets/tiles/wood.png",
 	5: "res://assets/tiles/leaves.png",
 	6: "res://assets/tiles/coal.png",
