@@ -8,6 +8,8 @@ const Saves = preload("res://scripts/save_game.gd")
 const Backdrop = preload("res://scripts/backdrop.gd")
 const LobbyBackdrop = preload("res://scripts/lobby_backdrop.gd")
 const NPC = preload("res://scripts/npc.gd")
+const VillageStructure = preload("res://scripts/village_structure.gd")
+const Interior = preload("res://scripts/interior.gd")
 
 var in_purity=false
 var overworld: Node2D
@@ -24,6 +26,11 @@ var world: Node2D
 var player: CharacterBody2D
 var enemies: Node2D
 var npcs: Node2D
+var structures: Node2D
+var interior: Node2D
+var in_structure := ""
+var structure_return_position := Vector2.ZERO
+var craft_override := false
 var ui: CanvasLayer
 var menu: PanelContainer
 var menu_box: VBoxContainer
@@ -402,6 +409,9 @@ func layout() -> void:
 		status.size=Vector2(size.x-24,18) if mobile_layout else Vector2(420,18)
 
 func clear_menu(title: String, kind: String) -> void:
+	var outer_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
+	if outer_scroll:
+		outer_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
 	for child in menu_box.get_children():
 		menu_box.remove_child(child)
 		child.queue_free()
@@ -433,6 +443,8 @@ func clear_menu(title: String, kind: String) -> void:
 	layout()
 
 func resume() -> void:
+	if pause_kind=="craft":
+		craft_override=false
 	if not active:
 		return
 	modal=false
@@ -973,7 +985,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	boss=null
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
-	for node in [world,player,enemies,selection]:
+	for node in [world,player,enemies,npcs,structures,interior,selection]:
 		if is_instance_valid(node):
 			remove_child(node)
 			node.queue_free()
@@ -996,6 +1008,10 @@ func start_world(creative: bool, seed_value: int) -> void:
 	npcs=Node2D.new()
 	npcs.name="NPCs"
 	add_child(npcs)
+	structures=Node2D.new()
+	structures.name="VillageStructures"
+	add_child(structures)
+	spawn_village_hub()
 	spawn_world_npcs()
 	selection=preload("res://scripts/selection.gd").new()
 	add_child(selection)
@@ -1118,6 +1134,10 @@ func show_inventory() -> void:
 	menu_box.add_child(button("FECHAR",resume))
 
 func near_table() -> bool:
+	if craft_override or in_structure=="blacksmith":
+		return true
+	if not is_instance_valid(world) or in_structure!="":
+		return false
 	var cell=Vector2i((player.position-Vector2(0,20))/32)
 	for y in range(cell.y-2,cell.y+3):
 		for x in range(cell.x-2,cell.x+3):
@@ -1237,6 +1257,9 @@ func show_craft() -> void:
 	if not active:
 		return
 	clear_menu("Dreads Craft · Criação","craft")
+	var outer_scroll=menu.get_node_or_null("MenuScroll")
+	if outer_scroll:
+		outer_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	var has_table=near_table()
 	var root=HBoxContainer.new()
 	root.add_theme_constant_override("separation",14)
@@ -1283,7 +1306,9 @@ func show_craft() -> void:
 	var recipe_scroll=ScrollContainer.new()
 	recipe_scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	recipe_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
-	recipe_scroll.custom_minimum_size=Vector2(0,480)
+	recipe_scroll.custom_minimum_size=Vector2(0,clampf(get_viewport_rect().size.y-210.0,330.0,520.0))
+	recipe_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_ALWAYS
+	recipe_scroll.follow_focus=true
 	recipe_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	content.add_child(recipe_scroll)
 	var recipe_list=VBoxContainer.new()
@@ -1365,6 +1390,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			var offset=1 if event.button_index==MOUSE_BUTTON_WHEEL_DOWN else -1
 			selected=hotbar[posmod(hotbar.find(selected)+offset,hotbar.size())]
 			refresh_hud()
+
+func set_touch_action_target() -> void:
+	if not is_instance_valid(player):
+		return
+	touch_aim=Vector2(player.face*105.0,-22.0)
+	update_target()
 
 func update_target() -> void:
 	target=Vector2i(-1,-1)
@@ -1480,30 +1511,40 @@ func _process(delta: float) -> void:
 		status.text="⛏ MINERANDO  %d%%  %s" % [pct,"▰".repeat(pct/20)+"▱".repeat(5-pct/20)]
 	queue_redraw()
 
+func spawn_village_hub() -> void:
+	if not is_instance_valid(structures) or not is_instance_valid(world):
+		return
+	var defs=[
+		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/blacksmith.svg"},
+		{"x":34,"kind":"market","name":"Mercado do Abismo","texture":"res://assets/structures/market.svg"},
+		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/chapel.svg"}
+	]
+	for data in defs:
+		var x=int(data.x)
+		var building=VillageStructure.new()
+		building.configure(str(data.kind),str(data.name),str(data.texture),player,self)
+		building.position=Vector2(x*32+16,world.surfaces[x]*32)
+		structures.add_child(building)
+
 func spawn_world_npcs() -> void:
 	if not is_instance_valid(npcs) or not is_instance_valid(world):
 		return
-	var definitions=[
-		{"x":36,"kind":"ferreiro","name":"Borin, o Ferreiro","lines":["Se quer descer fundo, não economize na picareta.","Ferro aguenta muito mais que pedra."]},
-		{"x":43,"kind":"mercador","name":"Mira, a Mercadora","lines":["Tenho ouvido histórias sobre Avarita nas profundezas.","Diamantes? Sempre há alguém disposto a negociar."]},
-		{"x":50,"kind":"aldeao","name":"Eron, Aldeão","lines":["A noite aqui não perdoa. Construa abrigo antes que escureça.","A vila é pequena, mas ainda estamos vivos."]},
-		{"x":118,"kind":"cacador","name":"Kael, o Caçador","lines":["Criaturas aparecem quando a lua domina o céu.","Não lute cercado. Use o terreno a seu favor."]},
-		{"x":238,"kind":"viajante","name":"Viajante Misterioso","lines":["A Pureza não é tão pura quanto dizem.","Encontre Avarita antes de procurar o portal."]},
-		{"x":292,"kind":"monge","name":"Monge da Pureza","lines":["Nove diamantes. Uma Avarita. Então a passagem responderá.","Há portas que deveriam permanecer fechadas."]}
-	]
-	for data in definitions:
-		var x=clampi(int(data.x),2,world.surfaces.size()-3)
-		var npc=NPC.new()
-		npc.setup(str(data.kind),str(data.name),data.lines,player)
-		npc.position=Vector2(x*32+16,world.surfaces[x]*32-2)
-		npc.interacted.connect(func(who): show_npc_dialogue(who))
-		npcs.add_child(npc)
+	# NPC sprite comes from the generated pixel-art asset, not a runtime stick-figure drawing.
+	var npc=NPC.new()
+	npc.setup("ferreiro","Borin, o Ferreiro",[
+		"Se quer descer fundo, não economize na picareta.",
+		"Minha bancada pode criar ferramentas e armas melhores.",
+		"Ferro é bom. Diamante é melhor. Avarita não pertence a uma lâmina."
+	],player)
+	npc.position=Vector2(15*32+16,world.surfaces[15]*32-2)
+	npc.interacted.connect(func(who): show_npc_dialogue(who))
+	npcs.add_child(npc)
 
 func find_near_npc():
-	if not is_instance_valid(npcs) or in_purity:
+	if not is_instance_valid(npcs) or in_purity or in_structure!="":
 		return null
 	var nearest=null
-	var best=110.0
+	var best=125.0
 	for npc in npcs.get_children():
 		var d=npc.global_position.distance_to(player.global_position)
 		if d<best:
@@ -1511,32 +1552,134 @@ func find_near_npc():
 			nearest=npc
 	return nearest
 
+func find_near_structure():
+	if not is_instance_valid(structures) or in_purity or in_structure!="":
+		return null
+	var nearest=null
+	var best=125.0
+	for building in structures.get_children():
+		if building.has_method("door_position"):
+			var d=building.door_position().distance_to(player.global_position)
+			if d<best:
+				best=d
+				nearest=building
+	return nearest
+
 func interact_near_npc() -> void:
 	var npc=find_near_npc()
 	if npc!=null:
 		npc.interact()
+
+func interact_nearby() -> bool:
+	if not active or modal:
+		return false
+	if in_structure!="":
+		if player.position.distance_to(Vector2(110,600))<135:
+			exit_structure()
+			return true
+		return false
+	var npc=find_near_npc()
+	if npc!=null:
+		npc.interact()
+		return true
+	var building=find_near_structure()
+	if building!=null:
+		building.interact()
+		return true
+	return false
+
+func set_world_collision(enabled: bool) -> void:
+	if not is_instance_valid(world):
+		return
+	for body in world.rows.values():
+		if is_instance_valid(body):
+			body.collision_layer=1 if enabled else 0
+
+func enter_structure(kind: String, display_name: String) -> void:
+	if in_structure!="" or in_purity:
+		return
+	structure_return_position=player.position
+	in_structure=kind
+	set_world_collision(false)
+	world.hide()
+	if is_instance_valid(npcs): npcs.hide()
+	if is_instance_valid(structures): structures.hide()
+	if is_instance_valid(enemies):
+		enemies.hide()
+		enemies.process_mode=Node.PROCESS_MODE_DISABLED
+	sky.hide()
+	interior=Interior.new()
+	interior.configure(kind,display_name)
+	add_child(interior)
+	player.position=Vector2(640,600)
+	player.velocity=Vector2.ZERO
+	player.camera.limit_left=0
+	player.camera.limit_right=1280
+	player.camera.limit_top=0
+	player.camera.limit_bottom=720
+	player.camera.reset_smoothing()
+	status.text="Dentro de "+display_name+" · aproxime-se da porta e use FALAR / ENTRAR para sair"
+	message_time=4
+
+func exit_structure() -> void:
+	if in_structure=="":
+		return
+	if is_instance_valid(interior):
+		interior.queue_free()
+	interior=null
+	in_structure=""
+	world.show()
+	set_world_collision(true)
+	if is_instance_valid(npcs): npcs.show()
+	if is_instance_valid(structures): structures.show()
+	if is_instance_valid(enemies):
+		enemies.show()
+		enemies.process_mode=Node.PROCESS_MODE_INHERIT
+	sky.show()
+	player.position=structure_return_position
+	player.velocity=Vector2.ZERO
+	player.camera.limit_left=0
+	player.camera.limit_right=320*32
+	player.camera.limit_top=0
+	player.camera.limit_bottom=96*32
+	player.camera.reset_smoothing()
 
 func show_npc_dialogue(npc) -> void:
 	current_npc=npc
 	clear_menu("","npc_dialogue")
 	var card=PanelContainer.new()
 	card.add_theme_stylebox_override("panel",compact_panel_style(0.97,Color("8b6e9d"),14))
-	card.custom_minimum_size=Vector2(minf(720,get_viewport_rect().size.x-36),240)
+	card.custom_minimum_size=Vector2(minf(760,get_viewport_rect().size.x-36),300)
 	menu_box.add_child(card)
+	var row=HBoxContainer.new()
+	row.add_theme_constant_override("separation",18)
+	card.add_child(row)
+	var portrait=TextureRect.new()
+	portrait.texture=load("res://assets/npcs/blacksmith_generated.svg")
+	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+	portrait.custom_minimum_size=Vector2(150,210)
+	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	row.add_child(portrait)
 	var box=VBoxContainer.new()
+	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation",12)
-	card.add_child(box)
+	row.add_child(box)
 	var who=label(npc.npc_name,22)
-	who.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	who.add_theme_color_override("font_color",Color("f0d99a"))
 	box.add_child(who)
-	var speech=label(npc.next_line(),18)
+	var speech=label(npc.next_line(),17)
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	speech.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	speech.custom_minimum_size=Vector2(0,90)
+	speech.custom_minimum_size=Vector2(0,105)
 	box.add_child(speech)
-	var close=button("CONTINUAR",resume)
-	close.custom_minimum_size=Vector2(260,54)
+	var craft_button=button("ABRIR BANCADA",func():
+		craft_override=true
+		show_craft()
+	)
+	craft_button.custom_minimum_size=Vector2(280,54)
+	box.add_child(craft_button)
+	var close=button("FECHAR",resume)
+	close.custom_minimum_size=Vector2(280,50)
 	box.add_child(close)
 	layout()
 
@@ -1558,7 +1701,11 @@ func save_world() -> bool:
 	if not active:
 		return false
 	var saved_world=overworld if in_purity else world
-	var saved_position=return_position if in_purity else player.position
+	var saved_position=player.position
+	if in_purity:
+		saved_position=return_position
+	elif in_structure!="":
+		saved_position=structure_return_position
 	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity}
 	if in_purity:
 		data["arena_position"]=[player.position.x,player.position.y]
@@ -1617,9 +1764,9 @@ func meter_style(color: Color) -> StyleBoxFlat:
 	return style
 
 func use_selected() -> void:
-	if find_near_npc()!=null and (target.x<0 or world.get_cell(target)==0):
-		interact_near_npc()
-	elif target.x>=0 and world.get_cell(target)==16:
+	if interact_nearby():
+		return
+	if target.x>=0 and world.get_cell(target)==16:
 		use_portal()
 	elif target.x>=0 and world.get_cell(target)==9:
 		show_craft()
