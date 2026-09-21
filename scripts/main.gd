@@ -518,9 +518,9 @@ func format_saved_time(data: Dictionary) -> String:
 	return "Dia %d · %02d:%02d" % [saved_day,minutes/60,minutes%60]
 
 func show_saved_world() -> void:
-	clear_menu("Mundo salvo","worlds")
-	var data=Saves.read_save()
-	if data.is_empty():
+	clear_menu("Meus Mundos","worlds")
+	var worlds=Saves.list_worlds()
+	if worlds.is_empty():
 		var empty=label("Nenhum mundo salvo ainda. Crie seu primeiro reino para ele aparecer aqui.",15)
 		empty.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		empty.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
@@ -529,33 +529,43 @@ func show_saved_world() -> void:
 		menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
 		menu_box.add_child(button("VOLTAR",show_main))
 		return
-	var card=PanelContainer.new()
-	card.add_theme_stylebox_override("panel",panel_style(0.90,Color("735b80")))
-	card.custom_minimum_size=Vector2(520,170)
-	menu_box.add_child(card)
-	var box=VBoxContainer.new()
-	box.add_theme_constant_override("separation",8)
-	card.add_child(box)
-	var title=label(str(data.get("name","Reino do Abismo")),23)
-	title.add_theme_color_override("font_color",Color("f1dfc8"))
-	box.add_child(title)
-	var mode_text="Criativo" if bool(data.get("creative",false)) else "Sobrevivência"
-	var details=label("%s  ·  %s  ·  Dificuldade: %s" % [format_saved_time(data),mode_text,difficulty_name(int(data.get("difficulty",1)))],14)
-	details.add_theme_color_override("font_color",Color("c8b7ce"))
-	box.add_child(details)
-	var desc=label("Seu último reino está pronto para continuar. O autosave guarda terreno, inventário, vida, fome e horário.",13)
-	desc.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	desc.custom_minimum_size=Vector2(480,44)
-	box.add_child(desc)
-	var play=button("CONTINUAR ESTE MUNDO",load_world)
-	set_button_icon(play,"res://assets/items/backpack.png")
-	menu_box.add_child(play)
-	var erase=button("APAGAR MUNDO SALVO",func():
-		Saves.erase_save()
-		show_saved_world()
-	)
-	erase.add_theme_color_override("font_color",Color("e7a6a6"))
-	menu_box.add_child(erase)
+	var heading=label("Escolha um mundo para continuar",15)
+	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_color_override("font_color",Color("c7a6dd"))
+	menu_box.add_child(heading)
+	for meta in worlds:
+		var card=PanelContainer.new()
+		card.add_theme_stylebox_override("panel",panel_style(0.90,Color("735b80")))
+		card.custom_minimum_size=Vector2(520,112)
+		menu_box.add_child(card)
+		var row=HBoxContainer.new()
+		row.add_theme_constant_override("separation",12)
+		card.add_child(row)
+		var copy=VBoxContainer.new()
+		copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		row.add_child(copy)
+		var title=label(str(meta.get("name","Reino")),19)
+		title.add_theme_color_override("font_color",Color("f1dfc8"))
+		copy.add_child(title)
+		var mode_text="Criativo" if bool(meta.get("creative",false)) else "Sobrevivência"
+		var info=label("Dia %d · %s · %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],12)
+		info.add_theme_color_override("font_color",Color("b8a9c1"))
+		copy.add_child(info)
+		var play=button("JOGAR",func():
+			Saves.select_world(str(meta.get("id","")))
+			load_world()
+		)
+		play.custom_minimum_size=Vector2(108,44)
+		row.add_child(play)
+		var erase=button("EXCLUIR",func():
+			Saves.select_world(str(meta.get("id","")))
+			Saves.erase_save()
+			show_saved_world()
+		)
+		erase.custom_minimum_size=Vector2(108,44)
+		erase.add_theme_color_override("font_color",Color("e7a6a6"))
+		row.add_child(erase)
+	menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
 	menu_box.add_child(button("VOLTAR",show_main))
 
 func animate_lobby(delta: float) -> void:
@@ -669,7 +679,8 @@ func show_main() -> void:
 	realm_copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	realm_copy.add_theme_constant_override("separation",8)
 	realm_row.add_child(realm_copy)
-	var saved=Saves.read_save()
+	var saved_worlds=Saves.list_worlds()
+	var saved=Saves.read_save() if not saved_worlds.is_empty() else {}
 	var label_last=label("ÚLTIMO REINO",12)
 	label_last.add_theme_color_override("font_color",Color("aa83c1"))
 	realm_copy.add_child(label_last)
@@ -708,7 +719,7 @@ func show_main() -> void:
 	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/sword.png",show_creation,true)
 	right.add_child(new_button)
 	var continue_button=lobby_button("CONTINUAR","Retorne exatamente ao último save.","res://assets/items/backpack.png",load_world)
-	continue_button.disabled=saved.is_empty()
+	continue_button.disabled=saved_worlds.is_empty()
 	right.add_child(continue_button)
 	right.add_child(lobby_button("MUNDO SALVO","Veja detalhes ou apague seu save.","res://assets/items/relic.png",show_saved_world))
 	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia e controles do PC.","res://assets/items/menu.png",func(): show_settings(true)))
@@ -759,6 +770,7 @@ func show_creation() -> void:
 		if world_name.is_empty():
 			world_name="Reino do Abismo"
 		var seed_value=int(Time.get_unix_time_from_system()) if seed_input.text.is_empty() else seed_input.text.hash()
+		Saves.active_id=""
 		start_world(mode.selected==1,seed_value)
 		save_world()
 	))
