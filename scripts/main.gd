@@ -197,6 +197,13 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 	return rect
 
 func build_ui() -> void:
+	var build_badge=Label.new()
+	build_badge.text="DREADS CRAFT • BUILD 10.3"
+	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
+	build_badge.add_theme_font_size_override("font_size",10)
+	build_badge.add_theme_color_override("font_color",Color("80758b"))
+	build_badge.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	ui.add_child(build_badge)
 	menu_background=LobbyBackdrop.new()
 	menu_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ui.add_child(menu_background)
