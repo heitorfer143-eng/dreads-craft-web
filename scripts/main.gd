@@ -524,6 +524,50 @@ func format_saved_time(data: Dictionary) -> String:
 	var minutes=int(saved_clock*1440.0)
 	return "Dia %d · %02d:%02d" % [saved_day,minutes/60,minutes%60]
 
+func show_world_browser_v2() -> void:
+	clear_menu("MEUS MUNDOS","worlds")
+	var worlds=Saves.list_worlds()
+	var intro=label("Escolha um reino para jogar. Você pode manter vários mundos salvos.",14)
+	intro.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	intro.add_theme_color_override("font_color",Color("c7a6dd"))
+	menu_box.add_child(intro)
+	for meta in worlds:
+		var card=PanelContainer.new()
+		card.add_theme_stylebox_override("panel",panel_style(0.92,Color("765681")))
+		card.custom_minimum_size=Vector2(560,104)
+		menu_box.add_child(card)
+		var row=HBoxContainer.new()
+		row.add_theme_constant_override("separation",10)
+		card.add_child(row)
+		var copy=VBoxContainer.new()
+		copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		row.add_child(copy)
+		var title=label(str(meta.get("name","Reino")),18)
+		title.add_theme_color_override("font_color",Color("f3dfca"))
+		copy.add_child(title)
+		var mode_text="Criativo" if bool(meta.get("creative",false)) else "Sobrevivência"
+		copy.add_child(label("Dia %d  •  %s  •  %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],11))
+		var play=button("JOGAR",func():
+			Saves.select_world(str(meta.get("id","")))
+			load_world()
+		)
+		play.custom_minimum_size=Vector2(105,44)
+		row.add_child(play)
+		var erase=button("EXCLUIR",func():
+			Saves.select_world(str(meta.get("id","")))
+			Saves.erase_save()
+			show_world_browser_v2()
+		)
+		erase.custom_minimum_size=Vector2(105,44)
+		erase.add_theme_color_override("font_color",Color("e7a6a6"))
+		row.add_child(erase)
+	if worlds.is_empty():
+		var empty=label("Nenhum mundo salvo.",16)
+		empty.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		menu_box.add_child(empty)
+	menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
+	menu_box.add_child(button("VOLTAR",show_main))
+
 func show_saved_world() -> void:
 	clear_menu("Meus Mundos","worlds")
 	var worlds=Saves.list_worlds()
@@ -677,7 +721,7 @@ func show_main() -> void:
 	spike_wrap.add_theme_stylebox_override("panel",lobby_panel_style(0.58,Color("4b3957")))
 	realm_row.add_child(spike_wrap)
 	var spike=TextureRect.new()
-	spike.texture=load("res://assets/sprites/normal_idle_0.png")
+	spike.texture=load("res://assets/ui/cat_clean.svg")
 	spike.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	spike.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	spike.custom_minimum_size=Vector2(120,145)
@@ -728,7 +772,7 @@ func show_main() -> void:
 	var continue_button=lobby_button("CONTINUAR","Retorne exatamente ao último save.","res://assets/items/backpack.png",load_world)
 	continue_button.disabled=saved_worlds.is_empty()
 	right.add_child(continue_button)
-	right.add_child(lobby_button("MUNDO SALVO","Veja detalhes ou apague seu save.","res://assets/items/relic.png",show_saved_world))
+	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/relic_vital.svg",show_world_browser_v2))
 	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia e controles do PC.","res://assets/items/menu.png",func(): show_settings(true)))
 	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit())
 	right.add_child(exit_button)
