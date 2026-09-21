@@ -1,0 +1,10 @@
+DREADS CRAFT v9 — HUD COMPACTO DO ZERO
+
+- HUD de gameplay reconstruído do zero sem molduras importadas gigantes.
+- Painel de vida/fome compacto e fixo no canto superior esquerdo.
+- Relógio pequeno e centralizado no topo.
+- Modo Sobrevivência/Criativo compacto no canto superior direito.
+- Botões de inventário, crafting, menu e tela cheia reduzidos.
+- Hotbar inferior refeita em painel compacto, com 6 slots menores.
+- Nome do item selecionado reposicionado acima da hotbar.
+- Mantidos: lobby v8, sprites corrigidos, dano de queda, crafting, saves e mundo procedural.

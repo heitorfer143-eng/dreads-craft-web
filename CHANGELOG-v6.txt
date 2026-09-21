@@ -1,0 +1,13 @@
+Dreads Craft Godot - v6
+
+- HUD compactado e realinhado para 1280x720.
+- Hotbar reposicionada para casar melhor com a moldura de 6 slots.
+- Molduras do HUD redimensionadas fisicamente para evitar escalas nativas inesperadas.
+- Sprites do Spike reconstruídos como PNGs transparentes normalizados, com os pés ancorados no mesmo ponto em todas as animações.
+- Escala/offset do Spike corrigidos para idle, walk, jump, attack e hurt.
+- Pose de dano da forma demoníaca corrigida.
+- Sistema de dano de queda adicionado:
+  * quedas normais/pulo comum não causam dano;
+  * dano começa acima da velocidade segura;
+  * dano aumenta conforme a queda;
+  * modo Criativo é imune.

@@ -1,0 +1,1587 @@
+extends Node2D
+
+const World = preload("res://scripts/world.gd")
+const Player = preload("res://scripts/player.gd")
+const Mob = preload("res://scripts/mob.gd")
+const Items = preload("res://scripts/items.gd")
+const Saves = preload("res://scripts/save_game.gd")
+const Backdrop = preload("res://scripts/backdrop.gd")
+const LobbyBackdrop = preload("res://scripts/lobby_backdrop.gd")
+
+var in_purity=false
+var overworld: Node2D
+var return_position=Vector2.ZERO
+var boss: Node2D
+var boss_defeated=false
+var dialogue_index=0
+var boss_panel: VBoxContainer
+var boss_bar: ProgressBar
+var boss_title: Label
+var portal_button: Button
+
+var world: Node2D
+var player: CharacterBody2D
+var enemies: Node2D
+var ui: CanvasLayer
+var menu: PanelContainer
+var menu_box: VBoxContainer
+var hud: Control
+var stats: Label
+var time_label: Label
+var hp_bar: ProgressBar
+var food_bar: ProgressBar
+var bar: HBoxContainer
+var hotbar_back: Panel
+var status: Label
+var selected_name: Label
+var mode_label: Label
+var mode_frame: Panel
+var menu_background: Control
+var lobby_root: Control
+var action_box: HBoxContainer
+var sky: Node2D
+var active = false
+var modal = true
+var selected = 2
+var hotbar = [2,3,4,8,9,11]
+var target = Vector2i(-1,-1)
+var progress = 0.0
+var last_target = Vector2i(-1,-1)
+var clock = .32
+var day = 1
+var world_name = "Reino do Abismo"
+var difficulty = 1
+var auto_save = 0.0
+var spawn_timer = 0.0
+var mining_held = false
+var pause_kind = ""
+var message_time = 0.0
+var selection: Node2D
+var craft_category="all"
+var portrait_icon: TextureRect
+var device_controls: Control
+var touch_aim=Vector2(80,-24)
+var food_value: Label
+var menu_title: Label
+var menu_tip_label: Label
+var menu_tip_timer := 0.0
+var menu_tip_index := 0
+var menu_glow := 0.0
+const LOBBY_TIPS = [
+	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
+	"A noite é mais perigosa: prepare abrigo, espada e comida antes do escurecer.",
+	"Use a roda do mouse ou as teclas 1–6 para trocar rapidamente de item.",
+	"Carvão e ferro aparecem no subsolo. Uma picareta acelera bastante a mineração.",
+	"Quedas altas causam dano. Planeje sua descida antes de explorar cavernas profundas."
+]
+
+func _ready() -> void:
+	configure_input()
+	var bg_layer=CanvasLayer.new()
+	bg_layer.layer=-1
+	add_child(bg_layer)
+	sky=Backdrop.new()
+	bg_layer.add_child(sky)
+	ui=CanvasLayer.new()
+	add_child(ui)
+	build_ui()
+	device_controls=preload("res://scripts/device_controls.gd").new()
+	device_controls.game=self
+	ui.add_child(device_controls)
+	show_main()
+	get_tree().auto_accept_quit=false
+
+func configure_input() -> void:
+	var bindings={"left":[KEY_A,KEY_LEFT],"right":[KEY_D,KEY_RIGHT],"jump":[KEY_SPACE,KEY_W,KEY_UP],"down":[KEY_S,KEY_SHIFT,KEY_DOWN],"inventory":[KEY_E],"craft":[KEY_C],"attack":[KEY_F],"pause":[KEY_ESCAPE]}
+	for action in bindings:
+		if not InputMap.has_action(action):
+			InputMap.add_action(action)
+		for code in bindings[action]:
+			var event=InputEventKey.new()
+			event.physical_keycode=code
+			InputMap.action_add_event(action,event)
+
+func panel_style(alpha: float=0.96, border: Color=Color("8d7257")) -> StyleBoxFlat:
+	var style=StyleBoxFlat.new()
+	style.bg_color=Color(0.045,0.032,0.065,alpha)
+	style.border_color=border
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(10)
+	style.content_margin_left=22
+	style.content_margin_right=22
+	style.content_margin_top=18
+	style.content_margin_bottom=18
+	style.shadow_color=Color(0,0,0,0.55)
+	style.shadow_size=10
+	return style
+
+func compact_panel_style(alpha: float=0.86, border: Color=Color("5d526c"), margin: int=8) -> StyleBoxFlat:
+	var style=StyleBoxFlat.new()
+	style.bg_color=Color(0.035,0.025,0.055,alpha)
+	style.border_color=border
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(6)
+	style.content_margin_left=margin
+	style.content_margin_right=margin
+	style.content_margin_top=margin
+	style.content_margin_bottom=margin
+	style.shadow_color=Color(0,0,0,0.35)
+	style.shadow_size=4
+	return style
+
+func button_style(color: Color, border: Color) -> StyleBoxFlat:
+	var style=StyleBoxFlat.new()
+	style.bg_color=color
+	style.border_color=border
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(7)
+	style.content_margin_left=16
+	style.content_margin_right=16
+	style.content_margin_top=11
+	style.content_margin_bottom=11
+	return style
+
+func label(text: String, size: int=18) -> Label:
+	var node=Label.new()
+	node.text=text
+	node.add_theme_font_size_override("font_size",size)
+	node.add_theme_color_override("font_color",Color("eee4d7"))
+	return node
+
+func button(text: String, callback: Callable) -> Button:
+	var node=Button.new()
+	node.focus_mode=Control.FOCUS_NONE
+	node.text=text
+	node.custom_minimum_size=Vector2(260,54)
+	node.add_theme_stylebox_override("normal",button_style(Color("17131dee"),Color("66536f")))
+	node.add_theme_stylebox_override("hover",button_style(Color("282035ff"),Color("a077bc")))
+	node.add_theme_stylebox_override("pressed",button_style(Color("39254aff"),Color("c08de0")))
+	node.add_theme_stylebox_override("disabled",button_style(Color("100d15aa"),Color("403748")))
+	node.add_theme_font_size_override("font_size",17)
+	node.add_theme_color_override("font_color",Color("eee7df"))
+	node.add_theme_color_override("font_hover_color",Color("ffffff"))
+	node.pressed.connect(callback)
+	return node
+
+func icon_button(path: String, tooltip: String, callback: Callable) -> Button:
+	var node=Button.new()
+	node.focus_mode=Control.FOCUS_NONE
+	node.custom_minimum_size=Vector2(40,40)
+	node.icon=load(path)
+	node.expand_icon=true
+	node.tooltip_text=tooltip
+	node.add_theme_constant_override("icon_max_width",22)
+	node.add_theme_stylebox_override("normal",button_style(Color("100c18ee"),Color("5e4a68")))
+	node.add_theme_stylebox_override("hover",button_style(Color("241a31ff"),Color("a174c3")))
+	node.add_theme_stylebox_override("pressed",button_style(Color("332244ff"),Color("d09bea")))
+	node.pressed.connect(callback)
+	for state in ["normal","hover","pressed"]:
+		var box=node.get_theme_stylebox(state)
+		box.content_margin_left=4
+		box.content_margin_right=4
+		box.content_margin_top=4
+		box.content_margin_bottom=4
+	return node
+
+func make_texture(path: String, size: Vector2) -> TextureRect:
+	var rect=TextureRect.new()
+	rect.texture=load(path)
+	rect.custom_minimum_size=size
+	rect.size=size
+	rect.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode=TextureRect.STRETCH_SCALE
+	rect.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	return rect
+
+func build_ui() -> void:
+	menu_background=LobbyBackdrop.new()
+	menu_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ui.add_child(menu_background)
+	lobby_root=Control.new()
+	lobby_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ui.add_child(lobby_root)
+
+	hud=Control.new()
+	hud.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ui.add_child(hud)
+
+	# HUD compacto criado do zero: sem molduras gigantes importadas.
+	var stats_frame=Panel.new()
+	stats_frame.name="StatsFrame"
+	stats_frame.size=Vector2(244,90)
+	stats_frame.add_theme_stylebox_override("panel",panel_style(0.92,Color("725f78")))
+	hud.add_child(stats_frame)
+	var stats_root=Control.new()
+	stats_root.custom_minimum_size=Vector2(244,90)
+	stats_frame.add_child(stats_root)
+	var portrait=TextureRect.new()
+	portrait_icon=portrait
+	portrait.texture=load("res://assets/ui/spike_portrait.png")
+	portrait.position=Vector2(10,12)
+	portrait.size=Vector2(46,46)
+	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	stats_root.add_child(portrait)
+	var spike_name=label("SPIKE",9)
+	spike_name.position=Vector2(12,61)
+	spike_name.size=Vector2(44,15)
+	spike_name.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	stats_root.add_child(spike_name)
+	var hp_caption=label("VIDA",9)
+	hp_caption.position=Vector2(68,9)
+	stats_root.add_child(hp_caption)
+	var food_caption=label("FOME",9)
+	food_caption.position=Vector2(68,43)
+	stats_root.add_child(food_caption)
+	hp_bar=ProgressBar.new()
+	hp_bar.position=Vector2(68,24)
+	hp_bar.size=Vector2(142,10)
+	hp_bar.max_value=100
+	hp_bar.show_percentage=false
+	hp_bar.add_theme_stylebox_override("background",meter_style(Color("130c13")))
+	hp_bar.add_theme_stylebox_override("fill",meter_style(Color("bf2548")))
+	hp_bar.size=Vector2(142,10)
+	stats_root.add_child(hp_bar)
+	food_bar=ProgressBar.new()
+	food_bar.position=Vector2(68,58)
+	food_bar.size=Vector2(142,10)
+	food_bar.max_value=100
+	food_bar.show_percentage=false
+	food_bar.add_theme_stylebox_override("background",meter_style(Color("130c13")))
+	food_bar.add_theme_stylebox_override("fill",meter_style(Color("c28a36")))
+	food_bar.size=Vector2(142,10)
+	stats_root.add_child(food_bar)
+	stats=label("",9)
+	stats.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	stats.position=Vector2(186,7)
+	stats.size=Vector2(82,18)
+	stats.position=Vector2(146,7)
+	food_value=label("",10)
+	food_value.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	food_value.position=Vector2(174,42)
+	food_value.size=Vector2(54,18)
+	stats_root.add_child(food_value)
+	stats_root.add_child(stats)
+
+	var clock_frame=Panel.new()
+	clock_frame.name="ClockFrame"
+	clock_frame.size=Vector2(184,38)
+	clock_frame.add_theme_stylebox_override("panel",panel_style(0.90,Color("725f78")))
+	hud.add_child(clock_frame)
+	time_label=label("",12)
+	time_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	time_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	time_label.position=Vector2(7,5)
+	time_label.size=Vector2(170,28)
+	clock_frame.add_child(time_label)
+
+	action_box=HBoxContainer.new()
+	action_box.add_theme_constant_override("separation",5)
+	hud.add_child(action_box)
+	action_box.add_child(icon_button("res://assets/items/backpack.png","Inventário",show_inventory))
+	action_box.add_child(icon_button("res://assets/items/table.png","Criação",show_craft))
+	action_box.add_child(icon_button("res://assets/items/menu.png","Menu",show_pause))
+	action_box.add_child(icon_button("res://assets/items/fullscreen.png","Tela cheia",toggle_fullscreen))
+	mode_frame=Panel.new()
+	mode_frame.size=Vector2(132,32)
+	mode_frame.add_theme_stylebox_override("panel",panel_style(0.88,Color("725f78")))
+	hud.add_child(mode_frame)
+	mode_label=label("",10)
+	mode_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	mode_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	mode_label.position=Vector2(7,5)
+	mode_label.size=Vector2(118,22)
+	mode_frame.add_child(mode_label)
+
+	hotbar_back=Panel.new()
+	hotbar_back.size=Vector2(404,58)
+	hotbar_back.add_theme_stylebox_override("panel",panel_style(0.90,Color("725f78")))
+	ui.add_child(hotbar_back)
+	bar=HBoxContainer.new()
+	bar.add_theme_constant_override("separation",5)
+	bar.mouse_filter=Control.MOUSE_FILTER_PASS
+	ui.add_child(bar)
+	selected_name=label("",11)
+	selected_name.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	ui.add_child(selected_name)
+	status=label("",11)
+	status.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	ui.add_child(status)
+
+	menu=PanelContainer.new()
+	menu.add_theme_stylebox_override("panel",panel_style(0.975,Color("9a7757")))
+	ui.add_child(menu)
+	var scroll=ScrollContainer.new()
+	scroll.custom_minimum_size=Vector2(560,360)
+	scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	menu.add_child(scroll)
+	menu_box=VBoxContainer.new()
+	menu_box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	menu_box.add_theme_constant_override("separation",12)
+	scroll.add_child(menu_box)
+	get_viewport().size_changed.connect(layout)
+	layout()
+
+func layout() -> void:
+	if is_instance_valid(hp_bar):
+		hp_bar.size=Vector2(142,10)
+		food_bar.size=Vector2(142,10)
+	var size=get_viewport_rect().size
+	if is_instance_valid(menu):
+		var menu_size=Vector2(620,480)
+		if pause_kind=="craft":
+			menu_size=Vector2(minf(1180,size.x-40),minf(680,size.y-36))
+		elif pause_kind=="purity_dialogue":
+			menu_size=Vector2(minf(920,size.x-60),minf(520,size.y-70))
+		menu.position=Vector2((size.x-menu_size.x)/2.0,maxf(18,(size.y-menu_size.y)/2.0))
+		menu.size=menu_size
+	var stats_frame=hud.get_node_or_null("StatsFrame") if is_instance_valid(hud) else null
+	if stats_frame:
+		stats_frame.position=Vector2(12,10)
+		stats_frame.size=Vector2(244,90)
+	var clock_frame=hud.get_node_or_null("ClockFrame") if is_instance_valid(hud) else null
+	if clock_frame:
+		clock_frame.position=Vector2((size.x-184)/2.0,10)
+		clock_frame.size=Vector2(184,38)
+	if is_instance_valid(action_box):
+		action_box.position=Vector2(size.x-183,10)
+	if is_instance_valid(mode_frame):
+		mode_frame.position=Vector2(size.x-144,56)
+		mode_frame.size=Vector2(132,32)
+	if is_instance_valid(hotbar_back):
+		hotbar_back.position=Vector2((size.x-404)/2.0,size.y-68)
+		hotbar_back.size=Vector2(404,58)
+	if is_instance_valid(bar):
+		bar.position=Vector2((size.x-342)/2.0,size.y-61)
+	if is_instance_valid(selected_name):
+		selected_name.position=Vector2((size.x-240)/2.0,size.y-92)
+		selected_name.size=Vector2(240,18)
+	if is_instance_valid(status):
+		status.position=Vector2((size.x-420)/2.0,size.y-114)
+		status.size=Vector2(420,18)
+
+func clear_menu(title: String, kind: String) -> void:
+	for child in menu_box.get_children():
+		menu_box.remove_child(child)
+		child.queue_free()
+	pause_kind=kind
+	if is_instance_valid(lobby_root):
+		lobby_root.hide()
+	if is_instance_valid(menu_background):
+		menu_background.show()
+	modal=true
+	if is_instance_valid(boss_panel):
+		boss_panel.hide()
+		portal_button.hide()
+	if is_instance_valid(device_controls):
+		device_controls.release_all()
+	mining_held=false
+	progress=0
+	menu.show()
+	if title != "":
+		var title_label=label(title.to_upper(),24)
+		title_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		menu_box.add_child(title_label)
+		var rule=HSeparator.new()
+		rule.modulate=Color("795c8c")
+		menu_box.add_child(rule)
+	if is_instance_valid(player):
+		player.process_mode=Node.PROCESS_MODE_DISABLED
+	if is_instance_valid(enemies):
+		enemies.process_mode=Node.PROCESS_MODE_DISABLED
+	layout()
+
+func resume() -> void:
+	if not active:
+		return
+	modal=false
+	menu.hide()
+	menu_background.hide()
+	if is_instance_valid(lobby_root):
+		lobby_root.hide()
+	player.process_mode=Node.PROCESS_MODE_INHERIT
+	enemies.process_mode=Node.PROCESS_MODE_INHERIT
+	refresh_hud()
+
+func set_button_icon(node: Button, path: String) -> void:
+	if ResourceLoader.exists(path):
+		node.icon=load(path)
+		node.expand_icon=true
+
+func lobby_panel_style(alpha: float=0.84, border: Color=Color("6d537c")) -> StyleBoxFlat:
+	var style=StyleBoxFlat.new()
+	style.bg_color=Color(0.035,0.025,0.055,alpha)
+	style.border_color=border
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(14)
+	style.content_margin_left=18
+	style.content_margin_right=18
+	style.content_margin_top=16
+	style.content_margin_bottom=16
+	style.shadow_color=Color(0,0,0,0.50)
+	style.shadow_size=12
+	return style
+
+func lobby_button(text: String, subtitle: String, icon_path: String, callback: Callable, primary: bool=false) -> Button:
+	var node=Button.new()
+	node.focus_mode=Control.FOCUS_NONE
+	node.custom_minimum_size=Vector2(360,68)
+	node.text=""
+	var base=Color("2a1736ee") if primary else Color("130f1bee")
+	var border=Color("b47ad5") if primary else Color("5d496b")
+	node.add_theme_stylebox_override("normal",button_style(base,border))
+	node.add_theme_stylebox_override("hover",button_style(Color("352144ff"),Color("c899e4")))
+	node.add_theme_stylebox_override("pressed",button_style(Color("20152aff"),Color("d7b1ed")))
+	node.pressed.connect(callback)
+	var row=HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left=12
+	row.offset_top=8
+	row.offset_right=-12
+	row.offset_bottom=-8
+	row.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation",12)
+	node.add_child(row)
+	var ico=TextureRect.new()
+	if ResourceLoader.exists(icon_path):
+		ico.texture=load(icon_path)
+	ico.custom_minimum_size=Vector2(40,40)
+	ico.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	ico.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ico.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	row.add_child(ico)
+	var copy=VBoxContainer.new()
+	copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	copy.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	row.add_child(copy)
+	var title=label(text,16)
+	title.add_theme_color_override("font_color",Color("fff6e9"))
+	copy.add_child(title)
+	var sub=label(subtitle,11)
+	sub.add_theme_color_override("font_color",Color("aa99b8"))
+	copy.add_child(sub)
+	var arrow=label("›",28)
+	arrow.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	arrow.add_theme_color_override("font_color",Color("a776c3"))
+	row.add_child(arrow)
+	return node
+
+func lobby_info_chip(text: String, icon_path: String) -> PanelContainer:
+	var chip=PanelContainer.new()
+	chip.add_theme_stylebox_override("panel",lobby_panel_style(0.65,Color("4b3b56")))
+	chip.custom_minimum_size=Vector2(150,52)
+	var row=HBoxContainer.new()
+	row.add_theme_constant_override("separation",8)
+	chip.add_child(row)
+	var ico=TextureRect.new()
+	if ResourceLoader.exists(icon_path):
+		ico.texture=load(icon_path)
+	ico.custom_minimum_size=Vector2(26,26)
+	ico.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	ico.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	row.add_child(ico)
+	var text_node=label(text,11)
+	text_node.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	text_node.add_theme_color_override("font_color",Color("c9bbcf"))
+	row.add_child(text_node)
+	return chip
+
+func difficulty_name(value: int) -> String:
+	var names=["Pacífico","Fácil","Normal","Difícil"]
+	return names[clampi(value,0,names.size()-1)]
+
+func format_saved_time(data: Dictionary) -> String:
+	if data.is_empty():
+		return "Nenhum mundo salvo"
+	var saved_day=int(data.get("day",1))
+	var saved_clock=float(data.get("clock",0.32))
+	var minutes=int(saved_clock*1440.0)
+	return "Dia %d · %02d:%02d" % [saved_day,minutes/60,minutes%60]
+
+func show_saved_world() -> void:
+	clear_menu("Mundo salvo","worlds")
+	var data=Saves.read_save()
+	if data.is_empty():
+		var empty=label("Nenhum mundo salvo ainda. Crie seu primeiro reino para ele aparecer aqui.",15)
+		empty.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		empty.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		empty.custom_minimum_size=Vector2(520,80)
+		menu_box.add_child(empty)
+		menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
+		menu_box.add_child(button("VOLTAR",show_main))
+		return
+	var card=PanelContainer.new()
+	card.add_theme_stylebox_override("panel",panel_style(0.90,Color("735b80")))
+	card.custom_minimum_size=Vector2(520,170)
+	menu_box.add_child(card)
+	var box=VBoxContainer.new()
+	box.add_theme_constant_override("separation",8)
+	card.add_child(box)
+	var title=label(str(data.get("name","Reino do Abismo")),23)
+	title.add_theme_color_override("font_color",Color("f1dfc8"))
+	box.add_child(title)
+	var mode_text="Criativo" if bool(data.get("creative",false)) else "Sobrevivência"
+	var details=label("%s  ·  %s  ·  Dificuldade: %s" % [format_saved_time(data),mode_text,difficulty_name(int(data.get("difficulty",1)))],14)
+	details.add_theme_color_override("font_color",Color("c8b7ce"))
+	box.add_child(details)
+	var desc=label("Seu último reino está pronto para continuar. O autosave guarda terreno, inventário, vida, fome e horário.",13)
+	desc.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	desc.custom_minimum_size=Vector2(480,44)
+	box.add_child(desc)
+	var play=button("CONTINUAR ESTE MUNDO",load_world)
+	set_button_icon(play,"res://assets/items/backpack.png")
+	menu_box.add_child(play)
+	var erase=button("APAGAR MUNDO SALVO",func():
+		Saves.erase_save()
+		show_saved_world()
+	)
+	erase.add_theme_color_override("font_color",Color("e7a6a6"))
+	menu_box.add_child(erase)
+	menu_box.add_child(button("VOLTAR",show_main))
+
+func animate_lobby(delta: float) -> void:
+	menu_glow+=delta
+	if is_instance_valid(menu_title):
+		var pulse=0.92+sin(menu_glow*1.7)*0.08
+		menu_title.modulate=Color(1.0,0.93+0.04*pulse,1.0,0.94+0.06*pulse)
+	if is_instance_valid(menu_tip_label):
+		menu_tip_timer+=delta
+		if menu_tip_timer>=5.0:
+			menu_tip_timer=0.0
+			menu_tip_index=(menu_tip_index+1)%LOBBY_TIPS.size()
+			menu_tip_label.text="✦  "+LOBBY_TIPS[menu_tip_index]
+
+
+func show_main() -> void:
+	active=false
+	if is_instance_valid(boss_panel):
+		boss_panel.hide()
+		portal_button.hide()
+	hud.hide()
+	bar.hide()
+	hotbar_back.hide()
+	selected_name.hide()
+	status.hide()
+	menu.hide()
+	menu_background.show()
+	lobby_root.show()
+	for child in lobby_root.get_children():
+		lobby_root.remove_child(child)
+		child.queue_free()
+	menu_tip_timer=0.0
+	menu_tip_index=0
+
+	var margin=MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left",58)
+	margin.add_theme_constant_override("margin_right",58)
+	margin.add_theme_constant_override("margin_top",42)
+	margin.add_theme_constant_override("margin_bottom",34)
+	lobby_root.add_child(margin)
+
+	var root=VBoxContainer.new()
+	root.add_theme_constant_override("separation",14)
+	margin.add_child(root)
+
+	var header=HBoxContainer.new()
+	header.custom_minimum_size=Vector2(1,82)
+	root.add_child(header)
+	var title_box=VBoxContainer.new()
+	title_box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	title_box.add_theme_constant_override("separation",0)
+	header.add_child(title_box)
+	menu_title=label("DREADS CRAFT",42)
+	menu_title.add_theme_color_override("font_color",Color("f5eadf"))
+	title_box.add_child(menu_title)
+	var subtitle=label("REINO DO ABISMO",15)
+	subtitle.add_theme_color_override("font_color",Color("c89ee0"))
+	title_box.add_child(subtitle)
+	var build=PanelContainer.new()
+	build.add_theme_stylebox_override("panel",lobby_panel_style(0.66,Color("5e486a")))
+	build.custom_minimum_size=Vector2(170,54)
+	header.add_child(build)
+	var build_text=label("ALPHA 0.8\nPC BUILD",11)
+	build_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	build_text.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	build_text.add_theme_color_override("font_color",Color("baacc1"))
+	build.add_child(build_text)
+
+	var rule=HSeparator.new()
+	rule.modulate=Color("6f4f82")
+	root.add_child(rule)
+
+	var body=HBoxContainer.new()
+	body.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation",22)
+	root.add_child(body)
+
+	var left=VBoxContainer.new()
+	left.custom_minimum_size=Vector2(620,1)
+	left.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation",12)
+	body.add_child(left)
+	var hook=label("SOBREVIVA AO QUE EXISTE DEPOIS DA LUZ.",24)
+	hook.add_theme_color_override("font_color",Color("eadccf"))
+	left.add_child(hook)
+	var intro=label("Explore ruínas, construa abrigo, mine recursos e enfrente criaturas que despertam quando a noite toma o reino.",13)
+	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	intro.custom_minimum_size=Vector2(590,44)
+	intro.add_theme_color_override("font_color",Color("b9acbf"))
+	left.add_child(intro)
+
+	var realm=PanelContainer.new()
+	realm.add_theme_stylebox_override("panel",lobby_panel_style(0.80,Color("705580")))
+	realm.custom_minimum_size=Vector2(600,205)
+	left.add_child(realm)
+	var realm_row=HBoxContainer.new()
+	realm_row.add_theme_constant_override("separation",18)
+	realm.add_child(realm_row)
+	var spike_wrap=PanelContainer.new()
+	spike_wrap.custom_minimum_size=Vector2(150,165)
+	spike_wrap.add_theme_stylebox_override("panel",lobby_panel_style(0.58,Color("4b3957")))
+	realm_row.add_child(spike_wrap)
+	var spike=TextureRect.new()
+	spike.texture=load("res://assets/sprites/normal_idle_0.png")
+	spike.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	spike.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	spike.custom_minimum_size=Vector2(120,145)
+	spike_wrap.add_child(spike)
+	var realm_copy=VBoxContainer.new()
+	realm_copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	realm_copy.add_theme_constant_override("separation",8)
+	realm_row.add_child(realm_copy)
+	var saved=Saves.read_save()
+	var label_last=label("ÚLTIMO REINO",12)
+	label_last.add_theme_color_override("font_color",Color("aa83c1"))
+	realm_copy.add_child(label_last)
+	var realm_name=label("Nenhum mundo salvo" if saved.is_empty() else str(saved.get("name","Reino do Abismo")),22)
+	realm_name.add_theme_color_override("font_color",Color("f2e1cf"))
+	realm_copy.add_child(realm_name)
+	var realm_desc="Crie seu primeiro mundo e comece a jornada de Spike."
+	if not saved.is_empty():
+		var mode_text="Criativo" if bool(saved.get("creative",false)) else "Sobrevivência"
+		realm_desc="%s\n%s · %s" % [format_saved_time(saved),mode_text,difficulty_name(int(saved.get("difficulty",1)))]
+	var realm_info=label(realm_desc,13)
+	realm_info.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	realm_info.add_theme_color_override("font_color",Color("c6b9c8"))
+	realm_copy.add_child(realm_info)
+	var quote=label("“O abismo não dorme. Só espera.”",12)
+	quote.add_theme_color_override("font_color",Color("95879f"))
+	realm_copy.add_child(quote)
+
+	var chips=HBoxContainer.new()
+	chips.add_theme_constant_override("separation",10)
+	left.add_child(chips)
+	chips.add_child(lobby_info_chip("EXPLORAÇÃO","res://assets/items/torch.png"))
+	chips.add_child(lobby_info_chip("CRAFTING","res://assets/items/table.png"))
+	chips.add_child(lobby_info_chip("COMBATE","res://assets/items/sword.png"))
+
+	var right_panel=PanelContainer.new()
+	right_panel.custom_minimum_size=Vector2(390,1)
+	right_panel.add_theme_stylebox_override("panel",lobby_panel_style(0.86,Color("765786")))
+	body.add_child(right_panel)
+	var right=VBoxContainer.new()
+	right.add_theme_constant_override("separation",10)
+	right_panel.add_child(right)
+	var menu_label=label("ESCOLHA SEU CAMINHO",13)
+	menu_label.add_theme_color_override("font_color",Color("c9a6dc"))
+	right.add_child(menu_label)
+	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/sword.png",show_creation,true)
+	right.add_child(new_button)
+	var continue_button=lobby_button("CONTINUAR","Retorne exatamente ao último save.","res://assets/items/backpack.png",load_world)
+	continue_button.disabled=saved.is_empty()
+	right.add_child(continue_button)
+	right.add_child(lobby_button("MUNDO SALVO","Veja detalhes ou apague seu save.","res://assets/items/relic.png",show_saved_world))
+	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia e controles do PC.","res://assets/items/menu.png",func(): show_settings(true)))
+	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit())
+	right.add_child(exit_button)
+
+	var tip_panel=PanelContainer.new()
+	tip_panel.add_theme_stylebox_override("panel",lobby_panel_style(0.58,Color("493653")))
+	tip_panel.custom_minimum_size=Vector2(1,46)
+	root.add_child(tip_panel)
+	menu_tip_label=label("✦  "+LOBBY_TIPS[0],12)
+	menu_tip_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	menu_tip_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	menu_tip_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	menu_tip_label.add_theme_color_override("font_color",Color("c9bdce"))
+	tip_panel.add_child(menu_tip_label)
+
+	layout()
+
+
+func show_creation() -> void:
+	clear_menu("Criar mundo","creation")
+	var info=label("Prepare um novo reino sombrio para Spike.",14)
+	info.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	info.add_theme_color_override("font_color",Color("c7a6dd"))
+	menu_box.add_child(info)
+	var name_input=LineEdit.new()
+	name_input.text=world_name
+	name_input.placeholder_text="Nome do mundo"
+	name_input.custom_minimum_size=Vector2(520,44)
+	name_input.add_theme_stylebox_override("normal",button_style(Color("0f0c14ff"),Color("6f5878")))
+	menu_box.add_child(name_input)
+	var seed_input=LineEdit.new()
+	seed_input.placeholder_text="Seed opcional"
+	seed_input.custom_minimum_size=Vector2(520,44)
+	seed_input.add_theme_stylebox_override("normal",button_style(Color("0f0c14ff"),Color("6f5878")))
+	menu_box.add_child(seed_input)
+	var mode=OptionButton.new()
+	mode.add_item("Sobrevivência")
+	mode.add_item("Criativo")
+	mode.custom_minimum_size=Vector2(520,44)
+	menu_box.add_child(mode)
+	var note=label("O modo escolhido fica travado depois que o mundo é criado.",13)
+	note.add_theme_color_override("font_color",Color("b9a9c5"))
+	menu_box.add_child(note)
+	menu_box.add_child(button("CRIAR MUNDO",func():
+		world_name=name_input.text.strip_edges()
+		if world_name.is_empty():
+			world_name="Reino do Abismo"
+		var seed_value=int(Time.get_unix_time_from_system()) if seed_input.text.is_empty() else seed_input.text.hash()
+		start_world(mode.selected==1,seed_value)
+		save_world()
+	))
+	menu_box.add_child(button("VOLTAR",show_main))
+
+func show_settings(from_main: bool=false) -> void:
+	clear_menu("Configurações","settings")
+	var intro=label("Ajustes rápidos para jogar no PC.",14)
+	intro.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	intro.add_theme_color_override("font_color",Color("c7a6dd"))
+	menu_box.add_child(intro)
+	var full_button=button("ALTERNAR TELA CHEIA",toggle_fullscreen)
+	set_button_icon(full_button,"res://assets/items/fullscreen.png")
+	full_button.custom_minimum_size=Vector2(520,54)
+	menu_box.add_child(full_button)
+	var controls=PanelContainer.new()
+	controls.add_theme_stylebox_override("panel",panel_style(0.82,Color("5c4a67")))
+	controls.custom_minimum_size=Vector2(520,150)
+	menu_box.add_child(controls)
+	var controls_text=label("CONTROLES\nA/D ou ←/→  mover     ·     Espaço/W  pular\nMouse esquerdo  minerar/atacar     ·     Mouse direito  colocar/interagir\nE  inventário     ·     C  crafting     ·     Esc  menu",13)
+	controls_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	controls_text.add_theme_color_override("font_color",Color("d7cadb"))
+	controls.add_child(controls_text)
+	var note=label("Recomendado: 1280×720 ou superior.",12)
+	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	note.add_theme_color_override("font_color",Color("9f91a7"))
+	menu_box.add_child(note)
+	menu_box.add_child(button("VOLTAR",func():
+		if from_main or not active:
+			show_main()
+		else:
+			show_pause()
+	))
+
+func toggle_fullscreen() -> void:
+	var mode=DisplayServer.window_get_mode()
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if mode==DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+func start_world(creative: bool, seed_value: int) -> void:
+	if is_instance_valid(overworld) and overworld!=world:
+		overworld.queue_free()
+	overworld=null
+	in_purity=false
+	sky.purity=false
+	boss_defeated=false
+	boss=null
+	if is_instance_valid(boss_panel):
+		boss_panel.hide()
+	for node in [world,player,enemies,selection]:
+		if is_instance_valid(node):
+			remove_child(node)
+			node.queue_free()
+	world=World.new()
+	add_child(world)
+	world.generate(seed_value)
+	player=Player.new()
+	player.creative=creative
+	player.spawn_position=Vector2(12*32+16,35*32-2)
+	player.position=player.spawn_position
+	add_child(player)
+	player.died.connect(on_player_died)
+	if creative:
+		for id in Items.NAMES:
+			player.inventory[id]=999
+	world.camera=player.camera
+	sky.camera=player.camera
+	enemies=Node2D.new()
+	add_child(enemies)
+	selection=preload("res://scripts/selection.gd").new()
+	add_child(selection)
+	active=true
+	clock=.32
+	day=1
+	selected=2
+	auto_save=0
+	spawn_timer=0
+	hud.show()
+	bar.show()
+	hotbar_back.show()
+	selected_name.show()
+	status.show()
+	resume()
+
+func show_pause() -> void:
+	if not active:
+		return
+	clear_menu(world_name,"pause")
+	var option=OptionButton.new()
+	for name_text in ["Pacífico","Fácil","Normal","Difícil"]:
+		option.add_item(name_text)
+	option.select(difficulty)
+	option.item_selected.connect(func(index):
+		difficulty=index
+		if index==0 and not in_purity:
+			for mob in enemies.get_children():
+				mob.queue_free()
+	)
+	menu_box.add_child(option)
+	menu_box.add_child(button("CONTINUAR",resume))
+	menu_box.add_child(button("CONFIGURAÇÕES",func(): show_settings(false)))
+	menu_box.add_child(button("SALVAR E SAIR AO MENU",func():
+		if save_world():
+			show_main()
+	))
+
+func refresh_hud() -> void:
+	if not active:
+		return
+	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png" if player.creative else "res://assets/ui/spike_portrait.png")
+	hp_bar.max_value=player.max_hp
+	hp_bar.value=player.max_hp if player.creative else player.hp
+	food_bar.value=100 if player.creative else player.food
+	stats.text="LIVRE" if player.creative else "%d/%d" % [int(player.hp),int(player.max_hp)]
+	food_value.text="LIVRE" if player.creative else str(int(player.food))
+	var minutes=int(clock*1440)
+	time_label.text="DIA %d  ·  %02d:%02d" % [day,minutes/60,minutes%60]
+	mode_label.text="CRIATIVO" if player.creative else "SOBREVIVÊNCIA"
+	selected_name.text=Items.NAMES.get(selected,"Item")
+	for child in bar.get_children():
+		bar.remove_child(child)
+		child.queue_free()
+	for id in hotbar:
+		var slot=Button.new()
+		slot.focus_mode=Control.FOCUS_NONE
+		slot.custom_minimum_size=Vector2(52,44)
+		slot.icon=load(Items.ICONS.get(id,"res://assets/items/dirt.png"))
+		slot.expand_icon=true
+		slot.add_theme_constant_override("icon_max_width",28)
+		slot.tooltip_text=Items.NAMES.get(id,"Item")
+		var normal=button_style(Color("0d0a12b8"),Color("4a3d50"))
+		normal.set_corner_radius_all(4)
+		for style in [normal]:
+			style.content_margin_left=4
+			style.content_margin_right=4
+			style.content_margin_top=4
+			style.content_margin_bottom=4
+		var hover=button_style(Color("21172cdd"),Color("9e72be"))
+		hover.set_corner_radius_all(4)
+		var selected_style=button_style(Color("2d1840ee"),Color("c48ae6"))
+		selected_style.set_border_width_all(2)
+		selected_style.set_corner_radius_all(4)
+		for style in [hover,selected_style]:
+			style.content_margin_left=4
+			style.content_margin_right=4
+			style.content_margin_top=4
+			style.content_margin_bottom=4
+		slot.add_theme_stylebox_override("normal",selected_style if id==selected else normal)
+		slot.add_theme_stylebox_override("hover",hover)
+		slot.add_theme_stylebox_override("pressed",selected_style)
+		slot.pressed.connect(func():
+			selected=id
+			refresh_hud()
+		)
+		var count=label("∞" if player.creative and id not in [11,12,13] else str(player.inventory.get(id,0)),9)
+		count.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+		count.vertical_alignment=VERTICAL_ALIGNMENT_BOTTOM
+		count.position=Vector2(30,27)
+		count.size=Vector2(18,12)
+		count.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		slot.add_child(count)
+		bar.add_child(slot)
+	layout()
+
+func show_inventory() -> void:
+	if not active:
+		return
+	clear_menu("Inventário","inventory")
+	var subtitle=label("Itens coletados",14)
+	subtitle.add_theme_color_override("font_color",Color("b8a5c5"))
+	menu_box.add_child(subtitle)
+	for id in Items.NAMES:
+		if id==1 or (not player.creative and player.inventory.get(id,0)<=0):
+			continue
+		var amount="LIVRE" if player.creative else str(player.inventory.get(id,0))
+		var row=button("%s    %s" % [Items.NAMES[id],amount],func():
+			selected=id
+			if not hotbar.has(id):
+				hotbar[5]=id
+			resume()
+		)
+		if Items.ICONS.has(id):
+			row.icon=load(Items.ICONS[id])
+			row.expand_icon=true
+		row.custom_minimum_size=Vector2(520,54)
+		row.alignment=HORIZONTAL_ALIGNMENT_LEFT
+		menu_box.add_child(row)
+	menu_box.add_child(button("FECHAR",resume))
+
+func near_table() -> bool:
+	var cell=Vector2i((player.position-Vector2(0,20))/32)
+	for y in range(cell.y-2,cell.y+3):
+		for x in range(cell.x-2,cell.x+3):
+			if world.get_cell(Vector2i(x,y))==9:
+				return true
+	return false
+
+func set_craft_category(category: String) -> void:
+	craft_category=category
+	show_craft()
+
+func craft_category_button(text: String, key: String) -> Button:
+	var b=button(text,func(): set_craft_category(key))
+	b.custom_minimum_size=Vector2(158,48)
+	b.alignment=HORIZONTAL_ALIGNMENT_LEFT
+	if craft_category==key:
+		b.add_theme_stylebox_override("normal",button_style(Color("2b1b27f4"),Color("d99a55")))
+	return b
+
+func craft_material_chip(id: int, required: int) -> PanelContainer:
+	var chip=PanelContainer.new()
+	chip.custom_minimum_size=Vector2(72,52)
+	chip.add_theme_stylebox_override("panel",compact_panel_style(0.72,Color("4b4358"),5))
+	var row=HBoxContainer.new()
+	row.add_theme_constant_override("separation",4)
+	chip.add_child(row)
+	var icon=TextureRect.new()
+	icon.texture=load(Items.ICONS.get(id,"res://assets/items/dirt.png"))
+	icon.custom_minimum_size=Vector2(28,28)
+	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	row.add_child(icon)
+	var have=player.inventory.get(id,0)
+	var amount=label("∞" if player.creative else "%d/%d" % [have,required],11)
+	amount.add_theme_color_override("font_color",Color("9fe7b2") if player.creative or have>=required else Color("ef9b9b"))
+	row.add_child(amount)
+	return chip
+
+func craft_recipe_card(recipe: Dictionary, has_table: bool) -> PanelContainer:
+	var card=PanelContainer.new()
+	card.custom_minimum_size=Vector2(900,112)
+	card.add_theme_stylebox_override("panel",compact_panel_style(0.76,Color("443b50"),8))
+	var row=HBoxContainer.new()
+	row.add_theme_constant_override("separation",12)
+	card.add_child(row)
+
+	var icon_panel=PanelContainer.new()
+	icon_panel.custom_minimum_size=Vector2(88,88)
+	icon_panel.add_theme_stylebox_override("panel",compact_panel_style(0.68,Color("564665"),5))
+	row.add_child(icon_panel)
+	var icon=TextureRect.new()
+	icon.texture=load(Items.CRAFT_ICONS.get(recipe.id,Items.ICONS.get(recipe.id,"res://assets/items/dirt.png")))
+	icon.custom_minimum_size=Vector2(70,70)
+	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon_panel.add_child(icon)
+
+	var info_box=VBoxContainer.new()
+	info_box.custom_minimum_size=Vector2(250,88)
+	info_box.add_theme_constant_override("separation",3)
+	row.add_child(info_box)
+	var title=label(recipe.name,18)
+	title.add_theme_color_override("font_color",Color("f0e8df"))
+	info_box.add_child(title)
+	var desc=label(Items.description(recipe.id),12)
+	desc.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	desc.custom_minimum_size=Vector2(240,55)
+	desc.add_theme_color_override("font_color",Color("c5bad0"))
+	info_box.add_child(desc)
+
+	var stats_box=VBoxContainer.new()
+	stats_box.custom_minimum_size=Vector2(190,88)
+	stats_box.add_theme_constant_override("separation",3)
+	row.add_child(stats_box)
+	var stats_title=label("ATRIBUTOS",10)
+	stats_title.add_theme_color_override("font_color",Color("d9a35e"))
+	stats_box.add_child(stats_title)
+	var stat_lines=Items.display_stats(recipe.id)
+	if stat_lines.is_empty():
+		stats_box.add_child(label("Item de criação / construção",11))
+	else:
+		for stat_text in stat_lines:
+			var sl=label(str(stat_text),11)
+			sl.add_theme_color_override("font_color",Color("bfc1da"))
+			stats_box.add_child(sl)
+
+	var materials=VBoxContainer.new()
+	materials.custom_minimum_size=Vector2(205,88)
+	materials.add_theme_constant_override("separation",5)
+	row.add_child(materials)
+	var mt=label("MATERIAIS",10)
+	mt.add_theme_color_override("font_color",Color("d1c4dc"))
+	materials.add_child(mt)
+	var chips=HBoxContainer.new()
+	chips.add_theme_constant_override("separation",5)
+	materials.add_child(chips)
+	for id in recipe.cost:
+		chips.add_child(craft_material_chip(int(id),int(recipe.cost[id])))
+	if recipe.table and not has_table and not player.creative:
+		var need=label("Requer bancada próxima",10)
+		need.add_theme_color_override("font_color",Color("e6a06f"))
+		materials.add_child(need)
+
+	var create=button("CRIAR",func():
+		if Items.craft(player.inventory,recipe,player.creative,near_table()):
+			status.text="%s criado" % recipe.name
+			message_time=2.5
+			refresh_hud()
+		show_craft()
+	)
+	create.custom_minimum_size=Vector2(112,52)
+	create.disabled=not Items.can_craft(player.inventory,recipe,player.creative,has_table)
+	row.add_child(create)
+	return card
+
+func show_craft() -> void:
+	if not active:
+		return
+	clear_menu("Dreads Craft · Criação","craft")
+	var has_table=near_table()
+	var root=HBoxContainer.new()
+	root.add_theme_constant_override("separation",14)
+	menu_box.add_child(root)
+
+	var sidebar=VBoxContainer.new()
+	sidebar.custom_minimum_size=Vector2(170,520)
+	sidebar.add_theme_constant_override("separation",8)
+	root.add_child(sidebar)
+	var side_title=label("CRIAÇÃO",16)
+	side_title.add_theme_color_override("font_color",Color("b889d2"))
+	sidebar.add_child(side_title)
+	sidebar.add_child(craft_category_button("▦  TODOS","all"))
+	sidebar.add_child(craft_category_button("⛏  FERRAMENTAS","tools"))
+	sidebar.add_child(craft_category_button("⚔  ARMAS","weapons"))
+	sidebar.add_child(craft_category_button("◆  BLOCOS","blocks"))
+	sidebar.add_child(craft_category_button("✦  DECORAÇÃO","decoration"))
+	sidebar.add_child(craft_category_button("✧  ITENS ESPECIAIS","special"))
+	var status_box=PanelContainer.new()
+	status_box.add_theme_stylebox_override("panel",compact_panel_style(0.65,Color("4a3b58"),7))
+	status_box.custom_minimum_size=Vector2(158,92)
+	sidebar.add_child(status_box)
+	var status_text=label("BANCADA\nCONECTADA" if has_table else "CRAFT MANUAL\nAproxime-se da bancada",11)
+	status_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	status_text.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	status_text.add_theme_color_override("font_color",Color("cba1e4") if has_table else Color("b9a9c5"))
+	status_box.add_child(status_text)
+	var close=button("FECHAR",resume)
+	close.custom_minimum_size=Vector2(158,44)
+	sidebar.add_child(close)
+
+	var content=VBoxContainer.new()
+	content.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation",8)
+	root.add_child(content)
+	var header=HBoxContainer.new()
+	content.add_child(header)
+	var heading=label("Receitas disponíveis",16)
+	heading.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	header.add_child(heading)
+	var hint=label("Itens avançados exigem bancada",11)
+	hint.add_theme_color_override("font_color",Color("9f91ad"))
+	header.add_child(hint)
+	var shown=0
+	for recipe in Items.RECIPES:
+		var category=Items.recipe_category(recipe.id)
+		if craft_category!="all" and category!=craft_category:
+			continue
+		content.add_child(craft_recipe_card(recipe,has_table))
+		shown+=1
+	if shown==0:
+		var empty=label("Nenhuma receita nesta categoria ainda.",15)
+		empty.add_theme_color_override("font_color",Color("9588a2"))
+		content.add_child(empty)
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouse and event.device==InputEvent.DEVICE_ID_EMULATION:
+		return
+	if event is InputEventKey and event.pressed and event.physical_keycode==KEY_F11:
+		toggle_fullscreen()
+	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and not event.pressed:
+		mining_held=false
+	if not active:
+		return
+	if modal and pause_kind=="purity_dialogue":
+		return
+	if event.is_action_pressed("pause"):
+		if modal:
+			resume()
+		else:
+			show_pause()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("inventory"):
+		if modal and pause_kind=="inventory":
+			resume()
+		elif not modal:
+			show_inventory()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("craft"):
+		if modal and pause_kind=="craft":
+			resume()
+		elif not modal:
+			show_craft()
+		get_viewport().set_input_as_handled()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouse and event.device==InputEvent.DEVICE_ID_EMULATION:
+		return
+	if not active or modal:
+		return
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		if event is InputEventScreenDrag or event.pressed:
+			touch_aim=get_canvas_transform().affine_inverse()*event.position-player.position
+			update_target()
+		return
+	if event.is_action_pressed("attack"):
+		attack()
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.physical_keycode>=KEY_1 and event.physical_keycode<=KEY_6:
+			selected=hotbar[event.physical_keycode-KEY_1]
+			refresh_hud()
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index==MOUSE_BUTTON_LEFT:
+			if Items.SWORD_DAMAGE.has(selected):
+				attack()
+			else:
+				mining_held=true
+		elif event.button_index==MOUSE_BUTTON_RIGHT:
+			update_target()
+			use_selected()
+		elif event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+			var offset=1 if event.button_index==MOUSE_BUTTON_WHEEL_DOWN else -1
+			selected=hotbar[posmod(hotbar.find(selected)+offset,hotbar.size())]
+			refresh_hud()
+
+func update_target() -> void:
+	target=Vector2i(-1,-1)
+	var mouse=player.position+touch_aim if is_instance_valid(device_controls) and device_controls.mobile else get_global_mouse_position()
+	var origin=player.position-Vector2(0,24)
+	if origin.distance_to(mouse)>144:
+		return
+	var cell=Vector2i(floor(mouse.x/32),floor(mouse.y/32))
+	if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+		return
+	var count=maxi(1,int(origin.distance_to(mouse)/4))
+	for step in range(1,count):
+		var point=origin.lerp(mouse,float(step)/count)
+		var crossed=Vector2i(floor(point.x/32),floor(point.y/32))
+		if crossed==cell:
+			break
+		if not player.body_rect().has_point(point) and world.get_cell(crossed) not in [0,16]:
+			return
+	target=cell
+
+func place_block() -> bool:
+	if in_purity or target.x<0 or world.get_cell(target)!=0 or selected not in [2,3,4,5,6,7,8,9,16]:
+		return false
+	var area=Rect2(Vector2(target)*32,Vector2(32,32))
+	if player.body_rect().intersects(area):
+		return false
+	if not player.creative and player.inventory.get(selected,0)<1:
+		return false
+	world.set_cell(target,selected)
+	if not player.creative:
+		player.inventory[selected]-=1
+	refresh_hud()
+	return true
+
+func attack() -> void:
+	if player.attack_time>0:
+		return
+	player.attack_time=.35
+	player.face=1 if (player.position+touch_aim if device_controls.mobile else get_global_mouse_position()).x>=player.position.x else -1
+	for mob in enemies.get_children():
+		var difference=mob.position-player.position
+		if absf(difference.x)<85 and absf(difference.y)<65 and signf(difference.x)==player.face:
+			mob.hit(Items.SWORD_DAMAGE.get(selected,8) if player.inventory.get(selected,0)>0 or player.creative else 8)
+
+func eat() -> void:
+	if player.inventory.get(10,0)>0:
+		if not player.creative:
+			player.inventory[10]-=1
+		player.food=minf(100,player.food+25)
+		refresh_hud()
+
+func _process(delta: float) -> void:
+	if not active:
+		animate_lobby(delta)
+		return
+	if modal:
+		return
+	update_purity_hud()
+	update_target()
+	if target!=last_target:
+		progress=0
+		last_target=target
+	if not in_purity and mining_held and target.x>=0 and world.get_cell(target)!=0:
+		var id=world.get_cell(target)
+		if not player.creative and not Items.can_mine(id,player.inventory):
+			progress=0
+			status.text="Requer picareta de "+str({7:"pedra",14:"ferro",15:"diamante"}.get(id,"material superior"))
+			message_time=1
+		else:
+			progress+=delta*Items.mining_speed(player.inventory)
+		if player.creative or progress>=Items.HARDNESS.get(id,1.0):
+			world.set_cell(target,0)
+			var drop=2 if id==1 else id
+			player.inventory[drop]=player.inventory.get(drop,0)+1
+			progress=0
+			refresh_hud()
+	else:
+		progress=0
+	clock+=delta/720.0
+	if clock>=1:
+		clock-=1
+		day+=1
+	sky.clock=clock
+	spawn_timer+=delta
+	if spawn_timer>9:
+		spawn_timer=0
+		if not in_purity and difficulty>0 and (clock<.22 or clock>.78) and enemies.get_child_count()<8:
+			spawn_mob()
+	auto_save+=delta
+	if auto_save>=20:
+		auto_save=0
+		save_world()
+	if int(Time.get_ticks_msec()/250)%2==0:
+		hp_bar.max_value=player.max_hp
+		hp_bar.value=player.max_hp if player.creative else player.hp
+		food_bar.value=100 if player.creative else player.food
+		stats.text="LIVRE" if player.creative else "%d/%d" % [int(player.hp),int(player.max_hp)]
+		food_value.text="LIVRE" if player.creative else str(int(player.food))
+		var minutes=int(clock*1440)
+		time_label.text="DIA %d  ·  %02d:%02d" % [day,minutes/60,minutes%60]
+	message_time=maxf(0,message_time-delta)
+	if message_time==0:
+		status.text=""
+	queue_redraw()
+
+func spawn_mob() -> void:
+	var cell=clampi(int(player.position.x/32)+(18 if randf()>.5 else -18),2,317)
+	var mob=Mob.new()
+	mob.kind="skeleton" if randf()>.5 else "wolf"
+	mob.player=player
+	mob.damage=[0,4,7,11][difficulty]
+	mob.position=Vector2(cell*32,world.surfaces[cell]*32-2)
+	mob.killed.connect(func():
+		player.inventory[10]=player.inventory.get(10,0)+1
+		refresh_hud()
+	)
+	enemies.add_child(mob)
+
+func save_world() -> bool:
+	if not active:
+		return false
+	var saved_world=overworld if in_purity else world
+	var saved_position=return_position if in_purity else player.position
+	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity}
+	if in_purity:
+		data["arena_position"]=[player.position.x,player.position.y]
+		data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
+		data["intro_complete"]=is_instance_valid(boss) and boss.awakened
+	var error=Saves.write(data)
+	if error!=OK:
+		status.text="Não foi possível salvar o mundo. Código %d" % error
+		message_time=8
+		return false
+	return true
+
+func load_world() -> void:
+	var data=Saves.read_save()
+	if data.is_empty():
+		return
+	start_world(bool(data.creative),int(data.seed))
+	world_name=str(data.name)
+	world.cells=data.cells
+	world.surfaces.assign(data.surfaces)
+	world.rebuild_collision()
+	player.position=Vector2(data.position[0],data.position[1])
+	for attempt in 96:
+		var feet=Vector2i(player.position/32)
+		if not world.is_solid(feet) and not world.is_solid(feet-Vector2i(0,1)):
+			break
+		player.position.y-=32
+	player.hp=float(data.hp)
+	player.food=float(data.food)
+	player.inventory.clear()
+	for id in data.inventory:
+		player.inventory[int(id)]=int(data.inventory[id])
+	clock=float(data.clock)
+	day=int(data.day)
+	difficulty=int(data.difficulty)
+	boss_defeated=bool(data.get("boss_defeated",false))
+	if bool(data.get("in_purity",false)):
+		enter_purity(bool(data.get("intro_complete",false)))
+		var arena_position=data.get("arena_position",[320,1118])
+		player.position=Vector2(clampf(float(arena_position[0]),6*32,35*32),clampf(float(arena_position[1]),15*32,35*32-2))
+		if is_instance_valid(boss):
+			boss.hp=clampf(float(data.get("boss_hp",900)),1,900)
+	refresh_hud()
+
+func _notification(what: int) -> void:
+	if what==NOTIFICATION_WM_CLOSE_REQUEST:
+		if not active or save_world():
+			get_tree().quit()
+	if what==NOTIFICATION_APPLICATION_FOCUS_OUT and active and not modal:
+		show_pause()
+
+func meter_style(color: Color) -> StyleBoxFlat:
+	var style=StyleBoxFlat.new()
+	style.bg_color=color
+	style.set_corner_radius_all(2)
+	return style
+
+func use_selected() -> void:
+	if target.x>=0 and world.get_cell(target)==16:
+		use_portal()
+	elif target.x>=0 and world.get_cell(target)==9:
+		show_craft()
+	elif selected==10:
+		eat()
+	else:
+		place_block()
+
+func nearby_portal() -> bool:
+	if not active or not is_instance_valid(world):
+		return false
+	var feet=Vector2i(player.position/32)
+	for y in range(feet.y-3,feet.y+2):
+		for x in range(feet.x-3,feet.x+4):
+			if world.get_cell(Vector2i(x,y))==16 and (Vector2(x,y)*32+Vector2(16,16)).distance_to(player.position)<112:
+				return true
+	return false
+
+func use_portal() -> void:
+	if not nearby_portal():
+		return
+	if in_purity:
+		leave_purity()
+	else:
+		enter_purity()
+
+func ensure_purity_hud() -> void:
+	if is_instance_valid(boss_panel):
+		return
+	boss_panel=VBoxContainer.new()
+	boss_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	ui.add_child(boss_panel)
+	boss_title=label("GUARDIÃO DA PUREZA",17)
+	boss_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	boss_panel.add_child(boss_title)
+	boss_bar=ProgressBar.new()
+	boss_bar.custom_minimum_size=Vector2(380,14)
+	boss_bar.max_value=900
+	boss_bar.show_percentage=false
+	boss_bar.add_theme_stylebox_override("fill",meter_style(Color("d8b06e")))
+	boss_bar.add_theme_stylebox_override("background",meter_style(Color("292033")))
+	boss_panel.add_child(boss_bar)
+	portal_button=button("ENTRAR NA PUREZA",use_portal)
+	ui.add_child(portal_button)
+	portal_button.hide()
+	boss_panel.hide()
+
+func update_purity_hud() -> void:
+	ensure_purity_hud()
+	var size=get_viewport_rect().size
+	boss_panel.position=Vector2((size.x-380)/2,88)
+	boss_panel.visible=active and in_purity and is_instance_valid(boss) and not modal
+	if is_instance_valid(boss):
+		boss_bar.value=boss.hp
+		boss_title.text="GUARDIÃO DA PUREZA  %d / %d" % [ceili(boss.hp),int(boss.max_hp)]
+	portal_button.position=Vector2((size.x-250)/2,size.y-172)
+	portal_button.size=Vector2(250,40)
+	portal_button.visible=active and not modal and nearby_portal()
+	portal_button.text="VOLTAR AO MUNDO" if in_purity else "ENTRAR NA PUREZA"
+
+func enter_purity(skip_dialogue: bool=false) -> void:
+	if in_purity:
+		return
+	ensure_purity_hud()
+	return_position=player.position
+	overworld=world
+	remove_child(overworld)
+	world=World.new()
+	add_child(world)
+	world.world_seed=overworld.world_seed
+	for y in 96:
+		var row=[]
+		for x in 320:
+			row.append(3 if y>=35 or x<=4 or x>=37 else 0)
+		world.cells.append(row)
+	world.surfaces.resize(320)
+	world.surfaces.fill(35)
+	world.cells[34][7]=16
+	world.modulate=Color("dbedff")
+	world.rebuild_collision()
+	world.camera=player.camera
+	for mob in enemies.get_children():
+		enemies.remove_child(mob)
+		mob.queue_free()
+	player.position=Vector2(10*32,35*32-2)
+	player.velocity=Vector2.ZERO
+	player.max_fall_speed=0
+	player.camera.limit_left=5*32
+	player.camera.limit_right=37*32
+	player.camera.reset_smoothing()
+	in_purity=true
+	sky.purity=true
+	mining_held=false
+	progress=0
+	if not boss_defeated:
+		boss=preload("res://scripts/purity_boss.gd").new()
+		boss.player=player
+		boss.position=Vector2(29*32,35*32)
+		enemies.add_child(boss)
+		boss.defeated.connect(on_boss_defeated)
+		if skip_dialogue:
+			boss.awakened=true
+		else:
+			dialogue_index=0
+			show_purity_dialogue()
+	update_purity_hud()
+
+func show_purity_dialogue() -> void:
+	var entries=preload("res://scripts/purity_dialogue.gd").ENTRIES
+	var entry=entries[dialogue_index]
+	if is_instance_valid(boss) and boss.has_method("set_expression"):
+		boss.set_expression(str(entry.expression))
+	clear_menu("","purity_dialogue")
+
+	var root=PanelContainer.new()
+	root.add_theme_stylebox_override("panel",compact_panel_style(0.96,Color("8b6e9d"),16))
+	root.custom_minimum_size=Vector2(820,390)
+	menu_box.add_child(root)
+	var box=VBoxContainer.new()
+	box.add_theme_constant_override("separation",10)
+	root.add_child(box)
+
+	var realm=label("DIMENSÃO DA PUREZA",12)
+	realm.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	realm.add_theme_color_override("font_color",Color("b9dff3"))
+	box.add_child(realm)
+	var separator=HSeparator.new()
+	separator.modulate=Color("675879")
+	box.add_child(separator)
+
+	var top=HBoxContainer.new()
+	top.add_theme_constant_override("separation",14)
+	box.add_child(top)
+	var portrait=PanelContainer.new()
+	portrait.custom_minimum_size=Vector2(150,190)
+	portrait.add_theme_stylebox_override("panel",compact_panel_style(0.78,Color("5d526c"),10))
+	top.add_child(portrait)
+	var portrait_box=VBoxContainer.new()
+	portrait_box.alignment=BoxContainer.ALIGNMENT_CENTER
+	portrait.add_child(portrait_box)
+	if str(entry.speaker)=="SPIKE":
+		var pic=TextureRect.new()
+		pic.texture=load("res://assets/ui/spike_portrait.png")
+		pic.custom_minimum_size=Vector2(112,112)
+		pic.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait_box.add_child(pic)
+	else:
+		var sigil=label("✦",64)
+		sigil.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		sigil.add_theme_color_override("font_color",Color("e4d39b") if str(entry.expression)!="wrath" else Color("fff0a8"))
+		portrait_box.add_child(sigil)
+	var mood=label(str(entry.mood),11)
+	mood.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	mood.add_theme_color_override("font_color",Color("d3a7e8") if str(entry.speaker)=="SPIKE" else Color("e6c87e"))
+	portrait_box.add_child(mood)
+
+	var speech=VBoxContainer.new()
+	speech.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	speech.add_theme_constant_override("separation",8)
+	top.add_child(speech)
+	var speaker=label(str(entry.speaker),18)
+	speaker.add_theme_color_override("font_color",Color("c7a6dd") if str(entry.speaker)=="SPIKE" else Color("f0d99a"))
+	speech.add_child(speaker)
+	var text=label(str(entry.text),21)
+	text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	text.custom_minimum_size=Vector2(590,125)
+	text.add_theme_color_override("font_color",Color("eee8f1"))
+	speech.add_child(text)
+	var stage=label("— %s" % str(entry.stage),12)
+	stage.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	stage.custom_minimum_size=Vector2(590,48)
+	stage.add_theme_color_override("font_color",Color("9fa4ba"))
+	speech.add_child(stage)
+
+	var progress_label=label("%d / %d" % [dialogue_index+1,entries.size()],10)
+	progress_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	progress_label.add_theme_color_override("font_color",Color("81778d"))
+	box.add_child(progress_label)
+	var action=button("ENFRENTAR O GUARDIÃO" if dialogue_index==entries.size()-1 else "CONTINUAR",advance_purity_dialogue)
+	action.custom_minimum_size=Vector2(300,52)
+	box.add_child(action)
+	update_purity_hud()
+
+func advance_purity_dialogue() -> void:
+	dialogue_index+=1
+	if dialogue_index>=preload("res://scripts/purity_dialogue.gd").ENTRIES.size():
+		if is_instance_valid(boss):
+			boss.set_expression("wrath")
+			boss.awakened=true
+		resume()
+	else:
+		show_purity_dialogue()
+
+func leave_purity() -> void:
+	if not in_purity:
+		return
+	for mob in enemies.get_children():
+		enemies.remove_child(mob)
+		mob.queue_free()
+	boss=null
+	remove_child(world)
+	world.queue_free()
+	world=overworld
+	overworld=null
+	add_child(world)
+	world.camera=player.camera
+	player.position=return_position
+	player.velocity=Vector2.ZERO
+	player.max_fall_speed=0
+	player.camera.limit_left=0
+	player.camera.limit_right=320*32
+	player.camera.reset_smoothing()
+	in_purity=false
+	sky.purity=false
+	resume()
+	update_purity_hud()
+	save_world()
+
+func on_player_died() -> void:
+	if in_purity:
+		call_deferred("leave_purity")
+
+func on_boss_defeated() -> void:
+	boss_defeated=true
+	boss=null
+	player.inventory[12]=player.inventory.get(12,0)+1
+	player.hp=player.max_hp
+	clear_menu("A Pureza foi libertada","victory")
+	menu_box.add_child(label("O Guardião caiu. A Relíquia Vital é sua.",18))
+	menu_box.add_child(button("EXPLORAR A ARENA",resume))
+	menu_box.add_child(button("VOLTAR AO MUNDO",leave_purity))
+	boss_panel.hide()
+	save_world()
+
+func _exit_tree() -> void:
+	if is_instance_valid(overworld) and not overworld.is_inside_tree():
+		overworld.free()

@@ -1,0 +1,21 @@
+Dreads Craft v12 — Craft + Pureza Dialogue
+
+- Crafting hub reconstruído inspirado na referência enviada:
+  - categorias laterais
+  - cards de receita com ícone, descrição, atributos, materiais e botão CRIAR
+  - indicadores de quantidade possuída/necessária
+  - estado de bancada conectada
+- Receitas ajustadas à referência:
+  - Picareta de pedra: 3 pedra + 2 tábuas
+  - Picareta de ferro: 3 ferro + 2 tábuas
+  - Picareta de diamante: 3 diamantes + 2 tábuas
+  - Espadas de madeira/pedra/ferro/diamante conforme a ficha
+  - Portal da Pureza: 9 diamantes + 1 Avarita
+- Ícones de crafting das picaretas, espadas e portal extraídos/adaptados da arte de referência enviada pelo usuário.
+- Diálogo do Guardião da Pureza refeito:
+  - 6 cenas
+  - humor/expressão por fala
+  - ações de palco/narração
+  - painel de retrato e progresso do diálogo
+  - Guardião muda a expressão visual no mundo (frio, irritado, fúria)
+- Janela de crafting e diálogo ganham layout maior no PC para melhor leitura.

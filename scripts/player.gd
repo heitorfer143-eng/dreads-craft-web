@@ -1,0 +1,119 @@
+extends CharacterBody2D
+
+signal died
+
+const Sprites = preload("res://scripts/sprites.gd")
+var creative = false
+var hp = 100.0
+var food = 100.0
+var max_hp = 100.0
+var face = 1
+var inventory: Dictionary = {2:12,4:0,8:0,9:0,10:0,11:0,13:0}
+var attack_time = 0.0
+var hurt_time = 0.0
+var jump_buffer = 0.0
+var coyote = 0.0
+var sprite: AnimatedSprite2D
+var camera: Camera2D
+var spawn_position = Vector2(400,1000)
+var max_fall_speed = 0.0
+var was_grounded = false
+
+const SAFE_FALL_SPEED = 650.0
+const FALL_DAMAGE_DIVISOR = 12.0
+const MAX_FALL_DAMAGE = 70.0
+
+func _ready() -> void:
+	collision_layer=2
+	collision_mask=1
+	var shape=RectangleShape2D.new()
+	shape.size=Vector2(22,44)
+	var collider=CollisionShape2D.new()
+	collider.shape=shape
+	collider.position=Vector2(0,-22)
+	add_child(collider)
+	sprite=Sprites.make("demon" if creative else "normal")
+	add_child(sprite)
+	camera=Camera2D.new()
+	camera.position=Vector2(0,-100)
+	camera.position_smoothing_enabled=true
+	camera.position_smoothing_speed=8
+	camera.limit_left=0
+	camera.limit_top=0
+	camera.limit_right=320*32
+	camera.limit_bottom=96*32
+	add_child(camera)
+	was_grounded=is_on_floor()
+
+func _physics_process(delta: float) -> void:
+	attack_time=maxf(0,attack_time-delta)
+	hurt_time=maxf(0,hurt_time-delta)
+	var direction=Input.get_axis("left","right")
+	velocity.x=direction*220
+	if direction!=0:
+		face=int(sign(direction))
+
+	var grounded_before=is_on_floor()
+	if creative:
+		velocity.y=Input.get_axis("jump","down")*240
+		max_fall_speed=0.0
+	else:
+		velocity.y=minf(900,velocity.y+1500*delta)
+		if not grounded_before and velocity.y>0:
+			max_fall_speed=maxf(max_fall_speed,velocity.y)
+		coyote=0.12 if grounded_before else maxf(0,coyote-delta)
+		jump_buffer=0.14 if Input.is_action_just_pressed("jump") else maxf(0,jump_buffer-delta)
+		if jump_buffer>0 and coyote>0:
+			velocity.y=-545
+			jump_buffer=0
+			coyote=0
+			max_fall_speed=0.0
+		food=maxf(0,food-delta*.035)
+		if food<=0:
+			hp=maxf(1,hp-delta*.2)
+
+	move_and_slide()
+
+	if not creative:
+		var grounded_after=is_on_floor()
+		if grounded_after and not grounded_before:
+			_apply_fall_damage(max_fall_speed)
+			max_fall_speed=0.0
+		elif grounded_after:
+			max_fall_speed=0.0
+		was_grounded=grounded_after
+
+	position.x=clampf(position.x,12,320*32-12)
+	if position.y>96*32:
+		respawn()
+
+	sprite.flip_h=face<0
+	var animation="attack" if attack_time>0 else "hurt" if hurt_time>0 else "jump" if not is_on_floor() else "walk" if absf(velocity.x)>1 else "idle"
+	if sprite.animation!=animation:
+		sprite.play(animation)
+	sprite.modulate=Color(1,.6,.6) if hurt_time>0 else Color.WHITE
+
+func _apply_fall_damage(impact_speed: float) -> void:
+	if creative or impact_speed<=SAFE_FALL_SPEED:
+		return
+	var amount=clampf((impact_speed-SAFE_FALL_SPEED)/FALL_DAMAGE_DIVISOR,4.0,MAX_FALL_DAMAGE)
+	take_damage(amount)
+
+func take_damage(amount: float) -> void:
+	if creative or hurt_time>0:
+		return
+	hp-=amount
+	hurt_time=.6
+	if hp<=0:
+		respawn()
+
+func respawn() -> void:
+	died.emit()
+	hp=max_hp
+	food=75
+	position=spawn_position
+	velocity=Vector2.ZERO
+	max_fall_speed=0.0
+
+func body_rect() -> Rect2:
+	return Rect2(position+Vector2(-11,-44),Vector2(22,44))

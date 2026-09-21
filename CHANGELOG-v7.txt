@@ -1,0 +1,10 @@
+Dreads Craft v7 — Lobby Rebuild
+
+- Lobby inicial reconstruído com layout completo, não apenas fundo.
+- Painel do último mundo salvo com nome, dia/hora, modo e dificuldade.
+- Botão "Mundo Salvo" com tela de gerenciamento e opção de apagar save.
+- Spike exibido no lobby como elemento de personagem.
+- Botões do lobby com ícones e visual dark medieval.
+- Dicas rotativas animadas no menu inicial.
+- Configurações agora exibem controles do PC.
+- Mantidos HUD, hotbar, sprites e dano de queda da v6.

@@ -1,0 +1,9 @@
+DREADS CRAFT v8 — LOBBY FROM SCRATCH
+
+- Lobby inicial reconstruído do zero em Godot Controls.
+- Removido o uso da imagem pronta como fundo do lobby.
+- Fundo agora é desenhado proceduralmente: céu, estrelas, lua, montanhas, castelo, árvores mortas e névoa.
+- Nova composição responsiva com título, painel do último reino, Spike, recursos do jogo e menu lateral.
+- Botões novos com título, descrição, ícone e estados de hover/pressed.
+- Mantidos HUD, hotbar, dano de queda e sprites corrigidos da v7/v6.
+- Dicas rotativas continuam no rodapé do lobby.

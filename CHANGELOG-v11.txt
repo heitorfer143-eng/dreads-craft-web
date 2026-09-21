@@ -1,0 +1,57 @@
+DREADS CRAFT — V11 / PUREZA
+
+Parte da versão v10.1, preservando os sprites originais e controles de PC/celular.
+
+MINÉRIOS E EQUIPAMENTOS
+Diamante: camadas profundas, abaixo da linha 72, em veios pequenos.
+Avarita: abaixo da linha 85, cristais isolados; é o minério mais raro.
+A geração garante ao menos 18 diamantes e 1 avarita por mundo novo.
+Os minérios diferentes mantêm uma camada de pedra entre si.
+Picaretas: madeira, pedra, ferro e diamante. O jogo usa automaticamente a melhor picareta do inventário.
+Ferro exige picareta de pedra; diamante exige ferro; avarita exige diamante.
+Espadas: madeira (14), pedra (20), ferro (28), diamante (42 de dano).
+É preciso selecionar a espada para usar seu dano. Socos causam 8.
+Avarita não aparece em receita de arma nem de ferramenta.
+
+PORTAL
+Na bancada: 9 diamantes + 1 avarita = 1 Portal da Pureza.
+A receita recebe todos os ingredientes juntos; não exige grade 3x3.
+Selecione o portal no inventário e coloque como um bloco.
+Ao se aproximar, o botão Entrar na Pureza funciona em PC e celular.
+Também é possível usar a ação de colocar sobre o portal.
+O portal continua no mundo e pode ser reutilizado.
+
+DIMENSÃO DA PUREZA
+Arena própria, fundo de arcos celestes, partículas e guardião com desenho vetorial animado.
+Diálogo de três falas antes da luta; boss imune durante o diálogo.
+ATENÇÃO: falas provisórias, pois a imagem enviada não ficou disponível.
+Troque o conteúdo de scripts/purity_dialogue.gd pelo texto da imagem.
+Boss final: Guardião da Pureza, 900 de vida, barra de vida própria.
+Golpe no chão: aviso dourado, pode ser evitado saltando ou saindo do alcance.
+Pilar de luz: marca a posição antes do ataque; saia da marca para desviar.
+Abaixo de metade da vida ele fica mais rápido e causa mais dano.
+A dificuldade Pacífico não desliga o boss: a luta é iniciada pelo portal e diálogo.
+A arena não permite quebrar ou colocar blocos.
+O portal de retorno permite sair e tentar novamente, reiniciando a luta.
+Morrer devolve o jogador ao mundo, com vida restaurada e inventário preservado.
+Vitória concede uma Relíquia Vital, restaura a vida e fica salva.
+O boss não reaparece após a vitória e não concede recompensas repetidas.
+
+SALVAMENTO
+Formato v2 com leitura de v1 e backup do save anterior.
+Ao salvar na arena, preserva o mapa original, posição de retorno, vida do boss e estado da luta.
+Ao carregar no meio do diálogo, ele começa novamente; depois do diálogo, a luta é retomada.
+Terreno e construções de saves antigos não são regenerados: os minérios novos só aparecem em mundos novos.
+Há somente um slot. Guarde uma cópia do seu save antes de criar outro mundo.
+
+ABRIR
+Extraia este ZIP para uma pasta nova e importe project.godot no Godot 4.7.2.
+O ZIP não inclui cache .godot nem arquivos .import antigos.
+Espere a importação inicial terminar antes de executar.
+Este pacote não modifica automaticamente a pasta aberta no seu VS Code.
+
+VERIFICAÇÃO
+Godot 4.7.2 headless: importação, tests/smoke.gd e tests/purity.gd.
+Cobertura: receitas, raridade, picaretas, portal, diálogo, barra de vida,
+ataques evitáveis, espadas equipadas, morte, vitória, retorno e save v1/v2.
+Não houve teste visual em janela Windows nem em aparelho celular nesta etapa.
