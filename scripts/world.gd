@@ -104,17 +104,15 @@ func generate_structures() -> void:
 				cells[y-2][x]=4
 				cells[y-1][x]=4
 			cells[y+2][x]=8
-	# Ruínas na superfície, com silhueta quebrada.
-	for center_x in [118,238]:
+	# Surface landmarks are scenery rather than solid block boxes.
+	# Clear walkable village/ruin spaces; decorative structures are drawn separately below.
+	for center_x in [40,118,238,292]:
 		var ground=surfaces[center_x]
-		for x in range(center_x-5,center_x+6):
-			cells[ground][x]=3
-			if x in [center_x-5,center_x-4,center_x+4,center_x+5]:
-				for y in range(ground-5,ground):
-					cells[y][x]=3
-		for x in range(center_x-4,center_x+5):
-			if x%3!=0:
-				cells[ground-5][x]=3
+		for x in range(center_x-6,center_x+7):
+			if x>1 and x<WIDTH-1:
+				for y in range(maxi(0,ground-8),ground):
+					if cells[y][x] in [3,4,5,8,9]:
+						cells[y][x]=0
 
 func generate_ores() -> void:
 	var rng=RandomNumberGenerator.new()
@@ -236,6 +234,38 @@ func _draw() -> void:
 	var right = mini(WIDTH,int((center.x+extent.x)/TILE)+1)
 	var top = maxi(0,int((center.y-extent.y)/TILE))
 	var bottom = mini(HEIGHT,int((center.y+extent.y)/TILE)+1)
+	# 2D landmarks: non-blocky silhouettes the player can walk through/around.
+	for sx in [40,118,238,292]:
+		if sx>=left-12 and sx<=right+12 and sx<surfaces.size():
+			var gy=float(surfaces[sx]*TILE)
+			var px=float(sx*TILE)
+			var wall=Color("211b2a")
+			var edge=Color("5b4967")
+			var wood=Color("65422f")
+			if sx==40:
+				# Blacksmith hut
+				draw_rect(Rect2(px-150,gy-150,300,150),wall)
+				draw_colored_polygon(PackedVector2Array([Vector2(px-175,gy-150),Vector2(px,gy-250),Vector2(px+175,gy-150)]),Color("17131e"))
+				draw_rect(Rect2(px-42,gy-88,84,88),Color("0b0910"))
+				draw_rect(Rect2(px+75,gy-95,52,45),Color("d0733d"))
+				draw_rect(Rect2(px+82,gy-88,38,31),Color("512b24"))
+			elif sx==118:
+				# Broken stone arch, scenery rather than a cube of tiles.
+				draw_rect(Rect2(px-125,gy-170,38,170),edge)
+				draw_rect(Rect2(px+87,gy-170,38,170),edge)
+				draw_arc(Vector2(px,gy-168),106,PI,TAU,24,edge,32)
+			elif sx==238:
+				# Merchant tent
+				draw_colored_polygon(PackedVector2Array([Vector2(px-145,gy),Vector2(px-105,gy-150),Vector2(px,gy-205),Vector2(px+105,gy-150),Vector2(px+145,gy)]),Color("3a2346"))
+				draw_line(Vector2(px,gy-205),Vector2(px,gy),wood,8)
+				draw_rect(Rect2(px-120,gy-18,240,18),Color("76523a"))
+			elif sx==292:
+				# Purity shrine
+				draw_rect(Rect2(px-110,gy-150,220,150),Color("242335"))
+				draw_colored_polygon(PackedVector2Array([Vector2(px-135,gy-150),Vector2(px,gy-235),Vector2(px+135,gy-150)]),Color("d5cfbd"))
+				draw_rect(Rect2(px-34,gy-95,68,95),Color("11101a"))
+				draw_line(Vector2(px,gy-205),Vector2(px,gy-165),Color("d2aa55"),5)
+				draw_line(Vector2(px-16,gy-188),Vector2(px+16,gy-188),Color("d2aa55"),5)
 	for y in range(top,bottom):
 		for x in range(left,right):
 			var id = get_cell(Vector2i(x,y))
