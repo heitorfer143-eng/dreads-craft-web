@@ -23,8 +23,8 @@ func rebuild_regions() -> void:
 	var viewport=get_viewport_rect().size
 	var edge=viewport.x
 	var bottom=viewport.y-14
-	var b=62.0 if viewport.x < 700 else 70.0
-	var gap=8.0
+	var b=58.0 if viewport.x < 520 else 64.0 if viewport.x < 700 else 72.0
+	var gap=7.0
 	regions={
 		"left":Rect2(14,bottom-b,b,b),
 		"right":Rect2(14+b+gap,bottom-b,b,b),
@@ -32,7 +32,8 @@ func rebuild_regions() -> void:
 		"down":Rect2(edge-14-b,bottom-b,b,b),
 		"mine":Rect2(edge-14-b*2-gap,bottom-b*2-gap,b,b),
 		"place":Rect2(edge-14-b*2-gap,bottom-b,b,b),
-		"attack":Rect2(edge-14-b*3-gap*2,bottom-b*2-gap,b,b)
+		"attack":Rect2(edge-14-b*3-gap*2,bottom-b*2-gap,b,b),
+		"inventory":Rect2(edge-14-b,bottom-b*3-gap*2,b,b)
 	}
 	release_all()
 	queue_redraw()
@@ -80,6 +81,8 @@ func _input(event: InputEvent) -> void:
 				place()
 			elif action=="attack":
 				game.attack()
+			elif action=="inventory":
+				game.show_inventory()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag and fingers.has(event.index):
 		fingers[event.index]=region_at(event.position)
@@ -128,7 +131,7 @@ func _draw() -> void:
 			draw_string(font,node.global_position+Vector2(3,11),str(index+1),HORIZONTAL_ALIGNMENT_LEFT,-1,9,Color("dcc99d"))
 			index+=1
 		return
-	var captions={"left":"<","right":">","jump":"SUBIR" if game.player.creative else "PULAR","down":"DESCER","mine":"MINERAR","place":"COLOCAR","attack":"ATACAR"}
+	var captions={"left":"<","right":">","jump":"SUBIR" if game.player.creative else "PULAR","down":"DESCER","mine":"MINERAR","place":"COLOCAR","attack":"ATACAR","inventory":"MOCHILA"}
 	for action in regions:
 		if action=="down" and not game.player.creative:
 			continue
