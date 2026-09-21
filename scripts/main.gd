@@ -314,6 +314,7 @@ func build_ui() -> void:
 	menu.add_theme_stylebox_override("panel",panel_style(0.975,Color("9a7757")))
 	ui.add_child(menu)
 	var scroll=ScrollContainer.new()
+	scroll.name="MenuScroll"
 	scroll.custom_minimum_size=Vector2(560,360)
 	scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
@@ -331,6 +332,9 @@ func layout() -> void:
 		food_bar.size=Vector2(142,10)
 	var size=get_viewport_rect().size
 	var mobile_layout=size.x <= 900
+	var menu_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
+	if menu_scroll:
+		menu_scroll.custom_minimum_size=Vector2(minf(560,size.x-44),minf(360,size.y-56)) if mobile_layout else Vector2(560,360)
 	if is_instance_valid(menu):
 		var menu_size=Vector2(620,480)
 		if pause_kind=="craft":
@@ -342,26 +346,27 @@ func layout() -> void:
 	var stats_frame=hud.get_node_or_null("StatsFrame") if is_instance_valid(hud) else null
 	if stats_frame:
 		stats_frame.position=Vector2(6,6) if mobile_layout else Vector2(12,10)
-		stats_frame.scale=Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
+		stats_frame.scale=Vector2(0.66,0.66) if size.x<560 else Vector2(0.76,0.76) if mobile_layout else Vector2.ONE
 		stats_frame.size=Vector2(244,90)
 	var clock_frame=hud.get_node_or_null("ClockFrame") if is_instance_valid(hud) else null
 	if clock_frame:
-		clock_frame.scale=Vector2(0.75,0.75) if mobile_layout else Vector2.ONE
+		clock_frame.scale=Vector2(0.68,0.68) if size.x<560 else Vector2(0.78,0.78) if mobile_layout else Vector2.ONE
 		clock_frame.position=Vector2((size.x-138)/2.0,6) if mobile_layout else Vector2((size.x-184)/2.0,10)
 		clock_frame.size=Vector2(184,38)
 	if is_instance_valid(action_box):
-		action_box.scale=Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
-		action_box.position=Vector2(size.x-134,6) if mobile_layout else Vector2(size.x-183,10)
+		action_box.visible=not mobile_layout
+		action_box.scale=Vector2.ONE
+		action_box.position=Vector2(size.x-183,10)
 	if is_instance_valid(mode_frame):
 		mode_frame.visible=not mobile_layout
 		mode_frame.position=Vector2(size.x-144,56)
 		mode_frame.size=Vector2(132,32)
 	if is_instance_valid(hotbar_back):
-		hotbar_back.scale=Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
+		hotbar_back.scale=Vector2(0.62,0.62) if size.x<560 else Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
 		hotbar_back.position=Vector2((size.x-291)/2.0,size.y-126) if mobile_layout else Vector2((size.x-404)/2.0,size.y-68)
 		hotbar_back.size=Vector2(404,58)
 	if is_instance_valid(bar):
-		bar.scale=Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
+		bar.scale=Vector2(0.62,0.62) if size.x<560 else Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
 		bar.position=Vector2((size.x-246)/2.0,size.y-121) if mobile_layout else Vector2((size.x-342)/2.0,size.y-61)
 	if is_instance_valid(selected_name):
 		selected_name.visible=not mobile_layout
@@ -1215,7 +1220,7 @@ func attack() -> void:
 	for mob in enemies.get_children():
 		var difference=mob.position-player.position
 		if absf(difference.x)<85 and absf(difference.y)<65 and signf(difference.x)==player.face:
-			mob.hit(Items.SWORD_DAMAGE.get(selected,8) if player.inventory.get(selected,0)>0 or player.creative else 8)
+			mob.hit(Items.SWORD_DAMAGE.get(selected,8) if player.inventory.get(selected,0)>0 or player.creative else 8,300.0)
 
 func eat() -> void:
 	if player.inventory.get(10,0)>0:
@@ -1276,12 +1281,17 @@ func _process(delta: float) -> void:
 	message_time=maxf(0,message_time-delta)
 	if message_time==0:
 		status.text=""
+	if mining_held and target.x>=0 and world.get_cell(target)!=0:
+		var hardness=float(Items.HARDNESS.get(world.get_cell(target),1.0))
+		var pct=clampi(int(progress/maxf(0.01,hardness)*100.0),0,99)
+		status.text="⛏ MINERANDO  %d%%  %s" % [pct,"▰".repeat(pct/20)+"▱".repeat(5-pct/20)]
 	queue_redraw()
 
 func spawn_mob() -> void:
 	var cell=clampi(int(player.position.x/32)+(18 if randf()>.5 else -18),2,317)
 	var mob=Mob.new()
-	mob.kind="skeleton" if randf()>.5 else "wolf"
+	var roll=randf()
+	mob.kind="undead_knight" if roll>.88 else "corrupted_skeleton" if roll>.62 else "dark_slime" if roll>.38 else "skeleton" if roll>.16 else "wolf"
 	mob.player=player
 	mob.damage=[0,4,7,11][difficulty]
 	mob.position=Vector2(cell*32,world.surfaces[cell]*32-2)
