@@ -722,6 +722,11 @@ func show_main() -> void:
 	realm_row.add_child(spike_wrap)
 	var spike=TextureRect.new()
 	spike.texture=load("res://assets/sprites/normal_idle_0.png")
+	var clean_mat=ShaderMaterial.new()
+	var clean_shader=Shader.new()
+	clean_shader.code="shader_type canvas_item; void fragment(){ vec4 c=texture(TEXTURE,UV); float bright=min(c.r,min(c.g,c.b)); if(UV.y>0.78 && bright>0.82 && abs(c.r-c.g)<0.10 && abs(c.g-c.b)<0.10){ discard; } COLOR=c; }"
+	clean_mat.shader=clean_shader
+	spike.material=clean_mat
 	spike.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	spike.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	spike.custom_minimum_size=Vector2(120,145)
