@@ -46,18 +46,26 @@ static func _add_mob_frames(frames: SpriteFrames, kind: String) -> void:
 			frames.add_frame(action,texture)
 
 static func make(kind: String) -> AnimatedSprite2D:
+	var visual_kind=kind
+	if kind in ["corrupted_skeleton","undead_knight"]:
+		visual_kind="skeleton"
+	elif kind=="dark_slime":
+		visual_kind="wolf"
 	var sprite=AnimatedSprite2D.new()
 	var frames=SpriteFrames.new()
 	frames.remove_animation("default")
-	if kind in ["normal","demon"]:
-		_add_player_frames(frames,kind)
+	if visual_kind in ["normal","demon"]:
+		_add_player_frames(frames,visual_kind)
 		sprite.scale=Vector2(0.16,0.16)
 		# Normalized player frames use a 400x360 canvas with the feet at y=350.
 		# Moving the centered texture up by ~27px anchors every animation to the floor.
 		sprite.position.y=-27.2
 	else:
-		_add_mob_frames(frames,kind)
-		sprite.scale=Vector2(0.17,0.17) if kind=="wolf" else Vector2(0.155,0.155)
+		_add_mob_frames(frames,visual_kind)
+		sprite.scale=Vector2(0.17,0.17) if visual_kind=="wolf" else Vector2(0.155,0.155)
+		if kind=="corrupted_skeleton": sprite.modulate=Color("8f6bad")
+		elif kind=="dark_slime": sprite.modulate=Color("5b8068")
+		elif kind=="undead_knight": sprite.modulate=Color("707681")
 		sprite.position.y=-25.0
 	sprite.sprite_frames=frames
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
