@@ -204,8 +204,13 @@ func build_ui() -> void:
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
 	build_badge.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	ui.add_child(build_badge)
-	menu_background=LobbyBackdrop.new()
+	menu_background=TextureRect.new()
+	menu_background.texture=load("res://assets/ui/background_v11.svg")
 	menu_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	menu_background.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	menu_background.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	menu_background.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+	menu_background.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	ui.add_child(menu_background)
 	lobby_root=Control.new()
 	lobby_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -344,11 +349,16 @@ func layout() -> void:
 	var mobile_layout=size.x <= 900
 	var menu_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
 	if menu_scroll:
-		menu_scroll.custom_minimum_size=Vector2(minf(560,size.x-44),minf(360,size.y-56)) if mobile_layout else Vector2(560,360)
+		if pause_kind=="creation":
+			menu_scroll.custom_minimum_size=Vector2(minf(1040,size.x-54),minf(570,size.y-64))
+		else:
+			menu_scroll.custom_minimum_size=Vector2(minf(560,size.x-44),minf(360,size.y-56)) if mobile_layout else Vector2(560,360)
 	if is_instance_valid(menu):
 		var menu_size=Vector2(620,480)
 		if pause_kind=="craft":
 			menu_size=Vector2(minf(1180,size.x-40),minf(680,size.y-36))
+		elif pause_kind=="creation":
+			menu_size=Vector2(minf(1120,size.x-32),minf(660,size.y-28))
 		elif pause_kind=="purity_dialogue":
 			menu_size=Vector2(minf(920,size.x-60),minf(520,size.y-70))
 		menu.position=Vector2((size.x-menu_size.x)/2.0,maxf(18,(size.y-menu_size.y)/2.0))
@@ -760,7 +770,7 @@ func show_main() -> void:
 	left.add_child(chips)
 	chips.add_child(lobby_info_chip("EXPLORAÇÃO","res://assets/items/torch.png"))
 	chips.add_child(lobby_info_chip("CRAFTING","res://assets/items/table.png"))
-	chips.add_child(lobby_info_chip("COMBATE","res://assets/items/sword.png"))
+	chips.add_child(lobby_info_chip("COMBATE","res://assets/items/sword_iron_v11.svg"))
 
 	var right_panel=PanelContainer.new()
 	right_panel.custom_minimum_size=Vector2(390,1)
@@ -772,7 +782,7 @@ func show_main() -> void:
 	var menu_label=label("ESCOLHA SEU CAMINHO",13)
 	menu_label.add_theme_color_override("font_color",Color("c9a6dc"))
 	right.add_child(menu_label)
-	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/sword.png",show_creation,true)
+	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/sword_iron_v11.svg",show_creation,true)
 	right.add_child(new_button)
 	var continue_button=lobby_button("CONTINUAR","Retorne exatamente ao último save.","res://assets/items/backpack.png",load_world)
 	continue_button.disabled=saved_worlds.is_empty()
@@ -797,40 +807,123 @@ func show_main() -> void:
 
 
 func show_creation() -> void:
-	clear_menu("Criar mundo","creation")
-	var info=label("Prepare um novo reino sombrio para Spike.",14)
-	info.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	info.add_theme_color_override("font_color",Color("c7a6dd"))
-	menu_box.add_child(info)
+	clear_menu("","creation")
+	var mobile=get_viewport_rect().size.x<=900
+	var field_w=minf(520.0,get_viewport_rect().size.x-92.0)
+
+	var title=label("✦  CRIAÇÃO DE MUNDO  ✦",30 if not mobile else 24)
+	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color",Color("e5d7ff"))
+	menu_box.add_child(title)
+	var subtitle=label("Crie um novo mundo e comece a sua jornada.",13)
+	subtitle.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_color_override("font_color",Color("ad95c3"))
+	menu_box.add_child(subtitle)
+
+	var body=VBoxContainer.new() if mobile else HBoxContainer.new()
+	body.add_theme_constant_override("separation",18)
+	body.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	menu_box.add_child(body)
+
+	var preview_panel=PanelContainer.new()
+	preview_panel.add_theme_stylebox_override("panel",lobby_panel_style(0.84,Color("75538d")))
+	preview_panel.custom_minimum_size=Vector2(field_w,210) if mobile else Vector2(330,390)
+	body.add_child(preview_panel)
+	var preview_box=VBoxContainer.new()
+	preview_box.add_theme_constant_override("separation",8)
+	preview_panel.add_child(preview_box)
+	var preview=TextureRect.new()
+	preview.texture=load("res://assets/ui/world_creation_preview_v11.svg")
+	preview.custom_minimum_size=Vector2(field_w-26,160) if mobile else Vector2(300,300)
+	preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	preview.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+	preview_box.add_child(preview)
+	var preview_text=label("Grandes aventuras começam com novos mundos.",12)
+	preview_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	preview_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	preview_text.add_theme_color_override("font_color",Color("b7a6c8"))
+	preview_box.add_child(preview_text)
+
+	var form_panel=PanelContainer.new()
+	form_panel.add_theme_stylebox_override("panel",lobby_panel_style(0.90,Color("765786")))
+	form_panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	body.add_child(form_panel)
+	var form=VBoxContainer.new()
+	form.add_theme_constant_override("separation",10)
+	form_panel.add_child(form)
+
+	var name_label=label("Nome do mundo",14)
+	name_label.add_theme_color_override("font_color",Color("f0e7f5"))
+	form.add_child(name_label)
 	var name_input=LineEdit.new()
 	name_input.text=world_name
-	name_input.placeholder_text="Nome do mundo"
-	name_input.custom_minimum_size=Vector2(520,44)
-	name_input.add_theme_stylebox_override("normal",button_style(Color("0f0c14ff"),Color("6f5878")))
-	menu_box.add_child(name_input)
+	name_input.placeholder_text="Meu mundo"
+	name_input.custom_minimum_size=Vector2(field_w,48)
+	name_input.add_theme_stylebox_override("normal",button_style(Color("100c18f2"),Color("7f5e95")))
+	name_input.add_theme_stylebox_override("focus",button_style(Color("171022ff"),Color("c268e5")))
+	form.add_child(name_input)
+
+	var mode_label_create=label("Modo de jogo",14)
+	mode_label_create.add_theme_color_override("font_color",Color("f0e7f5"))
+	form.add_child(mode_label_create)
+	var mode_group=ButtonGroup.new()
+	var modes=VBoxContainer.new() if mobile else HBoxContainer.new()
+	modes.add_theme_constant_override("separation",10)
+	form.add_child(modes)
+	var survival=Button.new()
+	survival.text="🌿  SOBREVIVÊNCIA\nColete recursos e sobreviva."
+	survival.toggle_mode=true
+	survival.button_group=mode_group
+	survival.button_pressed=true
+	survival.custom_minimum_size=Vector2(field_w,70) if mobile else Vector2((field_w-10)/2.0,82)
+	survival.add_theme_stylebox_override("normal",button_style(Color("17131fee"),Color("675277")))
+	survival.add_theme_stylebox_override("hover",button_style(Color("2a1d36ff"),Color("b070cc")))
+	survival.add_theme_stylebox_override("pressed",button_style(Color("351c48ff"),Color("e078ff")))
+	modes.add_child(survival)
+	var creative=Button.new()
+	creative.text="🧱  CRIATIVO\nConstrua livremente."
+	creative.toggle_mode=true
+	creative.button_group=mode_group
+	creative.custom_minimum_size=Vector2(field_w,70) if mobile else Vector2((field_w-10)/2.0,82)
+	creative.add_theme_stylebox_override("normal",button_style(Color("17131fee"),Color("675277")))
+	creative.add_theme_stylebox_override("hover",button_style(Color("2a1d36ff"),Color("b070cc")))
+	creative.add_theme_stylebox_override("pressed",button_style(Color("351c48ff"),Color("e078ff")))
+	modes.add_child(creative)
+
+	var seed_label=label("Seed (opcional)",14)
+	seed_label.add_theme_color_override("font_color",Color("f0e7f5"))
+	form.add_child(seed_label)
 	var seed_input=LineEdit.new()
-	seed_input.placeholder_text="Seed opcional"
-	seed_input.custom_minimum_size=Vector2(520,44)
-	seed_input.add_theme_stylebox_override("normal",button_style(Color("0f0c14ff"),Color("6f5878")))
-	menu_box.add_child(seed_input)
-	var mode=OptionButton.new()
-	mode.add_item("Sobrevivência")
-	mode.add_item("Criativo")
-	mode.custom_minimum_size=Vector2(520,44)
-	menu_box.add_child(mode)
-	var note=label("O modo escolhido fica travado depois que o mundo é criado.",13)
-	note.add_theme_color_override("font_color",Color("b9a9c5"))
-	menu_box.add_child(note)
-	menu_box.add_child(button("CRIAR MUNDO",func():
+	seed_input.placeholder_text="Digite uma seed..."
+	seed_input.custom_minimum_size=Vector2(field_w,48)
+	seed_input.add_theme_stylebox_override("normal",button_style(Color("100c18f2"),Color("7f5e95")))
+	seed_input.add_theme_stylebox_override("focus",button_style(Color("171022ff"),Color("c268e5")))
+	form.add_child(seed_input)
+	var note=label("Deixe em branco para um mundo aleatório.",11)
+	note.add_theme_color_override("font_color",Color("9f90ac"))
+	form.add_child(note)
+
+	var actions=VBoxContainer.new() if mobile else HBoxContainer.new()
+	actions.add_theme_constant_override("separation",12)
+	menu_box.add_child(actions)
+	var back=button("←  VOLTAR",show_main)
+	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	actions.add_child(back)
+	var create=button("🌍  CRIAR MUNDO",func():
 		world_name=name_input.text.strip_edges()
 		if world_name.is_empty():
 			world_name="Reino do Abismo"
 		var seed_value=int(Time.get_unix_time_from_system()) if seed_input.text.is_empty() else seed_input.text.hash()
 		Saves.active_id=""
-		start_world(mode.selected==1,seed_value)
+		start_world(creative.button_pressed,seed_value)
 		save_world()
-	))
-	menu_box.add_child(button("VOLTAR",show_main))
+	)
+	create.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	create.add_theme_stylebox_override("normal",button_style(Color("3b1d4fff"),Color("d15df2")))
+	create.add_theme_stylebox_override("hover",button_style(Color("51266cff"),Color("ec8cff")))
+	actions.add_child(create)
+	layout()
 
 func show_settings(from_main: bool=false) -> void:
 	clear_menu("Configurações","settings")
