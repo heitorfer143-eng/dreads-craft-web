@@ -1468,75 +1468,42 @@ func show_purity_dialogue() -> void:
 	if is_instance_valid(boss) and boss.has_method("set_expression"):
 		boss.set_expression(str(entry.expression))
 	clear_menu("","purity_dialogue")
-
-	var root=PanelContainer.new()
-	root.add_theme_stylebox_override("panel",compact_panel_style(0.96,Color("8b6e9d"),16))
-	root.custom_minimum_size=Vector2(820,390)
-	menu_box.add_child(root)
+	var screen=get_viewport_rect().size
+	var mobile_dialogue=screen.x<=900
+	var card=PanelContainer.new()
+	card.add_theme_stylebox_override("panel",compact_panel_style(0.97,Color("8b6e9d"),12))
+	card.custom_minimum_size=Vector2(minf(700,screen.x-36),250 if mobile_dialogue else 300)
+	menu_box.add_child(card)
 	var box=VBoxContainer.new()
-	box.add_theme_constant_override("separation",10)
-	root.add_child(box)
-
-	var realm=label("DIMENSÃO DA PUREZA",12)
+	box.add_theme_constant_override("separation",8)
+	card.add_child(box)
+	var realm=label("✦  DIMENSÃO DA PUREZA  ✦",10 if mobile_dialogue else 12)
 	realm.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	realm.add_theme_color_override("font_color",Color("b9dff3"))
 	box.add_child(realm)
-	var separator=HSeparator.new()
-	separator.modulate=Color("675879")
-	box.add_child(separator)
-
-	var top=HBoxContainer.new()
-	top.add_theme_constant_override("separation",14)
-	box.add_child(top)
-	var portrait=PanelContainer.new()
-	portrait.custom_minimum_size=Vector2(150,190)
-	portrait.add_theme_stylebox_override("panel",compact_panel_style(0.78,Color("5d526c"),10))
-	top.add_child(portrait)
-	var portrait_box=VBoxContainer.new()
-	portrait_box.alignment=BoxContainer.ALIGNMENT_CENTER
-	portrait.add_child(portrait_box)
-	if str(entry.speaker)=="SPIKE":
-		var pic=TextureRect.new()
-		pic.texture=load("res://assets/ui/spike_portrait.png")
-		pic.custom_minimum_size=Vector2(112,112)
-		pic.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-		pic.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		portrait_box.add_child(pic)
-	else:
-		var sigil=label("✦",64)
-		sigil.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		sigil.add_theme_color_override("font_color",Color("e4d39b") if str(entry.expression)!="wrath" else Color("fff0a8"))
-		portrait_box.add_child(sigil)
-	var mood=label(str(entry.mood),11)
-	mood.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	mood.add_theme_color_override("font_color",Color("d3a7e8") if str(entry.speaker)=="SPIKE" else Color("e6c87e"))
-	portrait_box.add_child(mood)
-
-	var speech=VBoxContainer.new()
-	speech.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	speech.add_theme_constant_override("separation",8)
-	top.add_child(speech)
-	var speaker=label(str(entry.speaker),18)
+	var speaker=label(str(entry.speaker),15 if mobile_dialogue else 18)
+	speaker.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	speaker.add_theme_color_override("font_color",Color("c7a6dd") if str(entry.speaker)=="SPIKE" else Color("f0d99a"))
-	speech.add_child(speaker)
-	var text=label(str(entry.text),21)
-	text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	text.custom_minimum_size=Vector2(590,125)
-	text.add_theme_color_override("font_color",Color("eee8f1"))
-	speech.add_child(text)
-	var stage=label("— %s" % str(entry.stage),12)
+	box.add_child(speaker)
+	var text_node=label(str(entry.text),15 if mobile_dialogue else 19)
+	text_node.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	text_node.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	text_node.custom_minimum_size=Vector2(0,88 if mobile_dialogue else 110)
+	text_node.add_theme_color_override("font_color",Color("f3edf5"))
+	box.add_child(text_node)
+	var stage=label(str(entry.stage),10 if mobile_dialogue else 12)
 	stage.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	stage.custom_minimum_size=Vector2(590,48)
+	stage.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	stage.add_theme_color_override("font_color",Color("9fa4ba"))
-	speech.add_child(stage)
-
-	var progress_label=label("%d / %d" % [dialogue_index+1,entries.size()],10)
-	progress_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	box.add_child(stage)
+	var progress_label=label("%d / %d" % [dialogue_index+1,entries.size()],9)
+	progress_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	progress_label.add_theme_color_override("font_color",Color("81778d"))
 	box.add_child(progress_label)
-	var action=button("ENFRENTAR O GUARDIÃO" if dialogue_index==entries.size()-1 else "CONTINUAR",advance_purity_dialogue)
-	action.custom_minimum_size=Vector2(300,52)
+	var action=button("LUTAR" if dialogue_index==entries.size()-1 else "CONTINUAR",advance_purity_dialogue)
+	action.custom_minimum_size=Vector2(220,44 if mobile_dialogue else 50)
 	box.add_child(action)
+	layout()
 	update_purity_hud()
 
 func advance_purity_dialogue() -> void:
