@@ -62,6 +62,7 @@ var portrait_icon: TextureRect
 var device_controls: Control
 var touch_aim=Vector2(80,-24)
 var food_value: Label
+var game_audio: Node
 var menu_title: Label
 var menu_tip_label: Label
 var menu_tip_timer := 0.0
@@ -85,6 +86,8 @@ func _ready() -> void:
 	ui=CanvasLayer.new()
 	add_child(ui)
 	build_ui()
+	game_audio=preload("res://scripts/game_audio.gd").new()
+	add_child(game_audio)
 	device_controls=preload("res://scripts/device_controls.gd").new()
 	device_controls.game=self
 	ui.add_child(device_controls)
@@ -1216,6 +1219,7 @@ func attack() -> void:
 	if player.attack_time>0:
 		return
 	player.attack_time=.35
+	if is_instance_valid(game_audio): game_audio.hit()
 	player.face=1 if (player.position+touch_aim if device_controls.mobile else get_global_mouse_position()).x>=player.position.x else -1
 	for mob in enemies.get_children():
 		var difference=mob.position-player.position
@@ -1250,6 +1254,7 @@ func _process(delta: float) -> void:
 			progress+=delta*Items.mining_speed(player.inventory)
 		if player.creative or progress>=Items.HARDNESS.get(id,1.0):
 			world.set_cell(target,0)
+			if is_instance_valid(game_audio): game_audio.mine()
 			var drop=2 if id==1 else id
 			player.inventory[drop]=player.inventory.get(drop,0)+1
 			progress=0
