@@ -721,7 +721,7 @@ func show_main() -> void:
 	spike_wrap.add_theme_stylebox_override("panel",lobby_panel_style(0.58,Color("4b3957")))
 	realm_row.add_child(spike_wrap)
 	var spike=TextureRect.new()
-	spike.texture=load("res://assets/ui/cat_clean.svg")
+	spike.texture=load("res://assets/sprites/normal_idle_0.png")
 	spike.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	spike.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	spike.custom_minimum_size=Vector2(120,145)
