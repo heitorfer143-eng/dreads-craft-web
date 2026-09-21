@@ -1194,7 +1194,7 @@ func update_target() -> void:
 	target=cell
 
 func place_block() -> bool:
-	if in_purity or target.x<0 or world.get_cell(target)!=0 or selected not in [2,3,4,5,6,7,8,9,16]:
+	if in_purity or target.x<0 or world.get_cell(target)!=0 or selected not in [2,3,4,5,6,7,8,9,14,15,16]:
 		return false
 	var area=Rect2(Vector2(target)*32,Vector2(32,32))
 	if player.body_rect().intersects(area):
