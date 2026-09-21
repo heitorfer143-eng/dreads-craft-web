@@ -30,7 +30,7 @@ func generate(seed_value: int) -> void:
 		cells.append(row)
 	for x in WIDTH:
 		var height = 35 + int(noise.get_noise_1d(x) * (6 if x < 100 else 13))
-		if x < 24:
+		if x < 58:
 			height = 35
 		surfaces.append(height)
 		for y in range(height, HEIGHT):
@@ -39,10 +39,10 @@ func generate(seed_value: int) -> void:
 		for layer in 2:
 			var center = 58 + layer*18 + int(sin(x*0.065+layer)*4)
 			for y in range(center-3,center+4):
-				if x > 25 and x < WIDTH-3:
+				if x > 60 and x < WIDTH-3:
 					cells[y][x] = 0
 	# Trees are a separate pass: later terrain columns cannot overwrite foliage.
-	for x in range(28,WIDTH-5,11):
+	for x in range(62,WIDTH-5,11):
 		var top = surfaces[x]-6
 		for y in range(top, surfaces[x]):
 			cells[y][x] = 4
@@ -51,7 +51,7 @@ func generate(seed_value: int) -> void:
 				if abs(dx)+abs(dy)<4 and cells[top+dy][x+dx]==0:
 					cells[top+dy][x+dx]=5
 	# Walkable sloping mine entrances connect the surface to the first cave.
-	for entry in [52,170,265]:
+	for entry in [76,170,265]:
 		for dx in range(28):
 			var x = entry+dx
 			var bottom = mini(60, surfaces[entry]+dx)
