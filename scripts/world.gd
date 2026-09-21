@@ -69,9 +69,52 @@ func generate(seed_value: int) -> void:
 			if dx!=1:
 				cells[ground-6][base+dx]=3
 		cells[ground-1][base]=9
+	generate_structures()
 	generate_ores()
 	rebuild_collision()
 	queue_redraw()
+
+func generate_structures() -> void:
+	var rng=RandomNumberGenerator.new()
+	rng.seed=world_seed ^ 0x71A5C0DE
+	# Cavernas orgânicas extras: bolsões conectados em profundidades variadas.
+	for cave_index in range(22):
+		var cx=rng.randi_range(30,WIDTH-20)
+		var cy=rng.randi_range(48,HEIGHT-10)
+		var radius=rng.randi_range(3,7)
+		for step in range(rng.randi_range(3,7)):
+			for y in range(cy-radius,cy+radius+1):
+				for x in range(cx-radius*2,cx+radius*2+1):
+					if x>2 and x<WIDTH-2 and y>surfaces[x]+6 and y<HEIGHT-2:
+						var nx=float(x-cx)/float(radius*2)
+						var ny=float(y-cy)/float(radius)
+						if nx*nx+ny*ny < 1.0+rng.randf_range(-0.18,0.18):
+							cells[y][x]=0
+			cx=clampi(cx+rng.randi_range(-7,7),8,WIDTH-8)
+			cy=clampi(cy+rng.randi_range(-3,4),45,HEIGHT-8)
+	# Minas abandonadas: corredores, vigas e pequenas câmaras.
+	for center_x in [82,196,278]:
+		var y=clampi(surfaces[center_x]+rng.randi_range(18,28),48,82)
+		for x in range(center_x-16,center_x+17):
+			for yy in range(y-3,y+2):
+				if x>3 and x<WIDTH-3:
+					cells[yy][x]=0
+			if (x-center_x)%6==0:
+				cells[y-3][x]=4
+				cells[y-2][x]=4
+				cells[y-1][x]=4
+			cells[y+2][x]=8
+	# Ruínas na superfície, com silhueta quebrada.
+	for center_x in [118,238]:
+		var ground=surfaces[center_x]
+		for x in range(center_x-5,center_x+6):
+			cells[ground][x]=3
+			if x in [center_x-5,center_x-4,center_x+4,center_x+5]:
+				for y in range(ground-5,ground):
+					cells[y][x]=3
+		for x in range(center_x-4,center_x+5):
+			if x%3!=0:
+				cells[ground-5][x]=3
 
 func generate_ores() -> void:
 	var rng=RandomNumberGenerator.new()
