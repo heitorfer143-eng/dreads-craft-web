@@ -247,6 +247,12 @@ func _draw() -> void:
 				draw_texture_rect(texture,Rect2(pos,Vector2(TILE,TILE)),false)
 			else:
 				draw_rect(Rect2(pos,Vector2(TILE,TILE)),Items.COLORS.get(id,Color.GRAY))
+			if id==4:
+				# Bark detail is drawn procedurally too, so generated trees can never become flat brown columns.
+				draw_rect(Rect2(pos+Vector2(5,0),Vector2(3,TILE)),Color("a56b43"))
+				draw_rect(Rect2(pos+Vector2(19,0),Vector2(4,TILE)),Color("3b241d"))
+				draw_rect(Rect2(pos+Vector2(10,7),Vector2(7,3)),Color("2c1b18"))
+				draw_rect(Rect2(pos+Vector2(22,21),Vector2(6,3)),Color("8a5637"))
 			if id==1:
 				# Regiões continuam reconhecíveis sem trocar a linguagem visual do bloco.
 				var tint=Color("ffffff") if x<100 else Color("d8c0db") if x<220 else Color("d9e2ef")
