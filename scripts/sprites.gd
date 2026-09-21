@@ -68,6 +68,12 @@ static func make(kind: String) -> AnimatedSprite2D:
 		elif kind=="undead_knight": sprite.modulate=Color("707681")
 		sprite.position.y=-25.0
 	sprite.sprite_frames=frames
+	if visual_kind in ["normal","demon"]:
+		var clean_mat=ShaderMaterial.new()
+		var clean_shader=Shader.new()
+		clean_shader.code="shader_type canvas_item; void fragment(){ vec4 c=texture(TEXTURE,UV); float bright=min(c.r,min(c.g,c.b)); if(UV.y>0.78 && bright>0.82 && abs(c.r-c.g)<0.10 && abs(c.g-c.b)<0.10){ discard; } COLOR=c; }"
+		clean_mat.shader=clean_shader
+		sprite.material=clean_mat
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.centered=true
 	sprite.play("idle")
