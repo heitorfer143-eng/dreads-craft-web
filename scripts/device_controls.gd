@@ -8,7 +8,7 @@ var placing_timer=0.0
 
 func _ready() -> void:
 	mouse_filter=Control.MOUSE_FILTER_IGNORE
-	mobile=OS.has_feature("android") or OS.has_feature("ios") or DisplayServer.is_touchscreen_available()
+	mobile=OS.has_feature("android") or OS.has_feature("ios") or DisplayServer.is_touchscreen_available() or (OS.has_feature("web") and get_viewport_rect().size.x <= 900)
 	get_viewport().size_changed.connect(rebuild_regions)
 	rebuild_regions()
 
@@ -22,15 +22,17 @@ func set_mobile(value: bool) -> void:
 func rebuild_regions() -> void:
 	var viewport=get_viewport_rect().size
 	var edge=viewport.x
-	var bottom=viewport.y-20
+	var bottom=viewport.y-14
+	var b=62.0 if viewport.x < 700 else 70.0
+	var gap=8.0
 	regions={
-		"left":Rect2(20,bottom-76,76,76),
-		"right":Rect2(108,bottom-76,76,76),
-		"jump":Rect2(edge-96,bottom-164,76,76),
-		"down":Rect2(edge-96,bottom-76,76,76),
-		"mine":Rect2(edge-184,bottom-164,76,76),
-		"place":Rect2(edge-184,bottom-76,76,76),
-		"attack":Rect2(edge-272,bottom-164,76,76)
+		"left":Rect2(14,bottom-b,b,b),
+		"right":Rect2(14+b+gap,bottom-b,b,b),
+		"jump":Rect2(edge-14-b,bottom-b*2-gap,b,b),
+		"down":Rect2(edge-14-b,bottom-b,b,b),
+		"mine":Rect2(edge-14-b*2-gap,bottom-b*2-gap,b,b),
+		"place":Rect2(edge-14-b*2-gap,bottom-b,b,b),
+		"attack":Rect2(edge-14-b*3-gap*2,bottom-b*2-gap,b,b)
 	}
 	release_all()
 	queue_redraw()
@@ -133,7 +135,7 @@ func _draw() -> void:
 		var rect: Rect2=regions[action]
 		var active=action in fingers.values()
 		draw_style_box(style(active),rect)
-		draw_string(font,rect.position+Vector2(0,rect.size.y/2+5),captions[action],HORIZONTAL_ALIGNMENT_CENTER,rect.size.x,12,Color("efdfcc"))
+		draw_string(font,rect.position+Vector2(0,rect.size.y/2+4),captions[action],HORIZONTAL_ALIGNMENT_CENTER,rect.size.x,10 if rect.size.x<70 else 11,Color("efdfcc"))
 
 func style(active: bool) -> StyleBoxFlat:
 	var box=StyleBoxFlat.new()
