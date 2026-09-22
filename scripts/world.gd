@@ -30,7 +30,7 @@ func generate(seed_value: int) -> void:
 		cells.append(row)
 	for x in WIDTH:
 		var height = 35 + int(noise.get_noise_1d(x) * (6 if x < 100 else 13))
-		if x < 58:
+		if x < 64:
 			height = 35
 		surfaces.append(height)
 		for y in range(height, HEIGHT):
@@ -42,7 +42,7 @@ func generate(seed_value: int) -> void:
 				if x > 60 and x < WIDTH-3:
 					cells[y][x] = 0
 	# Trees are a separate pass: later terrain columns cannot overwrite foliage.
-	for x in range(62,WIDTH-5,11):
+	for x in range(72,WIDTH-5,11):
 		var top = surfaces[x]-6
 		for y in range(top, surfaces[x]):
 			cells[y][x] = 4
@@ -234,38 +234,7 @@ func _draw() -> void:
 	var right = mini(WIDTH,int((center.x+extent.x)/TILE)+1)
 	var top = maxi(0,int((center.y-extent.y)/TILE))
 	var bottom = mini(HEIGHT,int((center.y+extent.y)/TILE)+1)
-	# 2D landmarks: non-blocky silhouettes the player can walk through/around.
-	for sx in [40,118,238,292]:
-		if sx>=left-12 and sx<=right+12 and sx<surfaces.size():
-			var gy=float(surfaces[sx]*TILE)
-			var px=float(sx*TILE)
-			var wall=Color("211b2a")
-			var edge=Color("5b4967")
-			var wood=Color("65422f")
-			if sx==40:
-				# Blacksmith hut
-				draw_rect(Rect2(px-150,gy-150,300,150),wall)
-				draw_colored_polygon(PackedVector2Array([Vector2(px-175,gy-150),Vector2(px,gy-250),Vector2(px+175,gy-150)]),Color("17131e"))
-				draw_rect(Rect2(px-42,gy-88,84,88),Color("0b0910"))
-				draw_rect(Rect2(px+75,gy-95,52,45),Color("d0733d"))
-				draw_rect(Rect2(px+82,gy-88,38,31),Color("512b24"))
-			elif sx==118:
-				# Broken stone arch, scenery rather than a cube of tiles.
-				draw_rect(Rect2(px-125,gy-170,38,170),edge)
-				draw_rect(Rect2(px+87,gy-170,38,170),edge)
-				draw_arc(Vector2(px,gy-168),106,PI,TAU,24,edge,32)
-			elif sx==238:
-				# Merchant tent
-				draw_colored_polygon(PackedVector2Array([Vector2(px-145,gy),Vector2(px-105,gy-150),Vector2(px,gy-205),Vector2(px+105,gy-150),Vector2(px+145,gy)]),Color("3a2346"))
-				draw_line(Vector2(px,gy-205),Vector2(px,gy),wood,8)
-				draw_rect(Rect2(px-120,gy-18,240,18),Color("76523a"))
-			elif sx==292:
-				# Purity shrine
-				draw_rect(Rect2(px-110,gy-150,220,150),Color("242335"))
-				draw_colored_polygon(PackedVector2Array([Vector2(px-135,gy-150),Vector2(px,gy-235),Vector2(px+135,gy-150)]),Color("d5cfbd"))
-				draw_rect(Rect2(px-34,gy-95,68,95),Color("11101a"))
-				draw_line(Vector2(px,gy-205),Vector2(px,gy-165),Color("d2aa55"),5)
-				draw_line(Vector2(px-16,gy-188),Vector2(px+16,gy-188),Color("d2aa55"),5)
+	# Village buildings are image assets spawned by main.gd; no procedural houses are drawn here.
 	for y in range(top,bottom):
 		for x in range(left,right):
 			var id = get_cell(Vector2i(x,y))
