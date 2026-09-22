@@ -986,6 +986,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	sky.purity=false
 	boss_defeated=false
 	boss=null
+	mel_tamed=false
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
 	for node in [world,player,enemies,npcs,structures,interior,selection,mel]:
@@ -1469,9 +1470,12 @@ func _process(delta: float) -> void:
 		return
 	update_target()
 	if not in_purity:
+		var near_mel=find_near_mel()
 		var near_npc=find_near_npc()
 		var near_building=find_near_structure()
-		if near_npc!=null and message_time<=0:
+		if near_mel!=null and message_time<=0:
+			status.text="FALAR / INTERAGIR: Mel quer alguma coisa..."
+		elif near_npc!=null and message_time<=0:
 			status.text="R / FALAR: conversar com "+near_npc.npc_name
 		elif near_building!=null and message_time<=0:
 			status.text="BOTÃO DIREITO / FALAR: entrar em "+near_building.display_name
@@ -1530,9 +1534,9 @@ func spawn_village_hub() -> void:
 	if not is_instance_valid(structures) or not is_instance_valid(world):
 		return
 	var defs=[
-		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/blacksmith.svg"},
-		{"x":34,"kind":"market","name":"Mercado do Abismo","texture":"res://assets/structures/market.svg"},
-		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/chapel.svg"}
+		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/village_house_generated.png"},
+		{"x":34,"kind":"market","name":"Mercado do Abismo","texture":"res://assets/structures/village_house_generated.png"},
+		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/village_house_generated.png"}
 	]
 	for data in defs:
 		var x=int(data.x)
@@ -1599,6 +1603,20 @@ func spawn_world_npcs() -> void:
 	npc.position=Vector2(15*32+16,world.surfaces[15]*32-2)
 	npc.interacted.connect(func(who): show_npc_dialogue(who))
 	npcs.add_child(npc)
+	var monk=NPC.new()
+	monk.setup("monge","Monge da Pureza",[
+		"A Pureza não é um lugar. É uma prova.",
+		"Se encontrar Avarita, não tente transformá-la em arma.",
+		"O portal responde a nove diamantes e uma Avarita."
+	],player)
+	monk.position=Vector2(48*32+16,world.surfaces[48]*32-2)
+	monk.interacted.connect(func(who): show_npc_dialogue(who))
+	npcs.add_child(monk)
+
+func find_near_mel():
+	if in_purity or in_structure!="" or not is_instance_valid(mel) or mel_tamed:
+		return null
+	return mel if mel.can_interact() else null
 
 func find_near_npc():
 	if not is_instance_valid(npcs) or in_purity or in_structure!="":
@@ -1640,6 +1658,10 @@ func interact_nearby() -> bool:
 		return false
 	if is_instance_valid(mel) and mel.can_interact():
 		mel.interact()
+		return true
+	var near_mel=find_near_mel()
+	if near_mel!=null:
+		near_mel.interact()
 		return true
 	var npc=find_near_npc()
 	if npc!=null:
@@ -1720,7 +1742,7 @@ func show_npc_dialogue(npc) -> void:
 	row.add_theme_constant_override("separation",18)
 	card.add_child(row)
 	var portrait=TextureRect.new()
-	portrait.texture=load("res://assets/npcs/blacksmith_generated.svg")
+	portrait.texture=load("res://assets/npcs/monk_generated.png" if npc.role=="monge" else "res://assets/npcs/blacksmith_generated.png")
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.custom_minimum_size=Vector2(150,210)
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
@@ -1737,12 +1759,13 @@ func show_npc_dialogue(npc) -> void:
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	speech.custom_minimum_size=Vector2(0,105)
 	box.add_child(speech)
-	var craft_button=button("ABRIR BANCADA",func():
-		craft_override=true
-		show_craft()
-	)
-	craft_button.custom_minimum_size=Vector2(280,54)
-	box.add_child(craft_button)
+	if npc.role=="ferreiro":
+		var craft_button=button("ABRIR BANCADA",func():
+			craft_override=true
+			show_craft()
+		)
+		craft_button.custom_minimum_size=Vector2(280,54)
+		box.add_child(craft_button)
 	var close=button("FECHAR",resume)
 	close.custom_minimum_size=Vector2(280,50)
 	box.add_child(close)
