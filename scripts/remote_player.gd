@@ -6,6 +6,7 @@ var player_name := "Jogador"
 var target_position := Vector2.ZERO
 var face := 1
 var anim := "idle"
+var zone := "world"
 var sprite: AnimatedSprite2D
 var name_label: Label
 
@@ -26,19 +27,21 @@ func _ready() -> void:
 	name_label.add_theme_constant_override("shadow_offset_y",2)
 	add_child(name_label)
 
-func setup(display_name:String, pos:Vector2, p_face:int=1, p_anim:String="idle") -> void:
+func setup(display_name:String, pos:Vector2, p_face:int=1, p_anim:String="idle", p_zone:String="world") -> void:
 	player_name=display_name
 	target_position=pos
 	position=pos
 	face=p_face
 	anim=p_anim
+	zone=p_zone
 	if is_instance_valid(name_label):
 		name_label.text=player_name
 
-func set_state(pos:Vector2,p_face:int,p_anim:String) -> void:
+func set_state(pos:Vector2,p_face:int,p_anim:String,p_zone:String="world") -> void:
 	target_position=pos
 	face=p_face
 	anim=p_anim
+	zone=p_zone
 
 func _process(delta:float) -> void:
 	position=position.lerp(target_position,clampf(delta*14.0,0.0,1.0))
