@@ -30,8 +30,8 @@ func _ready() -> void:
 	var sprite_path="res://assets/npcs/monk_generated.png" if role=="monge" else "res://assets/npcs/blacksmith_generated.png"
 	sprite.texture=load(sprite_path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale=Vector2(0.72,0.72)
-	sprite.position=Vector2(0,-35)
+	sprite.scale=Vector2(0.48,0.48)
+	sprite.position=Vector2(0,-30)
 	sprite.z_index=5
 	add_child(sprite)
 	set_process(true)
@@ -56,7 +56,7 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	if not can_interact():
 		return
-	var y=-116.0
+	var y=-88.0
 	draw_circle(Vector2(0,y),16,Color("18121fe8"))
 	draw_arc(Vector2(0,y),16,0,TAU,24,Color("e5b66f"),2)
 	draw_string(ThemeDB.fallback_font,Vector2(-8,y+6),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("ffe7a3"))
