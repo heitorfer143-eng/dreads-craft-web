@@ -1203,7 +1203,7 @@ func show_world_intro(creative_mode: bool, seed_value: int, page: int=0) -> void
 
 func show_settings(from_main: bool=false) -> void:
 	clear_menu("Configurações","settings")
-	var intro=label("Ajustes rápidos para jogar no PC.",14)
+	var intro=label("Ajustes rápidos para PC, Android e iPhone.",14)
 	intro.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	intro.add_theme_color_override("font_color",Color("c7a6dd"))
 	menu_box.add_child(intro)
@@ -1219,7 +1219,7 @@ func show_settings(from_main: bool=false) -> void:
 	controls_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	controls_text.add_theme_color_override("font_color",Color("d7cadb"))
 	controls.add_child(controls_text)
-	var note=label("Recomendado: 1280×720 ou superior.",12)
+	var note=label("iPhone: o jogo também pode ser adicionado à Tela de Início para abrir sem a barra do navegador.",12)
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_color_override("font_color",Color("9f91a7"))
 	menu_box.add_child(note)
