@@ -79,6 +79,7 @@ var menu_tip_timer := 0.0
 var menu_tip_index := 0
 var menu_glow := 0.0
 var current_npc=null
+var mel_quest_started := false
 var mel: Area2D
 var mel_tamed := false
 const LOBBY_TIPS = [
@@ -987,6 +988,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	boss_defeated=false
 	boss=null
 	mel_tamed=false
+	mel_quest_started=false
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
 	for node in [world,player,enemies,npcs,structures,interior,selection,mel]:
@@ -1018,6 +1020,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	spawn_village_hub()
 	spawn_world_npcs()
 	spawn_mel()
+	call_deferred("maybe_start_mel_quest")
 	selection=preload("res://scripts/selection.gd").new()
 	add_child(selection)
 	active=true
@@ -1555,6 +1558,12 @@ func spawn_mel() -> void:
 	mel.interacted.connect(func(_dog): show_mel_dialogue())
 	add_child(mel)
 
+func maybe_start_mel_quest() -> void:
+	if not active or mel_tamed or mel_quest_started or not is_instance_valid(mel):
+		return
+	mel_quest_started=true
+	show_mel_dialogue()
+
 func show_mel_dialogue() -> void:
 	if mel_tamed:
 		status.text="Mel está com você · +2 de dano contra mobs"
@@ -1797,7 +1806,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed}
+	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started}
 	if in_purity:
 		data["arena_position"]=[player.position.x,player.position.y]
 		data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
@@ -1834,6 +1843,7 @@ func load_world() -> void:
 	difficulty=int(data.difficulty)
 	boss_defeated=bool(data.get("boss_defeated",false))
 	mel_tamed=bool(data.get("mel_tamed",false))
+	mel_quest_started=bool(data.get("mel_quest_started",mel_tamed))
 	if is_instance_valid(mel):
 		mel.set_tamed(mel_tamed)
 	if bool(data.get("in_purity",false)):
