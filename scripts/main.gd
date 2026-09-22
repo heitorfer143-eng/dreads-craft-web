@@ -89,6 +89,8 @@ var online: Node
 var multiplayer_active := false
 var multiplayer_host := false
 var online_player_name := "Spike"
+var online_world_name := "Reino Online"
+var online_room_code_entry := ""
 const LOBBY_TIPS = [
 	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
 	"A noite é mais perigosa: prepare abrigo, espada e comida antes do escurecer.",
@@ -826,11 +828,11 @@ func show_main() -> void:
 	right.add_child(menu_label)
 	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/sword_iron_v11.svg",show_creation,true)
 	right.add_child(new_button)
-	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/relic_vital.svg",show_multiplayer))
+	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer))
 	var continue_button=lobby_button("CONTINUAR","Retorne exatamente ao último save.","res://assets/items/backpack.png",load_world)
 	continue_button.disabled=saved_worlds.is_empty()
 	right.add_child(continue_button)
-	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/relic_vital.svg",show_world_browser_v2))
+	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2))
 	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia e controles do PC.","res://assets/items/menu.png",func(): show_settings(true)))
 	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit())
 	right.add_child(exit_button)
@@ -849,40 +851,89 @@ func show_main() -> void:
 	layout()
 
 
-func multiplayer_line_edit(placeholder:String,text_value:String="") -> LineEdit:
+func mobile_web_prompt(edit: LineEdit, title: String, uppercase: bool=false) -> void:
+	if not OS.has_feature("web"):
+		edit.grab_focus()
+		return
+	var js="window.prompt("+JSON.stringify(title)+","+JSON.stringify(edit.text)+")"
+	var value=JavaScriptBridge.eval(js,true)
+	if value==null:
+		return
+	var result=str(value).strip_edges()
+	if uppercase:
+		result=result.to_upper()
+	edit.text=result
+	edit.caret_column=edit.text.length()
+	edit.text_changed.emit(edit.text)
+
+func multiplayer_line_edit(placeholder:String,text_value:String="",prompt_title:String="",uppercase:bool=false) -> LineEdit:
 	var edit=LineEdit.new()
 	edit.text=text_value
 	edit.placeholder_text=placeholder
-	edit.max_length=24
+	edit.max_length=32
 	edit.virtual_keyboard_enabled=true
+	edit.virtual_keyboard_type=LineEdit.KEYBOARD_TYPE_DEFAULT
 	edit.focus_mode=Control.FOCUS_ALL
-	edit.custom_minimum_size=Vector2(0,54)
+	edit.custom_minimum_size=Vector2(0,58)
+	edit.add_theme_font_size_override("font_size",16)
 	edit.add_theme_stylebox_override("normal",button_style(Color("100c18f2"),Color("7f5e95")))
 	edit.add_theme_stylebox_override("focus",button_style(Color("171022ff"),Color("c268e5")))
 	edit.gui_input.connect(func(event):
 		if event is InputEventScreenTouch and event.pressed:
-			edit.grab_focus()
-			edit.caret_column=edit.text.length()
+			mobile_web_prompt(edit,prompt_title if prompt_title!="" else placeholder,uppercase)
+			get_viewport().set_input_as_handled()
 	)
 	return edit
 
+func multiplayer_input_row(edit: LineEdit, prompt_title:String, uppercase:bool=false) -> HBoxContainer:
+	var row=HBoxContainer.new()
+	row.add_theme_constant_override("separation",8)
+	row.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	edit.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	row.add_child(edit)
+	var change=button("EDITAR",func(): mobile_web_prompt(edit,prompt_title,uppercase))
+	change.custom_minimum_size=Vector2(100,58)
+	row.add_child(change)
+	return row
+
 func show_multiplayer(error_text:String="") -> void:
 	clear_menu("MULTIPLAYER","multiplayer")
-	var mobile=get_viewport_rect().size.x<=760
-	var subtitle=label("Jogue no mesmo mundo com seus amigos. Movimento e blocos são sincronizados.",13)
+	var mobile=get_viewport_rect().size.x<=900
+
+	var subtitle=label("Crie um mundo online ou entre na sala de um amigo usando o código.",13)
 	subtitle.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	subtitle.add_theme_color_override("font_color",Color("c7b4d3"))
 	menu_box.add_child(subtitle)
+
+	if mobile:
+		var mobile_note=label("No celular: toque no campo ou em EDITAR para abrir o teclado.",11)
+		mobile_note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		mobile_note.add_theme_color_override("font_color",Color("a995b7"))
+		menu_box.add_child(mobile_note)
+
 	if error_text!="":
 		var err=label(error_text,13)
 		err.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		err.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		err.add_theme_color_override("font_color",Color("ef8e8e"))
 		menu_box.add_child(err)
 
-	var name_edit=multiplayer_line_edit("Seu nome",online_player_name)
-	menu_box.add_child(label("NOME DO JOGADOR",11))
-	menu_box.add_child(name_edit)
+	var identity=PanelContainer.new()
+	identity.add_theme_stylebox_override("panel",compact_panel_style(0.84,Color("6f557d"),10))
+	identity.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	menu_box.add_child(identity)
+	var identity_box=VBoxContainer.new()
+	identity_box.add_theme_constant_override("separation",7)
+	identity.add_child(identity_box)
+	var name_title=label("SEU NOME",12)
+	name_title.add_theme_color_override("font_color",Color("d9c4e6"))
+	identity_box.add_child(name_title)
+	var name_edit=multiplayer_line_edit("Nome do jogador",online_player_name,"Digite seu nome")
+	name_edit.text_changed.connect(func(value):
+		online_player_name=value.strip_edges()
+	)
+	identity_box.add_child(multiplayer_input_row(name_edit,"Digite seu nome"))
 
 	var columns=VBoxContainer.new() if mobile else HBoxContainer.new()
 	columns.add_theme_constant_override("separation",14)
@@ -891,55 +942,112 @@ func show_multiplayer(error_text:String="") -> void:
 
 	var create_panel=PanelContainer.new()
 	create_panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	create_panel.add_theme_stylebox_override("panel",compact_panel_style(0.86,Color("6f557d"),12))
+	create_panel.add_theme_stylebox_override("panel",compact_panel_style(0.88,Color("6f557d"),12))
 	columns.add_child(create_panel)
 	var create_box=VBoxContainer.new()
 	create_box.add_theme_constant_override("separation",9)
 	create_panel.add_child(create_box)
+
+	var create_header=HBoxContainer.new()
+	create_header.add_theme_constant_override("separation",8)
+	create_box.add_child(create_header)
+	var create_icon=TextureRect.new()
+	create_icon.texture=load("res://assets/items/item_16.svg")
+	create_icon.custom_minimum_size=Vector2(38,38)
+	create_icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	create_icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	create_header.add_child(create_icon)
 	var ct=label("CRIAR SALA",20)
+	ct.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	ct.add_theme_color_override("font_color",Color("e9d6f2"))
-	create_box.add_child(ct)
-	var cd=label("Cria um novo reino online e gera um código para seus amigos.",12)
+	create_header.add_child(ct)
+
+	var cd=label("Escolha o nome do mundo. Depois o jogo gera um código para seus amigos.",12)
 	cd.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	create_box.add_child(cd)
+
+	var world_label=label("NOME DO MUNDO",11)
+	world_label.add_theme_color_override("font_color",Color("bda6ca"))
+	create_box.add_child(world_label)
+	var world_edit=multiplayer_line_edit("Nome do mundo",online_world_name,"Nome do mundo multiplayer")
+	world_edit.text_changed.connect(func(value):
+		online_world_name=value.strip_edges()
+	)
+	create_box.add_child(multiplayer_input_row(world_edit,"Nome do mundo multiplayer"))
+
 	var create_btn=button("CRIAR SALA ONLINE",func():
 		online_player_name=name_edit.text.strip_edges()
+		online_world_name=world_edit.text.strip_edges()
 		if online_player_name=="":
-			online_player_name="Spike"
+			show_multiplayer("Digite o nome do jogador.")
+			return
+		if online_world_name=="":
+			show_multiplayer("Digite o nome do mundo.")
+			return
 		status.text="Conectando ao servidor..."
-		online.create_room(online_player_name,int(Time.get_unix_time_from_system()),"Reino Online")
+		online.create_room(online_player_name,int(Time.get_unix_time_from_system()),online_world_name)
 	)
 	create_btn.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	create_btn.custom_minimum_size=Vector2(0,54)
 	create_box.add_child(create_btn)
 
 	var join_panel=PanelContainer.new()
 	join_panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	join_panel.add_theme_stylebox_override("panel",compact_panel_style(0.86,Color("6f557d"),12))
+	join_panel.add_theme_stylebox_override("panel",compact_panel_style(0.88,Color("6f557d"),12))
 	columns.add_child(join_panel)
 	var join_box=VBoxContainer.new()
 	join_box.add_theme_constant_override("separation",9)
 	join_panel.add_child(join_box)
+
+	var join_header=HBoxContainer.new()
+	join_header.add_theme_constant_override("separation",8)
+	join_box.add_child(join_header)
+	var join_icon=TextureRect.new()
+	join_icon.texture=load("res://assets/items/item_14.svg")
+	join_icon.custom_minimum_size=Vector2(38,38)
+	join_icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	join_icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	join_header.add_child(join_icon)
 	var jt=label("ENTRAR EM SALA",20)
+	jt.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	jt.add_theme_color_override("font_color",Color("e9d6f2"))
-	join_box.add_child(jt)
-	var room_edit=multiplayer_line_edit("Código da sala")
+	join_header.add_child(jt)
+
+	var jd=label("Digite o código de 5 caracteres enviado pelo dono da sala.",12)
+	jd.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	join_box.add_child(jd)
+
+	var code_label=label("CÓDIGO DA SALA",11)
+	code_label.add_theme_color_override("font_color",Color("bda6ca"))
+	join_box.add_child(code_label)
+	var room_edit=multiplayer_line_edit("Ex.: A7K2P",online_room_code_entry,"Código da sala",true)
 	room_edit.max_length=5
-	join_box.add_child(room_edit)
+	room_edit.text_changed.connect(func(value):
+		online_room_code_entry=value.strip_edges().to_upper().left(5)
+		if room_edit.text!=online_room_code_entry:
+			room_edit.text=online_room_code_entry
+			room_edit.caret_column=room_edit.text.length()
+	)
+	join_box.add_child(multiplayer_input_row(room_edit,"Código da sala",true))
+
 	var join_btn=button("ENTRAR PELO CÓDIGO",func():
 		online_player_name=name_edit.text.strip_edges()
+		online_room_code_entry=room_edit.text.strip_edges().to_upper()
 		if online_player_name=="":
-			online_player_name="Spike"
-		var code=room_edit.text.strip_edges().to_upper()
-		if code.length()!=5:
-			show_multiplayer("Digite o código de 5 caracteres da sala.")
+			show_multiplayer("Digite o nome do jogador.")
 			return
-		online.join_room(online_player_name,code)
+		if online_room_code_entry.length()!=5:
+			show_multiplayer("Digite o código completo de 5 caracteres.")
+			return
+		online.join_room(online_player_name,online_room_code_entry)
 	)
 	join_btn.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	join_btn.custom_minimum_size=Vector2(0,54)
 	join_box.add_child(join_btn)
 
-	var note=label("V1 multiplayer: jogadores, movimento e alterações de blocos compartilhadas em tempo real.",11)
+	var note=label("Multiplayer V1 · jogadores, movimento e blocos sincronizados em tempo real.",11)
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_color_override("font_color",Color("9e90aa"))
 	menu_box.add_child(note)
 	menu_box.add_child(button("VOLTAR",show_main))
