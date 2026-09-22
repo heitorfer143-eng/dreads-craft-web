@@ -1,6 +1,6 @@
 extends RefCounted
 
-const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante"}
+const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante", 23: "Osso"}
 const COLORS = {1: Color("68765b"), 2: Color("594237"), 3: Color("575663"), 4: Color("79503b"), 5: Color("354838"), 6: Color("33323d"), 7: Color("9b7768"), 8: Color("a67b50"), 9: Color("bd9160")}
 const HARDNESS = {1: 0.5, 2: 0.65, 3: 1.8, 4: 1.15, 5: 0.3, 6: 2.1, 7: 2.6, 8: 0.8, 9: 1.2, 14: 5.0, 15: 9.0, 16: 3.0}
 
@@ -25,7 +25,8 @@ const ICONS = {
 	19: "res://assets/items/pickaxe_diamond_v11.svg",
 	20: "res://assets/items/sword_wood_v11.svg",
 	21: "res://assets/items/sword_stone_v11.svg",
-	22: "res://assets/items/sword_diamond_v11.svg"
+	22: "res://assets/items/sword_diamond_v11.svg",
+	23: "res://assets/items/bone.svg"
 }
 
 const CRAFT_ICONS = {
