@@ -190,6 +190,48 @@ func generate_ores() -> void:
 				if clear:
 					cells[y][x]=ore
 					count+=1
+	ensure_ore_minimums()
+
+func ensure_ore_minimums() -> void:
+	# Keeps both new worlds and older saves populated with useful ore.
+	# Only replaces deep stone, so caves/buildings/terrain remain untouched.
+	var minimums={6:110,7:70,14:24,15:3}
+	var min_depth={6:43,7:52,14:68,15:82}
+	var rng=RandomNumberGenerator.new()
+	rng.seed=world_seed ^ 0x2A7D91C3
+	for ore in [6,7,14,15]:
+		var count=0
+		for row in cells:
+			count+=row.count(ore)
+		var attempts=0
+		while count<int(minimums[ore]) and attempts<9000:
+			attempts+=1
+			var x=rng.randi_range(4,WIDTH-5)
+			var y=rng.randi_range(int(min_depth[ore]),HEIGHT-3)
+			if y<surfaces[x]+(6 if ore==6 else 11):
+				continue
+			if cells[y][x]!=3:
+				continue
+			var clear=true
+			for offset in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
+				var neighbor=get_cell(Vector2i(x,y)+offset)
+				if neighbor in [6,7,14,15] and neighbor!=ore:
+					clear=false
+					break
+			if not clear:
+				continue
+			cells[y][x]=ore
+			count+=1
+			# Coal/iron/diamond form small readable veins. Avarita stays extremely rare.
+			if ore!=15:
+				for offset in [Vector2i.RIGHT,Vector2i.DOWN,Vector2i.LEFT,Vector2i.UP]:
+					if count>=int(minimums[ore]):
+						break
+					var p=Vector2i(x,y)+offset
+					if p.x>2 and p.x<WIDTH-2 and p.y>surfaces[p.x]+8 and p.y<HEIGHT-2 and cells[p.y][p.x]==3 and rng.randf()<0.48:
+						cells[p.y][p.x]=ore
+						count+=1
+	queue_redraw()
 
 func get_cell(cell: Vector2i) -> int:
 	if cell.x<0 or cell.x>=WIDTH or cell.y>=HEIGHT:
