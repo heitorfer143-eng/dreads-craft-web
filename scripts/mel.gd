@@ -21,7 +21,7 @@ func _ready() -> void:
 	shape.position=Vector2(0,-16)
 	add_child(shape)
 	sprite=Sprite2D.new()
-	sprite.texture=load("res://assets/npcs/mel_generated.png")
+	sprite.texture=load("res://assets/npcs/mel.png")
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale=Vector2(0.92,0.92)
 	sprite.position=Vector2(0,-28)
