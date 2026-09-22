@@ -1505,9 +1505,27 @@ func _unhandled_input(event: InputEvent) -> void:
 			refresh_hud()
 
 func set_touch_action_target() -> void:
-	if not is_instance_valid(player):
+	if not is_instance_valid(player) or in_structure!="" or in_purity or not is_instance_valid(world):
 		return
-	touch_aim=Vector2(player.face*105.0,-22.0)
+	# Mobile has no mouse cursor. Pick the nearest useful solid block around
+	# the player's facing side so MINERAR always targets terrain instead of air.
+	var feet=Vector2i(floor(player.position.x/32.0),floor(player.position.y/32.0))
+	var candidates=[
+		feet+Vector2i(player.face,1),
+		feet+Vector2i(player.face,0),
+		feet+Vector2i(player.face,-1),
+		feet+Vector2i(0,1),
+		feet+Vector2i(player.face*2,1),
+		feet+Vector2i(player.face*2,0)
+	]
+	for cell in candidates:
+		if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+			continue
+		if world.get_cell(cell) not in [0,16]:
+			target=cell
+			touch_aim=Vector2(cell*32+Vector2i(16,16))-player.position
+			return
+	touch_aim=Vector2(player.face*76.0,18.0)
 	update_target()
 
 func update_target() -> void:
@@ -1846,7 +1864,12 @@ func enter_structure(kind: String, display_name: String) -> void:
 	sky.hide()
 	interior=Interior.new()
 	interior.configure(kind,display_name)
+	interior.z_index=-10
 	add_child(interior)
+	player.z_index=20
+	player.show()
+	if is_instance_valid(player.sprite):
+		player.sprite.show()
 	player.position=Vector2(640,600)
 	player.velocity=Vector2.ZERO
 	player.camera.limit_left=0
@@ -1864,6 +1887,10 @@ func exit_structure() -> void:
 		interior.queue_free()
 	interior=null
 	in_structure=""
+	player.z_index=0
+	player.show()
+	if is_instance_valid(player.sprite):
+		player.sprite.show()
 	world.show()
 	set_world_collision(true)
 	if is_instance_valid(npcs): npcs.show()
@@ -1978,6 +2005,8 @@ func load_world() -> void:
 	world.cells=data.cells
 	world.surfaces.assign(data.surfaces)
 	world.repair_village_zone()
+	world.ensure_ore_minimums()
+	world.rebuild_collision()
 	player.position=Vector2(data.position[0],data.position[1])
 	for attempt in 96:
 		var feet=Vector2i(player.position/32)
