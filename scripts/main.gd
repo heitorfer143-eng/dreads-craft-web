@@ -11,6 +11,8 @@ const NPC = preload("res://scripts/npc.gd")
 const VillageStructure = preload("res://scripts/village_structure.gd")
 const Interior = preload("res://scripts/interior.gd")
 const Mel = preload("res://scripts/mel.gd")
+const GeneratedAssets = preload("res://scripts/generated_assets.gd")
+const GeneratedIntro = preload("res://scripts/generated_intro.gd")
 
 var in_purity=false
 var overworld: Node2D
@@ -219,7 +221,7 @@ func build_ui() -> void:
 	build_badge.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	ui.add_child(build_badge)
 	menu_background=TextureRect.new()
-	menu_background.texture=load("res://assets/ui/background_v11.svg")
+	menu_background.texture=load("res://assets/backgrounds/dark_castles_generated.png")
 	menu_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	menu_background.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	menu_background.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -365,6 +367,8 @@ func layout() -> void:
 	if menu_scroll:
 		if pause_kind=="creation":
 			menu_scroll.custom_minimum_size=Vector2(minf(1040,size.x-54),minf(570,size.y-64))
+		elif pause_kind=="world_intro":
+			menu_scroll.custom_minimum_size=Vector2(minf(900,size.x-42),minf(560,size.y-50))
 		elif pause_kind=="craft":
 			menu_scroll.custom_minimum_size=Vector2(minf(1140,size.x-24),minf(650,size.y-24))
 		else:
@@ -375,6 +379,8 @@ func layout() -> void:
 			menu_size=Vector2(minf(1180,size.x-40),minf(680,size.y-36))
 		elif pause_kind=="creation":
 			menu_size=Vector2(minf(1120,size.x-32),minf(660,size.y-28))
+		elif pause_kind=="world_intro":
+			menu_size=Vector2(minf(940,size.x-30),minf(620,size.y-30))
 		elif pause_kind=="purity_dialogue":
 			menu_size=Vector2(minf(920,size.x-60),minf(520,size.y-70))
 		menu.position=Vector2((size.x-menu_size.x)/2.0,maxf(18,(size.y-menu_size.y)/2.0))
@@ -854,7 +860,7 @@ func show_creation() -> void:
 	preview_box.add_theme_constant_override("separation",8)
 	preview_panel.add_child(preview_box)
 	var preview=TextureRect.new()
-	preview.texture=load("res://assets/ui/world_creation_preview_v11.svg")
+	preview.texture=GeneratedIntro.texture()
 	preview.custom_minimum_size=Vector2(field_w-26,160) if mobile else Vector2(300,300)
 	preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -937,13 +943,82 @@ func show_creation() -> void:
 			world_name="Reino do Abismo"
 		var seed_value=int(Time.get_unix_time_from_system()) if seed_input.text.is_empty() else seed_input.text.hash()
 		Saves.active_id=""
-		start_world(creative.button_pressed,seed_value)
-		save_world()
+		show_world_intro(creative.button_pressed,seed_value,0)
 	)
 	create.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	create.add_theme_stylebox_override("normal",button_style(Color("3b1d4fff"),Color("d15df2")))
 	create.add_theme_stylebox_override("hover",button_style(Color("51266cff"),Color("ec8cff")))
 	actions.add_child(create)
+	layout()
+
+func show_world_intro(creative_mode: bool, seed_value: int, page: int=0) -> void:
+	clear_menu("","world_intro")
+	var lines=[
+		"Então... você acordou. Este é o Reino do Abismo, um lugar onde a luz já não alcança como antes.",
+		"Quando a noite chega, criaturas despertam. Explore, mine recursos e encontre abrigo antes que elas encontrem você.",
+		"Há vilas, ruínas e segredos espalhados por estas terras. Nem todo estranho é inimigo — e alguns precisarão da sua ajuda.",
+		"Seu reino começa agora. Faça aliados, fortaleça-se e descubra o que existe depois da luz."
+	]
+	var title=label("NOVO MUNDO",28)
+	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color",Color("f0e4dd"))
+	menu_box.add_child(title)
+	var subtitle=label("ANTES QUE TUDO COMECE...",11)
+	subtitle.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_color_override("font_color",Color("b898c7"))
+	menu_box.add_child(subtitle)
+
+	var art_panel=PanelContainer.new()
+	art_panel.add_theme_stylebox_override("panel",compact_panel_style(0.88,Color("785b86"),10))
+	art_panel.custom_minimum_size=Vector2(0,210)
+	menu_box.add_child(art_panel)
+	var art=TextureRect.new()
+	art.texture=GeneratedIntro.texture()
+	art.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+	art.custom_minimum_size=Vector2(0,205)
+	art_panel.add_child(art)
+
+	var dialogue=PanelContainer.new()
+	dialogue.add_theme_stylebox_override("panel",compact_panel_style(0.94,Color("65506f"),12))
+	dialogue.custom_minimum_size=Vector2(0,180)
+	menu_box.add_child(dialogue)
+	var talk=VBoxContainer.new()
+	talk.add_theme_constant_override("separation",8)
+	dialogue.add_child(talk)
+	var speaker=label("O VIAJANTE",15)
+	speaker.add_theme_color_override("font_color",Color("e1bd79"))
+	talk.add_child(speaker)
+	var speech=label(lines[clampi(page,0,lines.size()-1)],18)
+	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	speech.custom_minimum_size=Vector2(0,90)
+	speech.add_theme_color_override("font_color",Color("eee6ef"))
+	talk.add_child(speech)
+	var counter=label("%d / %d" % [page+1,lines.size()],10)
+	counter.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	counter.add_theme_color_override("font_color",Color("978aa0"))
+	talk.add_child(counter)
+
+	var actions=HBoxContainer.new()
+	actions.add_theme_constant_override("separation",10)
+	menu_box.add_child(actions)
+	var back=button("VOLTAR",show_creation)
+	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	actions.add_child(back)
+	if page<lines.size()-1:
+		var next=button("CONTINUAR  ›",func(): show_world_intro(creative_mode,seed_value,page+1))
+		next.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		next.add_theme_stylebox_override("normal",button_style(Color("351c48e8"),Color("bf70dc")))
+		actions.add_child(next)
+	else:
+		var begin=button("COMEÇAR JORNADA",func():
+			start_world(creative_mode,seed_value)
+			save_world()
+		)
+		begin.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		begin.add_theme_stylebox_override("normal",button_style(Color("3c214be8"),Color("e09a6b")))
+		actions.add_child(begin)
 	layout()
 
 func show_settings(from_main: bool=false) -> void:
@@ -1197,7 +1272,10 @@ func craft_recipe_card(recipe: Dictionary, has_table: bool) -> PanelContainer:
 	icon_panel.add_theme_stylebox_override("panel",compact_panel_style(0.68,Color("564665"),5))
 	row.add_child(icon_panel)
 	var icon=TextureRect.new()
-	icon.texture=load(Items.CRAFT_ICONS.get(recipe.id,Items.ICONS.get(recipe.id,"res://assets/items/dirt.png")))
+	if recipe.id in [13,17,18,19]:
+		icon.texture=GeneratedAssets.pickaxe(int(recipe.id))
+	else:
+		icon.texture=load(Items.CRAFT_ICONS.get(recipe.id,Items.ICONS.get(recipe.id,"res://assets/items/dirt.png")))
 	icon.custom_minimum_size=Vector2(70,70)
 	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
