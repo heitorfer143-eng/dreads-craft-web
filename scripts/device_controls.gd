@@ -59,6 +59,10 @@ func prepare_target() -> void:
 	if is_instance_valid(game) and game.has_method("set_touch_action_target"):
 		game.set_touch_action_target()
 
+func prepare_place_target() -> void:
+	if is_instance_valid(game) and game.has_method("set_touch_place_target"):
+		game.set_touch_place_target()
+
 func update_actions() -> void:
 	var pressed=fingers.values()
 	for action in ["left","right","jump","down"]:
@@ -87,7 +91,7 @@ func _input(event: InputEvent) -> void:
 			fingers[event.index]=action
 			update_actions()
 			if action=="place":
-				prepare_target()
+				prepare_place_target()
 				game.use_selected()
 			elif action=="attack":
 				prepare_target()
@@ -121,7 +125,7 @@ func _process(delta: float) -> void:
 	if mobile and repeat_timer<=0:
 		repeat_timer=.22
 		if "place" in fingers.values():
-			prepare_target()
+			prepare_place_target()
 			game.use_selected()
 		if "attack" in fingers.values():
 			prepare_target()
