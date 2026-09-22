@@ -1,0 +1,33 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -e
+          mkdir -p build/android
+          godot --version
+          godot --headless --export-debug "Android" build/android/DreadsCraft.apk
+          test -f build/android/DreadsCraft.apk
+          ls -lh build/android/DreadsCraft.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DreadsCraft-Android
+          path: build/android/DreadsCraft.apk
+          if-no-files-found: error
+          retention-days: 14
