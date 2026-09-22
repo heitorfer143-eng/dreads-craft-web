@@ -119,6 +119,23 @@ func generate_structures() -> void:
 					if cells[y][x] in [3,4,5,8,9]:
 						cells[y][x]=0
 
+func repair_village_zone() -> void:
+	# Upgrade old saves to the new village layout too: flat ground and no trees/blocks over houses.
+	for x in range(4,66):
+		var ground=35
+		if x>=surfaces.size():
+			continue
+		surfaces[x]=ground
+		for y in range(0,ground):
+			cells[y][x]=0
+		cells[ground][x]=1
+		for y in range(ground+1,mini(ground+4,HEIGHT)):
+			cells[y][x]=2
+		if ground+4<HEIGHT and cells[ground+4][x]==0:
+			cells[ground+4][x]=3
+	rebuild_collision()
+	queue_redraw()
+
 func generate_ores() -> void:
 	var rng=RandomNumberGenerator.new()
 	rng.seed=world_seed ^ 0x5F3759DF
