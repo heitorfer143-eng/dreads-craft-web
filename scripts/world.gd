@@ -30,7 +30,7 @@ func generate(seed_value: int) -> void:
 		cells.append(row)
 	for x in WIDTH:
 		var height = 35 + int(noise.get_noise_1d(x) * (6 if x < 100 else 13))
-		if x < 64:
+		if x < 70:
 			height = 35
 		surfaces.append(height)
 		for y in range(height, HEIGHT):
@@ -43,6 +43,12 @@ func generate(seed_value: int) -> void:
 					cells[y][x] = 0
 	# Trees are a separate pass: later terrain columns cannot overwrite foliage.
 	for x in range(72,WIDTH-5,11):
+		var blocked_by_village=false
+		for village_x in [18,34,50]:
+			if abs(x-village_x)<=8:
+				blocked_by_village=true
+		if blocked_by_village:
+			continue
 		var top = surfaces[x]-6
 		for y in range(top, surfaces[x]):
 			cells[y][x] = 4
@@ -104,9 +110,8 @@ func generate_structures() -> void:
 				cells[y-2][x]=4
 				cells[y-1][x]=4
 			cells[y+2][x]=8
-	# Surface landmarks are scenery rather than solid block boxes.
-	# Clear walkable village/ruin spaces; decorative structures are drawn separately below.
-	for center_x in [40,118,238,292]:
+	# Keep the image-based village completely clear of trees/blocks around each house.
+	for center_x in [18,34,50,118,238,292]:
 		var ground=surfaces[center_x]
 		for x in range(center_x-6,center_x+7):
 			if x>1 and x<WIDTH-1:
