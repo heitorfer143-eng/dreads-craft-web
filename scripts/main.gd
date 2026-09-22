@@ -13,6 +13,7 @@ const Interior = preload("res://scripts/interior.gd")
 const Mel = preload("res://scripts/mel.gd")
 const GeneratedAssets = preload("res://scripts/generated_assets.gd")
 const GeneratedIntro = preload("res://scripts/generated_intro.gd")
+const MultiplayerClient = preload("res://scripts/multiplayer_client.gd")
 
 var in_purity=false
 var overworld: Node2D
@@ -84,6 +85,10 @@ var current_npc=null
 var mel_quest_started := false
 var mel: Area2D
 var mel_tamed := false
+var online: Node
+var multiplayer_active := false
+var multiplayer_host := false
+var online_player_name := "Spike"
 const LOBBY_TIPS = [
 	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
 	"A noite é mais perigosa: prepare abrigo, espada e comida antes do escurecer.",
@@ -107,6 +112,11 @@ func _ready() -> void:
 	device_controls=preload("res://scripts/device_controls.gd").new()
 	device_controls.game=self
 	ui.add_child(device_controls)
+	online=MultiplayerClient.new()
+	online.game=self
+	online.failed.connect(on_multiplayer_failed)
+	online.room_ready.connect(on_multiplayer_room_ready)
+	add_child(online)
 	show_main()
 	get_tree().auto_accept_quit=false
 
@@ -816,6 +826,7 @@ func show_main() -> void:
 	right.add_child(menu_label)
 	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/sword_iron_v11.svg",show_creation,true)
 	right.add_child(new_button)
+	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/relic_vital.svg",show_multiplayer))
 	var continue_button=lobby_button("CONTINUAR","Retorne exatamente ao último save.","res://assets/items/backpack.png",load_world)
 	continue_button.disabled=saved_worlds.is_empty()
 	right.add_child(continue_button)
@@ -836,6 +847,152 @@ func show_main() -> void:
 	tip_panel.add_child(menu_tip_label)
 
 	layout()
+
+
+func multiplayer_line_edit(placeholder:String,text_value:String="") -> LineEdit:
+	var edit=LineEdit.new()
+	edit.text=text_value
+	edit.placeholder_text=placeholder
+	edit.max_length=24
+	edit.virtual_keyboard_enabled=true
+	edit.focus_mode=Control.FOCUS_ALL
+	edit.custom_minimum_size=Vector2(0,54)
+	edit.add_theme_stylebox_override("normal",button_style(Color("100c18f2"),Color("7f5e95")))
+	edit.add_theme_stylebox_override("focus",button_style(Color("171022ff"),Color("c268e5")))
+	edit.gui_input.connect(func(event):
+		if event is InputEventScreenTouch and event.pressed:
+			edit.grab_focus()
+			edit.caret_column=edit.text.length()
+	)
+	return edit
+
+func show_multiplayer(error_text:String="") -> void:
+	clear_menu("MULTIPLAYER","multiplayer")
+	var mobile=get_viewport_rect().size.x<=760
+	var subtitle=label("Jogue no mesmo mundo com seus amigos. Movimento e blocos são sincronizados.",13)
+	subtitle.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	subtitle.add_theme_color_override("font_color",Color("c7b4d3"))
+	menu_box.add_child(subtitle)
+	if error_text!="":
+		var err=label(error_text,13)
+		err.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		err.add_theme_color_override("font_color",Color("ef8e8e"))
+		menu_box.add_child(err)
+
+	var name_edit=multiplayer_line_edit("Seu nome",online_player_name)
+	menu_box.add_child(label("NOME DO JOGADOR",11))
+	menu_box.add_child(name_edit)
+
+	var columns=VBoxContainer.new() if mobile else HBoxContainer.new()
+	columns.add_theme_constant_override("separation",14)
+	columns.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	menu_box.add_child(columns)
+
+	var create_panel=PanelContainer.new()
+	create_panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	create_panel.add_theme_stylebox_override("panel",compact_panel_style(0.86,Color("6f557d"),12))
+	columns.add_child(create_panel)
+	var create_box=VBoxContainer.new()
+	create_box.add_theme_constant_override("separation",9)
+	create_panel.add_child(create_box)
+	var ct=label("CRIAR SALA",20)
+	ct.add_theme_color_override("font_color",Color("e9d6f2"))
+	create_box.add_child(ct)
+	var cd=label("Cria um novo reino online e gera um código para seus amigos.",12)
+	cd.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	create_box.add_child(cd)
+	var create_btn=button("CRIAR SALA ONLINE",func():
+		online_player_name=name_edit.text.strip_edges()
+		if online_player_name=="":
+			online_player_name="Spike"
+		status.text="Conectando ao servidor..."
+		online.create_room(online_player_name,int(Time.get_unix_time_from_system()),"Reino Online")
+	)
+	create_btn.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	create_box.add_child(create_btn)
+
+	var join_panel=PanelContainer.new()
+	join_panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	join_panel.add_theme_stylebox_override("panel",compact_panel_style(0.86,Color("6f557d"),12))
+	columns.add_child(join_panel)
+	var join_box=VBoxContainer.new()
+	join_box.add_theme_constant_override("separation",9)
+	join_panel.add_child(join_box)
+	var jt=label("ENTRAR EM SALA",20)
+	jt.add_theme_color_override("font_color",Color("e9d6f2"))
+	join_box.add_child(jt)
+	var room_edit=multiplayer_line_edit("Código da sala")
+	room_edit.max_length=5
+	join_box.add_child(room_edit)
+	var join_btn=button("ENTRAR PELO CÓDIGO",func():
+		online_player_name=name_edit.text.strip_edges()
+		if online_player_name=="":
+			online_player_name="Spike"
+		var code=room_edit.text.strip_edges().to_upper()
+		if code.length()!=5:
+			show_multiplayer("Digite o código de 5 caracteres da sala.")
+			return
+		online.join_room(online_player_name,code)
+	)
+	join_btn.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	join_box.add_child(join_btn)
+
+	var note=label("V1 multiplayer: jogadores, movimento e alterações de blocos compartilhadas em tempo real.",11)
+	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	note.add_theme_color_override("font_color",Color("9e90aa"))
+	menu_box.add_child(note)
+	menu_box.add_child(button("VOLTAR",show_main))
+	layout()
+
+func start_multiplayer_session(seed_value:int, online_world_name:String, is_host:bool) -> void:
+	multiplayer_active=true
+	multiplayer_host=is_host
+	world_name=online_world_name
+	difficulty=1
+	start_world(false,seed_value)
+	status.text="ONLINE · SALA "+online.room_code
+	message_time=5
+
+func on_multiplayer_room_ready(code:String,_seed:int,_online_world_name:String,_host:bool) -> void:
+	if active:
+		status.text="ONLINE · SALA "+code+" · compartilhe esse código"
+		message_time=8
+
+func on_multiplayer_failed(message:String) -> void:
+	if active:
+		multiplayer_active=false
+		status.text=message
+		message_time=6
+	else:
+		show_multiplayer(message)
+
+func leave_multiplayer() -> void:
+	if is_instance_valid(online):
+		online.disconnect_room(false)
+	multiplayer_active=false
+	multiplayer_host=false
+	show_main()
+
+func current_online_zone() -> String:
+	if in_purity:
+		return "purity"
+	if in_structure!="":
+		return "inside:"+in_structure
+	return "world"
+
+func apply_online_block(cell:Vector2i,id:int) -> void:
+	if not active or in_purity or not is_instance_valid(world):
+		return
+	if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+		return
+	world.set_cell(cell,id)
+
+func on_multiplayer_disconnected() -> void:
+	multiplayer_active=false
+	if active:
+		status.text="Conexão multiplayer encerrada."
+		message_time=5
 
 
 func show_creation() -> void:
@@ -1137,7 +1294,20 @@ func start_world(creative: bool, seed_value: int) -> void:
 func show_pause() -> void:
 	if not active:
 		return
-	clear_menu(world_name,"pause")
+	clear_menu(world_name+(" · ONLINE" if multiplayer_active else ""),"pause")
+	if multiplayer_active:
+		var room=label("SALA: "+online.room_code,18)
+		room.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		room.add_theme_color_override("font_color",Color("f0cb78"))
+		menu_box.add_child(room)
+		var hint=label("Passe esse código para seus amigos entrarem no mesmo mundo.",12)
+		hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		hint.add_theme_color_override("font_color",Color("baa9c5"))
+		menu_box.add_child(hint)
+		menu_box.add_child(button("CONTINUAR",resume))
+		menu_box.add_child(button("CONFIGURAÇÕES",func(): show_settings(false)))
+		menu_box.add_child(button("SAIR DA SALA",leave_multiplayer))
+		return
 	var option=OptionButton.new()
 	for name_text in ["Pacífico","Fácil","Normal","Difícil"]:
 		option.add_item(name_text)
@@ -1575,6 +1745,8 @@ func place_block() -> bool:
 	if not player.creative and player.inventory.get(selected,0)<1:
 		return false
 	world.set_cell(target,selected)
+	if multiplayer_active and is_instance_valid(online):
+		online.send_block_change(target,selected)
 	if not player.creative:
 		player.inventory[selected]-=1
 	refresh_hud()
@@ -1640,6 +1812,8 @@ func _process(delta: float) -> void:
 			progress+=delta*Items.mining_speed(player.inventory)
 		if player.creative or progress>=Items.HARDNESS.get(id,1.0):
 			world.set_cell(target,0)
+			if multiplayer_active and is_instance_valid(online):
+				online.send_block_change(target,0)
 			if is_instance_valid(game_audio): game_audio.mine()
 			var drop=2 if id==1 else id
 			player.inventory[drop]=player.inventory.get(drop,0)+1
@@ -1663,7 +1837,8 @@ func _process(delta: float) -> void:
 	auto_save+=delta
 	if auto_save>=20:
 		auto_save=0
-		save_world()
+		if not multiplayer_active:
+			save_world()
 	if int(Time.get_ticks_msec()/250)%2==0:
 		hp_bar.max_value=player.max_hp
 		hp_bar.value=player.max_hp if player.creative else player.hp
@@ -1671,7 +1846,7 @@ func _process(delta: float) -> void:
 		stats.text="LIVRE" if player.creative else "%d/%d" % [int(player.hp),int(player.max_hp)]
 		food_value.text="LIVRE" if player.creative else str(int(player.food))
 		var minutes=int(clock*1440)
-		time_label.text="DIA %d  ·  %02d:%02d" % [day,minutes/60,minutes%60]
+		time_label.text=("SALA "+online.room_code+" · " if multiplayer_active and is_instance_valid(online) else "")+"DIA %d  ·  %02d:%02d" % [day,minutes/60,minutes%60]
 	message_time=maxf(0,message_time-delta)
 	if message_time==0:
 		status.text=""
@@ -1707,6 +1882,8 @@ func spawn_mel() -> void:
 	add_child(mel)
 
 func maybe_start_mel_quest() -> void:
+	if multiplayer_active:
+		return
 	if not active or mel_tamed or mel_quest_started or not is_instance_valid(mel):
 		return
 	mel_quest_started=true
