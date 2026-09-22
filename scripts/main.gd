@@ -425,7 +425,8 @@ func layout() -> void:
 func clear_menu(title: String, kind: String) -> void:
 	var outer_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
 	if outer_scroll:
-		outer_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+		outer_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+		outer_scroll.scroll_vertical=0
 	for child in menu_box.get_children():
 		menu_box.remove_child(child)
 		child.queue_free()
