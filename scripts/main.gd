@@ -1272,10 +1272,8 @@ func craft_recipe_card(recipe: Dictionary, has_table: bool) -> PanelContainer:
 	icon_panel.add_theme_stylebox_override("panel",compact_panel_style(0.68,Color("564665"),5))
 	row.add_child(icon_panel)
 	var icon=TextureRect.new()
-	if recipe.id in [13,17,18,19]:
-		icon.texture=GeneratedAssets.pickaxe(int(recipe.id))
-	else:
-		icon.texture=load(Items.CRAFT_ICONS.get(recipe.id,Items.ICONS.get(recipe.id,"res://assets/items/dirt.png")))
+	icon.texture=load(Items.CRAFT_ICONS.get(recipe.id,Items.ICONS.get(recipe.id,"res://assets/items/dirt.png")))
+	icon.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.custom_minimum_size=Vector2(70,70)
 	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -1648,15 +1646,36 @@ func show_mel_dialogue() -> void:
 		message_time=3
 		return
 	clear_menu("","mel_dialogue")
-	var title=label("🐾  MEL",25)
-	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var card=PanelContainer.new()
+	card.add_theme_stylebox_override("panel",compact_panel_style(0.97,Color("9a7655"),14))
+	card.custom_minimum_size=Vector2(minf(780,get_viewport_rect().size.x-34),300)
+	menu_box.add_child(card)
+	var row=HBoxContainer.new()
+	row.add_theme_constant_override("separation",18)
+	card.add_child(row)
+	var portrait_panel=PanelContainer.new()
+	portrait_panel.custom_minimum_size=Vector2(180,220)
+	portrait_panel.add_theme_stylebox_override("panel",compact_panel_style(0.82,Color("b98b62"),8))
+	row.add_child(portrait_panel)
+	var portrait=TextureRect.new()
+	portrait.texture=load("res://assets/npcs/mel_generated.png")
+	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait.custom_minimum_size=Vector2(164,204)
+	portrait_panel.add_child(portrait)
+	var box=VBoxContainer.new()
+	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation",10)
+	row.add_child(box)
+	var title=label("MEL",25)
 	title.add_theme_color_override("font_color",Color("f1c987"))
-	menu_box.add_child(title)
+	box.add_child(title)
 	var bones=int(player.inventory.get(23,0))
-	var speech=label("Mel abana o rabinho e olha para você.\n\nEla parece faminta e quer 3 ossos. Os monstros que surgem à noite deixam ossos quando são derrotados.\n\nOssos: %d / 3" % bones,17)
+	var speech=label("Mel abana o rabinho e olha para você.\n\nEla parece faminta e quer 3 ossos. Os monstros que surgem à noite deixam ossos quando são derrotados.\n\nOssos: %d / 3" % bones,16)
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	speech.custom_minimum_size=Vector2(520,145)
-	menu_box.add_child(speech)
+	speech.custom_minimum_size=Vector2(360,135)
+	box.add_child(speech)
 	if bones>=3 or player.creative:
 		var tame=button("DAR 3 OSSOS E DOMESTICAR MEL",func():
 			if not player.creative:
@@ -1669,12 +1688,15 @@ func show_mel_dialogue() -> void:
 			refresh_hud()
 			resume()
 		)
-		menu_box.add_child(tame)
+		tame.custom_minimum_size=Vector2(330,50)
+		box.add_child(tame)
 	else:
-		var hint=label("Volte quando conseguir 3 ossos durante a noite.",13)
+		var hint=label("Volte quando conseguir 3 ossos durante a noite.",12)
 		hint.add_theme_color_override("font_color",Color("b8a5c5"))
-		menu_box.add_child(hint)
-	menu_box.add_child(button("FECHAR",resume))
+		box.add_child(hint)
+	var close=button("FECHAR",resume)
+	close.custom_minimum_size=Vector2(220,46)
+	box.add_child(close)
 	layout()
 
 func spawn_world_npcs() -> void:
@@ -1822,39 +1844,47 @@ func show_npc_dialogue(npc) -> void:
 	current_npc=npc
 	clear_menu("","npc_dialogue")
 	var card=PanelContainer.new()
-	card.add_theme_stylebox_override("panel",compact_panel_style(0.97,Color("8b6e9d"),14))
-	card.custom_minimum_size=Vector2(minf(760,get_viewport_rect().size.x-36),300)
+	card.add_theme_stylebox_override("panel",compact_panel_style(0.98,Color("8b6e9d"),14))
+	card.custom_minimum_size=Vector2(minf(800,get_viewport_rect().size.x-34),320)
 	menu_box.add_child(card)
 	var row=HBoxContainer.new()
 	row.add_theme_constant_override("separation",18)
 	card.add_child(row)
+	var portrait_panel=PanelContainer.new()
+	portrait_panel.custom_minimum_size=Vector2(190,240)
+	portrait_panel.add_theme_stylebox_override("panel",compact_panel_style(0.84,Color("8c6f55") if npc.role=="ferreiro" else Color("b9a97a"),8))
+	row.add_child(portrait_panel)
 	var portrait=TextureRect.new()
 	portrait.texture=load("res://assets/npcs/monk_generated.png" if npc.role=="monge" else "res://assets/npcs/blacksmith_generated.png")
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	portrait.custom_minimum_size=Vector2(150,210)
+	portrait.custom_minimum_size=Vector2(174,224)
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	row.add_child(portrait)
+	portrait_panel.add_child(portrait)
 	var box=VBoxContainer.new()
 	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation",12)
 	row.add_child(box)
-	var who=label(npc.npc_name,22)
+	var role_label=label("MONGE DA PUREZA" if npc.role=="monge" else "FERREIRO",11)
+	role_label.add_theme_color_override("font_color",Color("b79ac8"))
+	box.add_child(role_label)
+	var who=label(npc.npc_name,23)
 	who.add_theme_color_override("font_color",Color("f0d99a"))
 	box.add_child(who)
-	var speech=label(npc.next_line(),17)
+	var speech=label("“"+npc.next_line()+"”",17)
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	speech.custom_minimum_size=Vector2(0,105)
+	speech.custom_minimum_size=Vector2(380,105)
+	speech.add_theme_color_override("font_color",Color("eee5ed"))
 	box.add_child(speech)
 	if npc.role=="ferreiro":
 		var craft_button=button("ABRIR BANCADA",func():
 			craft_override=true
 			show_craft()
 		)
-		craft_button.custom_minimum_size=Vector2(280,54)
+		craft_button.custom_minimum_size=Vector2(280,52)
 		box.add_child(craft_button)
-	var close=button("FECHAR",resume)
-	close.custom_minimum_size=Vector2(280,50)
+	var close=button("CONTINUAR",resume)
+	close.custom_minimum_size=Vector2(240,48)
 	box.add_child(close)
 	layout()
 
