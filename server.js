@@ -64,7 +64,7 @@ function broadcast(room,obj,except=null){
   const data=JSON.stringify(obj);
   for(const p of room.players.values()) if(p.ws!==except && p.ws.readyState===1) p.ws.send(data);
 }
-function publicPlayer(p){ return {id:p.id,name:p.name,x:p.state.x,y:p.state.y,face:p.state.face,anim:p.state.anim}; }
+function publicPlayer(p){ return {id:p.id,name:p.name,x:p.state.x,y:p.state.y,face:p.state.face,anim:p.state.anim,zone:p.state.zone||"world"}; }
 function leave(ws){
   if(!ws.room || !rooms.has(ws.room)) return;
   const room=rooms.get(ws.room);
@@ -90,7 +90,7 @@ wss.on("connection",(ws)=>{
       const seed=Number.isFinite(Number(msg.seed)) ? Math.trunc(Number(msg.seed)) : Date.now();
       const room={code:roomCode,seed,world_name:String(msg.world_name||"Reino Online").slice(0,32),players:new Map(),blocks:new Map()};
       rooms.set(roomCode,room);
-      const p={id:id(),name:String(msg.name||"Jogador").slice(0,16),ws,state:{x:400,y:1000,face:1,anim:"idle"}};
+      const p={id:id(),name:String(msg.name||"Jogador").slice(0,16),ws,state:{x:400,y:1000,face:1,anim:"idle",zone:"world"}};
       room.players.set(p.id,p); ws.room=roomCode; ws.pid=p.id;
       send(ws,{type:"room",room:roomCode,id:p.id,seed:room.seed,world_name:room.world_name,host:true,players:[],blocks:[]});
       return;
@@ -101,7 +101,7 @@ wss.on("connection",(ws)=>{
       const roomCode=String(msg.room||"").trim().toUpperCase();
       const room=rooms.get(roomCode);
       if(!room){ send(ws,{type:"error",message:"Sala não encontrada."}); return; }
-      const p={id:id(),name:String(msg.name||"Jogador").slice(0,16),ws,state:{x:400,y:1000,face:1,anim:"idle"}};
+      const p={id:id(),name:String(msg.name||"Jogador").slice(0,16),ws,state:{x:400,y:1000,face:1,anim:"idle",zone:"world"}};
       const others=[...room.players.values()].map(publicPlayer);
       room.players.set(p.id,p); ws.room=roomCode; ws.pid=p.id;
       const blocks=[...room.blocks.entries()].map(([key,value])=>{const [x,y]=key.split(",").map(Number);return {x,y,id:value};});
@@ -118,7 +118,7 @@ wss.on("connection",(ws)=>{
     if(msg.type==="state"){
       const x=Number(msg.x), y=Number(msg.y);
       if(!Number.isFinite(x)||!Number.isFinite(y)) return;
-      p.state={x,y,face:Number(msg.face)<0?-1:1,anim:String(msg.anim||"idle").slice(0,12)};
+      p.state={x,y,face:Number(msg.face)<0?-1:1,anim:String(msg.anim||"idle").slice(0,12),zone:String(msg.zone||"world").slice(0,24)};
       broadcast(room,{type:"state",id:p.id,name:p.name,...p.state},ws);
     } else if(msg.type==="block"){
       const x=Math.trunc(Number(msg.x)), y=Math.trunc(Number(msg.y)), block=Math.trunc(Number(msg.id));
