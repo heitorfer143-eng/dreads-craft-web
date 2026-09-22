@@ -19,7 +19,7 @@ func _ready() -> void:
 	sprite.texture=load(texture_path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale=Vector2(1.55,1.55)
-	sprite.position=Vector2(0,-124)
+	sprite.position=Vector2(0,-102)
 	add_child(sprite)
 	z_index=1
 	set_process(true)
