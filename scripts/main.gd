@@ -349,6 +349,10 @@ func build_ui() -> void:
 	scroll.custom_minimum_size=Vector2(560,360)
 	scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	scroll.scroll_deadzone=6
+	scroll.follow_focus=true
 	menu.add_child(scroll)
 	menu_box=VBoxContainer.new()
 	menu_box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -886,9 +890,18 @@ func show_creation() -> void:
 	var name_input=LineEdit.new()
 	name_input.text=world_name
 	name_input.placeholder_text="Meu mundo"
-	name_input.custom_minimum_size=Vector2(field_w,48)
+	name_input.max_length=32
+	name_input.virtual_keyboard_enabled=true
+	name_input.virtual_keyboard_type=LineEdit.KEYBOARD_TYPE_DEFAULT
+	name_input.focus_mode=Control.FOCUS_ALL
+	name_input.custom_minimum_size=Vector2(field_w,54 if mobile else 48)
 	name_input.add_theme_stylebox_override("normal",button_style(Color("100c18f2"),Color("7f5e95")))
 	name_input.add_theme_stylebox_override("focus",button_style(Color("171022ff"),Color("c268e5")))
+	name_input.gui_input.connect(func(event):
+		if event is InputEventScreenTouch and event.pressed:
+			name_input.grab_focus()
+			name_input.caret_column=name_input.text.length()
+	)
 	form.add_child(name_input)
 
 	var mode_label_create=label("Modo de jogo",14)
@@ -923,9 +936,18 @@ func show_creation() -> void:
 	form.add_child(seed_label)
 	var seed_input=LineEdit.new()
 	seed_input.placeholder_text="Digite uma seed..."
-	seed_input.custom_minimum_size=Vector2(field_w,48)
+	seed_input.max_length=40
+	seed_input.virtual_keyboard_enabled=true
+	seed_input.virtual_keyboard_type=LineEdit.KEYBOARD_TYPE_DEFAULT
+	seed_input.focus_mode=Control.FOCUS_ALL
+	seed_input.custom_minimum_size=Vector2(field_w,54 if mobile else 48)
 	seed_input.add_theme_stylebox_override("normal",button_style(Color("100c18f2"),Color("7f5e95")))
 	seed_input.add_theme_stylebox_override("focus",button_style(Color("171022ff"),Color("c268e5")))
+	seed_input.gui_input.connect(func(event):
+		if event is InputEventScreenTouch and event.pressed:
+			seed_input.grab_focus()
+			seed_input.caret_column=seed_input.text.length()
+	)
 	form.add_child(seed_input)
 	var note=label("Deixe em branco para um mundo aleatório.",11)
 	note.add_theme_color_override("font_color",Color("9f90ac"))
@@ -1412,6 +1434,12 @@ func show_craft() -> void:
 		recipe_list.add_child(empty)
 
 func _input(event: InputEvent) -> void:
+	if modal and event is InputEventScreenDrag and absf(event.relative.y)>absf(event.relative.x):
+		var modal_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
+		if modal_scroll:
+			modal_scroll.scroll_vertical=maxi(0,modal_scroll.scroll_vertical-int(event.relative.y*1.35))
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventMouse and event.device==InputEvent.DEVICE_ID_EMULATION:
 		return
 	if event is InputEventKey and event.pressed and event.physical_keycode==KEY_F11:
@@ -1640,41 +1668,53 @@ func maybe_start_mel_quest() -> void:
 	mel_quest_started=true
 	show_mel_dialogue()
 
+func npc_face_texture(path: String, role: String="") -> Texture2D:
+	if not ResourceLoader.exists(path):
+		return null
+	var source:Texture2D=load(path)
+	if role=="mel":
+		return source
+	var atlas=AtlasTexture.new()
+	atlas.atlas=source
+	atlas.region=Rect2(0,0,64,58)
+	return atlas
+
 func show_mel_dialogue() -> void:
 	if mel_tamed:
 		status.text="Mel está com você · +2 de dano contra mobs"
 		message_time=3
 		return
 	clear_menu("","mel_dialogue")
+	var mobile=get_viewport_rect().size.x<=760
 	var card=PanelContainer.new()
 	card.add_theme_stylebox_override("panel",compact_panel_style(0.97,Color("9a7655"),14))
-	card.custom_minimum_size=Vector2(minf(780,get_viewport_rect().size.x-34),300)
+	card.custom_minimum_size=Vector2(minf(760,get_viewport_rect().size.x-30),360 if mobile else 300)
 	menu_box.add_child(card)
-	var row=HBoxContainer.new()
-	row.add_theme_constant_override("separation",18)
+	var row=VBoxContainer.new() if mobile else HBoxContainer.new()
+	row.add_theme_constant_override("separation",14 if mobile else 18)
 	card.add_child(row)
 	var portrait_panel=PanelContainer.new()
-	portrait_panel.custom_minimum_size=Vector2(180,220)
+	portrait_panel.custom_minimum_size=Vector2(150,150) if mobile else Vector2(180,220)
 	portrait_panel.add_theme_stylebox_override("panel",compact_panel_style(0.82,Color("b98b62"),8))
 	row.add_child(portrait_panel)
 	var portrait=TextureRect.new()
-	portrait.texture=load("res://assets/npcs/mel_generated.png")
+	portrait.texture=npc_face_texture("res://assets/npcs/mel_generated.png","mel")
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait.custom_minimum_size=Vector2(164,204)
+	portrait.custom_minimum_size=Vector2(140,140) if mobile else Vector2(164,204)
 	portrait_panel.add_child(portrait)
 	var box=VBoxContainer.new()
 	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation",10)
+	box.add_theme_constant_override("separation",9)
 	row.add_child(box)
-	var title=label("MEL",25)
+	var title=label("MEL",24 if mobile else 25)
 	title.add_theme_color_override("font_color",Color("f1c987"))
 	box.add_child(title)
 	var bones=int(player.inventory.get(23,0))
-	var speech=label("Mel abana o rabinho e olha para você.\n\nEla parece faminta e quer 3 ossos. Os monstros que surgem à noite deixam ossos quando são derrotados.\n\nOssos: %d / 3" % bones,16)
+	var speech=label("Mel abana o rabinho e olha para você.\n\nEla parece faminta e quer 3 ossos. Os monstros que surgem à noite deixam ossos quando são derrotados.\n\nOssos: %d / 3" % bones,15 if mobile else 16)
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	speech.custom_minimum_size=Vector2(360,135)
+	speech.custom_minimum_size=Vector2(0,120)
 	box.add_child(speech)
 	if bones>=3 or player.creative:
 		var tame=button("DAR 3 OSSOS E DOMESTICAR MEL",func():
@@ -1688,14 +1728,14 @@ func show_mel_dialogue() -> void:
 			refresh_hud()
 			resume()
 		)
-		tame.custom_minimum_size=Vector2(330,50)
+		tame.custom_minimum_size=Vector2(0,50)
 		box.add_child(tame)
 	else:
 		var hint=label("Volte quando conseguir 3 ossos durante a noite.",12)
 		hint.add_theme_color_override("font_color",Color("b8a5c5"))
 		box.add_child(hint)
 	var close=button("FECHAR",resume)
-	close.custom_minimum_size=Vector2(220,46)
+	close.custom_minimum_size=Vector2(0,48)
 	box.add_child(close)
 	layout()
 
@@ -1843,37 +1883,39 @@ func exit_structure() -> void:
 func show_npc_dialogue(npc) -> void:
 	current_npc=npc
 	clear_menu("","npc_dialogue")
+	var mobile=get_viewport_rect().size.x<=760
+	var portrait_path="res://assets/npcs/monk_generated.png" if npc.role=="monge" else "res://assets/npcs/blacksmith_generated.png"
 	var card=PanelContainer.new()
 	card.add_theme_stylebox_override("panel",compact_panel_style(0.98,Color("8b6e9d"),14))
-	card.custom_minimum_size=Vector2(minf(800,get_viewport_rect().size.x-34),320)
+	card.custom_minimum_size=Vector2(minf(780,get_viewport_rect().size.x-30),380 if mobile else 320)
 	menu_box.add_child(card)
-	var row=HBoxContainer.new()
-	row.add_theme_constant_override("separation",18)
+	var row=VBoxContainer.new() if mobile else HBoxContainer.new()
+	row.add_theme_constant_override("separation",14 if mobile else 18)
 	card.add_child(row)
 	var portrait_panel=PanelContainer.new()
-	portrait_panel.custom_minimum_size=Vector2(190,240)
+	portrait_panel.custom_minimum_size=Vector2(156,156) if mobile else Vector2(190,230)
 	portrait_panel.add_theme_stylebox_override("panel",compact_panel_style(0.84,Color("8c6f55") if npc.role=="ferreiro" else Color("b9a97a"),8))
 	row.add_child(portrait_panel)
 	var portrait=TextureRect.new()
-	portrait.texture=load("res://assets/npcs/monk_generated.png" if npc.role=="monge" else "res://assets/npcs/blacksmith_generated.png")
+	portrait.texture=npc_face_texture(portrait_path,npc.role)
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	portrait.custom_minimum_size=Vector2(174,224)
+	portrait.custom_minimum_size=Vector2(146,146) if mobile else Vector2(174,214)
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	portrait_panel.add_child(portrait)
 	var box=VBoxContainer.new()
 	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation",12)
+	box.add_theme_constant_override("separation",10)
 	row.add_child(box)
 	var role_label=label("MONGE DA PUREZA" if npc.role=="monge" else "FERREIRO",11)
 	role_label.add_theme_color_override("font_color",Color("b79ac8"))
 	box.add_child(role_label)
-	var who=label(npc.npc_name,23)
+	var who=label(npc.npc_name,21 if mobile else 23)
 	who.add_theme_color_override("font_color",Color("f0d99a"))
 	box.add_child(who)
-	var speech=label("“"+npc.next_line()+"”",17)
+	var speech=label("“"+npc.next_line()+"”",16 if mobile else 17)
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	speech.custom_minimum_size=Vector2(380,105)
+	speech.custom_minimum_size=Vector2(0,100)
 	speech.add_theme_color_override("font_color",Color("eee5ed"))
 	box.add_child(speech)
 	if npc.role=="ferreiro":
@@ -1881,10 +1923,10 @@ func show_npc_dialogue(npc) -> void:
 			craft_override=true
 			show_craft()
 		)
-		craft_button.custom_minimum_size=Vector2(280,52)
+		craft_button.custom_minimum_size=Vector2(0,50)
 		box.add_child(craft_button)
 	var close=button("CONTINUAR",resume)
-	close.custom_minimum_size=Vector2(240,48)
+	close.custom_minimum_size=Vector2(0,48)
 	box.add_child(close)
 	layout()
 
