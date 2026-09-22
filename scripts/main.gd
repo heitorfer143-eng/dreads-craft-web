@@ -236,7 +236,7 @@ func build_ui() -> void:
 	build_badge.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	ui.add_child(build_badge)
 	menu_background=TextureRect.new()
-	menu_background.texture=load("res://assets/backgrounds/dark_castles_generated.png")
+	menu_background.texture=load("res://assets/backgrounds/dreads_craft_cover.jpg")
 	menu_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	menu_background.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	menu_background.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
