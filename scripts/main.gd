@@ -85,6 +85,9 @@ var current_npc=null
 var mel_quest_started := false
 var mel: Area2D
 var mel_tamed := false
+var borin_quest_done := false
+var monk_quest_done := false
+var night_kills := 0
 var online: Node
 var multiplayer_active := false
 var multiplayer_host := false
@@ -1359,6 +1362,9 @@ func start_world(creative: bool, seed_value: int) -> void:
 	boss=null
 	mel_tamed=false
 	mel_quest_started=false
+	borin_quest_done=false
+	monk_quest_done=false
+	night_kills=0
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
 	for node in [world,player,enemies,npcs,structures,interior,selection,mel]:
@@ -1406,6 +1412,70 @@ func start_world(creative: bool, seed_value: int) -> void:
 	status.show()
 	resume()
 
+func complete_borin_quest(npc) -> void:
+	if borin_quest_done:
+		return
+	if not player.creative and int(player.inventory.get(7,0))<6:
+		status.text="Borin ainda precisa de 6 ferros."
+		message_time=3
+		resume()
+		return
+	if not player.creative:
+		player.inventory[7]=maxi(0,int(player.inventory.get(7,0))-6)
+	player.inventory[11]=int(player.inventory.get(11,0))+1
+	player.inventory[14]=int(player.inventory.get(14,0))+1
+	borin_quest_done=true
+	refresh_hud()
+	show_npc_dialogue(npc)
+
+func complete_monk_quest(npc) -> void:
+	if monk_quest_done:
+		return
+	if not player.creative and night_kills<5:
+		status.text="A prova exige 5 criaturas derrotadas à noite."
+		message_time=3
+		resume()
+		return
+	monk_quest_done=true
+	player.max_hp=maxf(player.max_hp,120.0)
+	player.hp=player.max_hp
+	player.inventory[14]=int(player.inventory.get(14,0))+2
+	refresh_hud()
+	show_npc_dialogue(npc)
+
+func show_objectives() -> void:
+	clear_menu("MISSÕES / OBJETIVOS","objectives")
+	var title=label("COISAS PARA FAZER NESTE MUNDO",18)
+	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color",Color("f0d99a"))
+	menu_box.add_child(title)
+
+	var tasks=[
+		["🐶 MEL","Domestique Mel entregando 3 ossos.","CONCLUÍDA" if mel_tamed else "%d / 3 ossos" % int(player.inventory.get(23,0))],
+		["⚒ BORIN","Leve 6 ferros ao ferreiro.","CONCLUÍDA" if borin_quest_done else "%d / 6 ferros" % mini(6,int(player.inventory.get(7,0)))],
+		["☾ PROVA DO MONGE","Derrote 5 criaturas que aparecem à noite.","CONCLUÍDA" if monk_quest_done else "%d / 5 criaturas" % mini(5,night_kills)],
+		["✦ PORTAL DA PUREZA","Fabrique o portal com 9 diamantes + 1 Avarita e enfrente o Guardião.","CONCLUÍDA" if boss_defeated else "Em andamento"]
+	]
+	for task in tasks:
+		var card=PanelContainer.new()
+		card.add_theme_stylebox_override("panel",compact_panel_style(0.80,Color("66536f"),9))
+		card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		menu_box.add_child(card)
+		var box=VBoxContainer.new()
+		box.add_theme_constant_override("separation",4)
+		card.add_child(box)
+		var name=label(str(task[0]),15)
+		name.add_theme_color_override("font_color",Color("ead8f0"))
+		box.add_child(name)
+		var desc=label(str(task[1]),12)
+		desc.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(desc)
+		var prog=label(str(task[2]),12)
+		prog.add_theme_color_override("font_color",Color("9fe7b2") if str(task[2])=="CONCLUÍDA" else Color("e3bd78"))
+		box.add_child(prog)
+	menu_box.add_child(button("VOLTAR",show_pause))
+	layout()
+
 func show_pause() -> void:
 	if not active:
 		return
@@ -1435,6 +1505,7 @@ func show_pause() -> void:
 	)
 	menu_box.add_child(option)
 	menu_box.add_child(button("CONTINUAR",resume))
+	menu_box.add_child(button("MISSÕES / OBJETIVOS",show_objectives))
 	menu_box.add_child(button("CONFIGURAÇÕES",func(): show_settings(false)))
 	menu_box.add_child(button("SALVAR E SAIR AO MENU",func():
 		if save_world():
@@ -1769,9 +1840,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		attack()
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode==KEY_R:
-			if interact_nearby():
-				get_viewport().set_input_as_handled()
-				return
+			use_selected()
+			get_viewport().set_input_as_handled()
+			return
 		if event.physical_keycode>=KEY_1 and event.physical_keycode<=KEY_6:
 			selected=hotbar[event.physical_keycode-KEY_1]
 			refresh_hud()
@@ -1867,6 +1938,66 @@ func refresh_mobile_mining_target() -> void:
 		if player.position.distance_to(center)<=150.0:
 			return
 	set_touch_action_target()
+
+func set_touch_place_target() -> void:
+	if not is_instance_valid(player) or in_structure!="" or in_purity or not is_instance_valid(world):
+		return
+
+	var origin=player.position-Vector2(0,24)
+	# First respect the exact empty cell touched by the player.
+	var desired=Vector2i(floor((player.position+touch_aim).x/32.0),floor((player.position+touch_aim).y/32.0))
+	if desired.x>=0 and desired.x<320 and desired.y>=0 and desired.y<95:
+		var desired_center=Vector2(desired*32+Vector2i(16,16))
+		var desired_area=Rect2(Vector2(desired)*32,Vector2(32,32))
+		if world.get_cell(desired)==0 and origin.distance_to(desired_center)<=170.0 and not player.body_rect().intersects(desired_area):
+			target=desired
+			return
+
+	# If the touch is on a solid block, place on the closest empty face of it.
+	if desired.x>=0 and desired.x<320 and desired.y>=0 and desired.y<95 and world.get_cell(desired) not in [0,16]:
+		var choices=[Vector2i.UP,Vector2i.DOWN,Vector2i.LEFT,Vector2i.RIGHT]
+		var best=Vector2i(-1,-1)
+		var best_score=999999.0
+		var touch_world=player.position+touch_aim
+		for offset in choices:
+			var cell=desired+offset
+			if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+				continue
+			if world.get_cell(cell)!=0:
+				continue
+			var area=Rect2(Vector2(cell)*32,Vector2(32,32))
+			if player.body_rect().intersects(area):
+				continue
+			var center=Vector2(cell*32+Vector2i(16,16))
+			if origin.distance_to(center)>170.0:
+				continue
+			var score=center.distance_to(touch_world)
+			if score<best_score:
+				best_score=score
+				best=cell
+		if best.x>=0:
+			target=best
+			return
+
+	# Reliable fallback in front/above/below the player.
+	var feet=Vector2i(floor(player.position.x/32.0),floor(player.position.y/32.0))
+	var fallback=[
+		feet+Vector2i(player.face,0),
+		feet+Vector2i(player.face,-1),
+		feet+Vector2i(player.face,1),
+		feet+Vector2i(0,-2)
+	]
+	for cell in fallback:
+		if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+			continue
+		if world.get_cell(cell)!=0:
+			continue
+		var area=Rect2(Vector2(cell)*32,Vector2(32,32))
+		if not player.body_rect().intersects(area):
+			target=cell
+			touch_aim=Vector2(cell*32+Vector2i(16,16))-player.position
+			return
+	target=Vector2i(-1,-1)
 
 func update_target() -> void:
 	target=Vector2i(-1,-1)
@@ -2306,12 +2437,39 @@ func show_npc_dialogue(npc) -> void:
 	content.add_child(speech)
 
 	if npc.role=="ferreiro":
+		if not borin_quest_done:
+			var quest=label("PEDIDO DE BORIN · Entregue 6 ferros\nRecompensa: Espada de ferro + 1 diamante",12)
+			quest.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+			quest.add_theme_color_override("font_color",Color("e3bd78"))
+			content.add_child(quest)
+			var give=button("ENTREGAR 6 FERROS  (%d/6)" % mini(6,int(player.inventory.get(7,0))),func(): complete_borin_quest(npc))
+			give.disabled=not player.creative and int(player.inventory.get(7,0))<6
+			give.custom_minimum_size=Vector2(0,48)
+			content.add_child(give)
+		else:
+			var done=label("✓ Pedido concluído. Borin agora confia em você.",12)
+			done.add_theme_color_override("font_color",Color("9fe7b2"))
+			content.add_child(done)
 		var craft_button=button("ABRIR BANCADA",func():
 			craft_override=true
 			show_craft()
 		)
 		craft_button.custom_minimum_size=Vector2(0,48)
 		content.add_child(craft_button)
+	elif npc.role=="monge":
+		if not monk_quest_done:
+			var quest=label("PROVA DA NOITE · Derrote 5 criaturas noturnas\nRecompensa: +20 de vida máxima + 2 diamantes",12)
+			quest.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+			quest.add_theme_color_override("font_color",Color("e3bd78"))
+			content.add_child(quest)
+			var claim=button("RECEBER BÊNÇÃO  (%d/5)" % mini(5,night_kills),func(): complete_monk_quest(npc))
+			claim.disabled=not player.creative and night_kills<5
+			claim.custom_minimum_size=Vector2(0,48)
+			content.add_child(claim)
+		else:
+			var blessed=label("✓ Prova concluída. Sua vida máxima foi ampliada.",12)
+			blessed.add_theme_color_override("font_color",Color("9fe7b2"))
+			content.add_child(blessed)
 	var close=button("CONTINUAR",resume)
 	close.custom_minimum_size=Vector2(0,46)
 	content.add_child(close)
@@ -2328,7 +2486,14 @@ func spawn_mob() -> void:
 	mob.killed.connect(func():
 		player.inventory[10]=player.inventory.get(10,0)+1
 		player.inventory[23]=player.inventory.get(23,0)+1
-		status.text="Osso obtido! Mel precisa de 3."
+		if not monk_quest_done:
+			night_kills+=1
+		if not mel_tamed:
+			status.text="Osso obtido! Mel: %d/3 · Prova do Monge: %d/5" % [mini(3,int(player.inventory.get(23,0))),mini(5,night_kills)]
+		elif not monk_quest_done:
+			status.text="Criatura derrotada · Prova do Monge: %d/5" % mini(5,night_kills)
+		else:
+			status.text="Criatura derrotada."
 		message_time=2.5
 		refresh_hud()
 	)
@@ -2343,7 +2508,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started}
+	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills}
 	if in_purity:
 		data["arena_position"]=[player.position.x,player.position.y]
 		data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
@@ -2383,6 +2548,12 @@ func load_world() -> void:
 	boss_defeated=bool(data.get("boss_defeated",false))
 	mel_tamed=bool(data.get("mel_tamed",false))
 	mel_quest_started=bool(data.get("mel_quest_started",mel_tamed))
+	borin_quest_done=bool(data.get("borin_quest_done",false))
+	monk_quest_done=bool(data.get("monk_quest_done",false))
+	night_kills=int(data.get("night_kills",0))
+	if monk_quest_done:
+		player.max_hp=maxf(player.max_hp,120.0)
+		player.hp=minf(player.hp,player.max_hp)
 	if is_instance_valid(mel):
 		mel.set_tamed(mel_tamed)
 	if bool(data.get("in_purity",false)):
@@ -2414,12 +2585,21 @@ func use_selected() -> void:
 		return
 	if target.x>=0 and world.get_cell(target)==16:
 		use_portal()
-	elif target.x>=0 and world.get_cell(target)==9:
+		return
+	if target.x>=0 and world.get_cell(target)==9:
 		show_craft()
-	elif selected==10:
+		return
+	if selected==10:
 		eat()
-	else:
-		place_block()
+		return
+	if is_instance_valid(device_controls) and device_controls.mobile:
+		set_touch_place_target()
+	if not place_block():
+		if selected not in [2,3,4,5,6,7,8,9,14,15,16]:
+			status.text="Selecione um bloco na hotbar para colocar."
+		else:
+			status.text="Aponte para um espaço vazio ao lado de um bloco."
+		message_time=2.5
 
 func nearby_portal() -> bool:
 	if not active or not is_instance_valid(world):
