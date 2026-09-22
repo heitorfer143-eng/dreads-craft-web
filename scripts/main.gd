@@ -1507,17 +1507,27 @@ func _unhandled_input(event: InputEvent) -> void:
 func set_touch_action_target() -> void:
 	if not is_instance_valid(player) or in_structure!="" or in_purity or not is_instance_valid(world):
 		return
-	# Mobile has no mouse cursor. Pick the nearest useful solid block around
-	# the player's facing side so MINERAR always targets terrain instead of air.
 	var feet=Vector2i(floor(player.position.x/32.0),floor(player.position.y/32.0))
-	var candidates=[
-		feet+Vector2i(player.face,1),
-		feet+Vector2i(player.face,0),
-		feet+Vector2i(player.face,-1),
-		feet+Vector2i(0,1),
-		feet+Vector2i(player.face*2,1),
-		feet+Vector2i(player.face*2,0)
-	]
+	# If the player has aimed by touching the world, respect that direction first.
+	var aim_down=touch_aim.y>18.0
+	var candidates:Array[Vector2i]=[]
+	if aim_down:
+		candidates=[
+			feet+Vector2i(0,1),
+			feet+Vector2i(player.face,1),
+			feet+Vector2i(-player.face,1),
+			feet+Vector2i(0,2),
+			feet+Vector2i(player.face,2)
+		]
+	else:
+		candidates=[
+			feet+Vector2i(player.face,0),
+			feet+Vector2i(player.face,1),
+			feet+Vector2i(player.face,-1),
+			feet+Vector2i(0,1),
+			feet+Vector2i(player.face*2,0),
+			feet+Vector2i(player.face*2,1)
+		]
 	for cell in candidates:
 		if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
 			continue
@@ -1525,8 +1535,17 @@ func set_touch_action_target() -> void:
 			target=cell
 			touch_aim=Vector2(cell*32+Vector2i(16,16))-player.position
 			return
-	touch_aim=Vector2(player.face*76.0,18.0)
-	update_target()
+	target=Vector2i(-1,-1)
+
+func refresh_mobile_mining_target() -> void:
+	if not is_instance_valid(device_controls) or not device_controls.mobile or not mining_held:
+		return
+	# Keep the current target while it is still a solid reachable block.
+	if target.x>=0 and target.y>=0 and world.get_cell(target) not in [0,16]:
+		var center=Vector2(target*32+Vector2i(16,16))
+		if player.position.distance_to(center)<=150.0:
+			return
+	set_touch_action_target()
 
 func update_target() -> void:
 	target=Vector2i(-1,-1)
@@ -1594,7 +1613,10 @@ func _process(delta: float) -> void:
 			status.text="FALAR / ENTRAR: sair pela porta"
 		queue_redraw()
 		return
-	update_target()
+	if is_instance_valid(device_controls) and device_controls.mobile and mining_held:
+		refresh_mobile_mining_target()
+	else:
+		update_target()
 	if not in_purity:
 		var near_mel=find_near_mel()
 		var near_npc=find_near_npc()
@@ -1622,6 +1644,9 @@ func _process(delta: float) -> void:
 			var drop=2 if id==1 else id
 			player.inventory[drop]=player.inventory.get(drop,0)+1
 			progress=0
+			if is_instance_valid(device_controls) and device_controls.mobile and mining_held:
+				target=Vector2i(-1,-1)
+				set_touch_action_target()
 			refresh_hud()
 	else:
 		progress=0
