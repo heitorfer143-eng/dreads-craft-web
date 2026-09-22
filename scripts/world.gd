@@ -63,18 +63,6 @@ func generate(seed_value: int) -> void:
 			var bottom = mini(60, surfaces[entry]+dx)
 			for y in range(bottom-3,bottom+1):
 				cells[y][x]=0
-	for base in [110,215,294]:
-		var ground = surfaces[base]
-		for dx in range(-4,5):
-			for y in range(ground-8,ground):
-				cells[y][base+dx]=0
-			cells[ground][base+dx]=3
-			if abs(dx)==4:
-				for y in range(ground-6,ground):
-					cells[y][base+dx]=3
-			if dx!=1:
-				cells[ground-6][base+dx]=3
-		cells[ground-1][base]=9
 	generate_structures()
 	generate_ores()
 	rebuild_collision()
@@ -98,18 +86,7 @@ func generate_structures() -> void:
 							cells[y][x]=0
 			cx=clampi(cx+rng.randi_range(-7,7),8,WIDTH-8)
 			cy=clampi(cy+rng.randi_range(-3,4),45,HEIGHT-8)
-	# Minas abandonadas: corredores, vigas e pequenas câmaras.
-	for center_x in [82,196,278]:
-		var y=clampi(surfaces[center_x]+rng.randi_range(18,28),48,82)
-		for x in range(center_x-16,center_x+17):
-			for yy in range(y-3,y+2):
-				if x>3 and x<WIDTH-3:
-					cells[yy][x]=0
-			if (x-center_x)%6==0:
-				cells[y-3][x]=4
-				cells[y-2][x]=4
-				cells[y-1][x]=4
-			cells[y+2][x]=8
+	# Estruturas visíveis são apenas sprites; não geramos minas/ruínas de blocos.
 	# Keep the image-based village completely clear of trees/blocks around each house.
 	for center_x in [18,34,50,118,238,292]:
 		var ground=surfaces[center_x]
