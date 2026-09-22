@@ -1312,7 +1312,7 @@ func show_craft() -> void:
 	recipe_scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	recipe_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
 	recipe_scroll.custom_minimum_size=Vector2(0,clampf(get_viewport_rect().size.y-210.0,330.0,520.0))
-	recipe_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_ALWAYS
+	recipe_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
 	recipe_scroll.follow_focus=true
 	recipe_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	content.add_child(recipe_scroll)
