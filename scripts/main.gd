@@ -1231,6 +1231,13 @@ func show_settings(from_main: bool=false) -> void:
 	))
 
 func toggle_fullscreen() -> void:
+	if OS.has_feature("web"):
+		var js="(function(){const d=document,e=d.documentElement;const ios=/iPad|iPhone|iPod/.test(navigator.userAgent);if(d.fullscreenElement){d.exitFullscreen&&d.exitFullscreen();return 'exit';}if(e.requestFullscreen){e.requestFullscreen().catch(()=>{});return 'native';}if(e.webkitRequestFullscreen){e.webkitRequestFullscreen();return 'webkit';}d.body.style.margin='0';d.body.style.padding='0';d.body.style.overflow='hidden';e.style.overflow='hidden';d.body.style.position='fixed';d.body.style.inset='0';d.body.style.width='100vw';d.body.style.height='100dvh';window.scrollTo(0,1);return ios?'ios-fallback':'fallback';})()"
+		var result=str(JavaScriptBridge.eval(js,true))
+		if result=="ios-fallback":
+			status.text="Modo tela cheia do iPhone ativado · para esconder a barra do Safari, abra pela Tela de Início"
+			message_time=6
+		return
 	var mode=DisplayServer.window_get_mode()
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if mode==DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
@@ -1677,35 +1684,71 @@ func _unhandled_input(event: InputEvent) -> void:
 func set_touch_action_target() -> void:
 	if not is_instance_valid(player) or in_structure!="" or in_purity or not is_instance_valid(world):
 		return
-	var feet=Vector2i(floor(player.position.x/32.0),floor(player.position.y/32.0))
-	# If the player has aimed by touching the world, respect that direction first.
-	var aim_down=touch_aim.y>18.0
-	var candidates:Array[Vector2i]=[]
-	if aim_down:
-		candidates=[
-			feet+Vector2i(0,1),
-			feet+Vector2i(player.face,1),
-			feet+Vector2i(-player.face,1),
-			feet+Vector2i(0,2),
-			feet+Vector2i(player.face,2)
-		]
-	else:
-		candidates=[
-			feet+Vector2i(player.face,0),
-			feet+Vector2i(player.face,1),
-			feet+Vector2i(player.face,-1),
-			feet+Vector2i(0,1),
-			feet+Vector2i(player.face*2,0),
-			feet+Vector2i(player.face*2,1)
-		]
-	for cell in candidates:
-		if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
-			continue
-		if world.get_cell(cell) not in [0,16]:
-			target=cell
-			touch_aim=Vector2(cell*32+Vector2i(16,16))-player.position
+
+	# If the player touched an exact solid block on the world, do not replace it
+	# when the MINERAR button is pressed. This fixes trees and vertical mining.
+	if target.x>=0 and target.y>=0 and world.get_cell(target) not in [0,16]:
+		var exact_center=Vector2(target*32+Vector2i(16,16))
+		if player.position.distance_to(exact_center)<=170.0:
 			return
-	target=Vector2i(-1,-1)
+
+	var aim=touch_aim
+	if aim.length()<8.0:
+		aim=Vector2(player.face*96.0,0)
+	var dir=aim.normalized()
+	var center=Vector2i(floor(player.position.x/32.0),floor((player.position.y-24.0)/32.0))
+	var best=Vector2i(-1,-1)
+	var best_score=999999.0
+
+	# Search every reachable nearby block, but strongly prefer the direction
+	# the player last touched: left/right/up/down all work with the same button.
+	for dy in range(-4,5):
+		for dx in range(-4,5):
+			if dx==0 and dy==0:
+				continue
+			var cell=center+Vector2i(dx,dy)
+			if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+				continue
+			if world.get_cell(cell) in [0,16]:
+				continue
+			var cell_center=Vector2(cell*32+Vector2i(16,16))
+			var delta=cell_center-(player.position-Vector2(0,24))
+			var distance=delta.length()
+			if distance>170.0 or distance<5.0:
+				continue
+			var dot=dir.dot(delta.normalized())
+			if dot<0.10:
+				continue
+			var score=(1.0-dot)*190.0+distance
+			# Wood/leaves get a tiny preference so tapping a tree does not snap
+			# to the dirt/stone behind it.
+			var block_id=world.get_cell(cell)
+			if block_id in [4,5]:
+				score-=12.0
+			if score<best_score:
+				best_score=score
+				best=cell
+
+	# Fallback: nearest reachable solid block around the character. This makes
+	# MINERAR useful even if the previous touch was on a UI control.
+	if best.x<0:
+		for dy in range(-3,4):
+			for dx in range(-3,4):
+				if dx==0 and dy==0:
+					continue
+				var cell=center+Vector2i(dx,dy)
+				if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+					continue
+				if world.get_cell(cell) in [0,16]:
+					continue
+				var distance=(Vector2(cell*32+Vector2i(16,16))-(player.position-Vector2(0,24))).length()
+				if distance<=150.0 and distance<best_score:
+					best_score=distance
+					best=cell
+
+	target=best
+	if target.x>=0:
+		touch_aim=Vector2(target*32+Vector2i(16,16))-player.position
 
 func refresh_mobile_mining_target() -> void:
 	if not is_instance_valid(device_controls) or not device_controls.mobile or not mining_held:
@@ -1908,35 +1951,39 @@ func show_mel_dialogue() -> void:
 	clear_menu("","mel_dialogue")
 	var mobile=get_viewport_rect().size.x<=760
 	var card=PanelContainer.new()
-	card.add_theme_stylebox_override("panel",compact_panel_style(0.97,Color("9a7655"),14))
-	card.custom_minimum_size=Vector2(minf(760,get_viewport_rect().size.x-30),360 if mobile else 300)
+	card.add_theme_stylebox_override("panel",compact_panel_style(0.97,Color("9a7655"),10))
+	card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	menu_box.add_child(card)
-	var row=VBoxContainer.new() if mobile else HBoxContainer.new()
-	row.add_theme_constant_override("separation",14 if mobile else 18)
-	card.add_child(row)
-	var portrait_panel=PanelContainer.new()
-	portrait_panel.custom_minimum_size=Vector2(150,150) if mobile else Vector2(180,220)
-	portrait_panel.add_theme_stylebox_override("panel",compact_panel_style(0.82,Color("b98b62"),8))
-	row.add_child(portrait_panel)
+	var content=VBoxContainer.new()
+	content.add_theme_constant_override("separation",9)
+	card.add_child(content)
+
+	var header=HBoxContainer.new()
+	header.add_theme_constant_override("separation",10)
+	content.add_child(header)
 	var portrait=TextureRect.new()
 	portrait.texture=npc_face_texture("res://assets/npcs/mel_generated.png","mel")
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait.custom_minimum_size=Vector2(140,140) if mobile else Vector2(164,204)
-	portrait_panel.add_child(portrait)
-	var box=VBoxContainer.new()
-	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation",9)
-	row.add_child(box)
-	var title=label("MEL",24 if mobile else 25)
+	portrait.custom_minimum_size=Vector2(82,82) if mobile else Vector2(118,118)
+	header.add_child(portrait)
+	var head_text=VBoxContainer.new()
+	head_text.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	header.add_child(head_text)
+	var title=label("MEL",22 if mobile else 25)
 	title.add_theme_color_override("font_color",Color("f1c987"))
-	box.add_child(title)
+	head_text.add_child(title)
+	var role=label("COMPANHEIRA",10)
+	role.add_theme_color_override("font_color",Color("b8a5c5"))
+	head_text.add_child(role)
+
 	var bones=int(player.inventory.get(23,0))
-	var speech=label("Mel abana o rabinho e olha para você.\n\nEla parece faminta e quer 3 ossos. Os monstros que surgem à noite deixam ossos quando são derrotados.\n\nOssos: %d / 3" % bones,15 if mobile else 16)
+	var speech=label("Mel abana o rabinho e olha para você. Ela quer 3 ossos. Os monstros que surgem à noite deixam ossos quando são derrotados.\n\nOssos: %d / 3" % bones,14 if mobile else 16)
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	speech.custom_minimum_size=Vector2(0,120)
-	box.add_child(speech)
+	speech.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	content.add_child(speech)
+
 	if bones>=3 or player.creative:
 		var tame=button("DAR 3 OSSOS E DOMESTICAR MEL",func():
 			if not player.creative:
@@ -1949,15 +1996,15 @@ func show_mel_dialogue() -> void:
 			refresh_hud()
 			resume()
 		)
-		tame.custom_minimum_size=Vector2(0,50)
-		box.add_child(tame)
+		tame.custom_minimum_size=Vector2(0,48)
+		content.add_child(tame)
 	else:
-		var hint=label("Volte quando conseguir 3 ossos durante a noite.",12)
+		var hint=label("Volte quando conseguir 3 ossos durante a noite.",11)
 		hint.add_theme_color_override("font_color",Color("b8a5c5"))
-		box.add_child(hint)
+		content.add_child(hint)
 	var close=button("FECHAR",resume)
-	close.custom_minimum_size=Vector2(0,48)
-	box.add_child(close)
+	close.custom_minimum_size=Vector2(0,46)
+	content.add_child(close)
 	layout()
 
 func spawn_world_npcs() -> void:
@@ -2116,48 +2163,50 @@ func show_npc_dialogue(npc) -> void:
 	var mobile=get_viewport_rect().size.x<=760
 	var portrait_path="res://assets/npcs/monk_generated.png" if npc.role=="monge" else "res://assets/npcs/blacksmith_generated.png"
 	var card=PanelContainer.new()
-	card.add_theme_stylebox_override("panel",compact_panel_style(0.98,Color("8b6e9d"),14))
-	card.custom_minimum_size=Vector2(minf(780,get_viewport_rect().size.x-30),380 if mobile else 320)
+	card.add_theme_stylebox_override("panel",compact_panel_style(0.98,Color("8b6e9d"),10))
+	card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	menu_box.add_child(card)
-	var row=VBoxContainer.new() if mobile else HBoxContainer.new()
-	row.add_theme_constant_override("separation",14 if mobile else 18)
-	card.add_child(row)
-	var portrait_panel=PanelContainer.new()
-	portrait_panel.custom_minimum_size=Vector2(156,156) if mobile else Vector2(190,230)
-	portrait_panel.add_theme_stylebox_override("panel",compact_panel_style(0.84,Color("8c6f55") if npc.role=="ferreiro" else Color("b9a97a"),8))
-	row.add_child(portrait_panel)
+	var content=VBoxContainer.new()
+	content.add_theme_constant_override("separation",9)
+	card.add_child(content)
+
+	var header=HBoxContainer.new()
+	header.add_theme_constant_override("separation",10)
+	content.add_child(header)
 	var portrait=TextureRect.new()
 	portrait.texture=npc_face_texture(portrait_path,npc.role)
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	portrait.custom_minimum_size=Vector2(146,146) if mobile else Vector2(174,214)
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	portrait_panel.add_child(portrait)
-	var box=VBoxContainer.new()
-	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation",10)
-	row.add_child(box)
-	var role_label=label("MONGE DA PUREZA" if npc.role=="monge" else "FERREIRO",11)
+	portrait.custom_minimum_size=Vector2(88,88) if mobile else Vector2(125,125)
+	header.add_child(portrait)
+	var info=VBoxContainer.new()
+	info.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	header.add_child(info)
+	var role_label=label("MONGE DA PUREZA" if npc.role=="monge" else "FERREIRO",10)
 	role_label.add_theme_color_override("font_color",Color("b79ac8"))
-	box.add_child(role_label)
-	var who=label(npc.npc_name,21 if mobile else 23)
+	info.add_child(role_label)
+	var who=label(npc.npc_name,20 if mobile else 23)
+	who.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	who.add_theme_color_override("font_color",Color("f0d99a"))
-	box.add_child(who)
-	var speech=label("“"+npc.next_line()+"”",16 if mobile else 17)
+	info.add_child(who)
+
+	var speech=label("“"+npc.next_line()+"”",14 if mobile else 17)
 	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	speech.custom_minimum_size=Vector2(0,100)
+	speech.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	speech.add_theme_color_override("font_color",Color("eee5ed"))
-	box.add_child(speech)
+	content.add_child(speech)
+
 	if npc.role=="ferreiro":
 		var craft_button=button("ABRIR BANCADA",func():
 			craft_override=true
 			show_craft()
 		)
-		craft_button.custom_minimum_size=Vector2(0,50)
-		box.add_child(craft_button)
+		craft_button.custom_minimum_size=Vector2(0,48)
+		content.add_child(craft_button)
 	var close=button("CONTINUAR",resume)
-	close.custom_minimum_size=Vector2(0,48)
-	box.add_child(close)
+	close.custom_minimum_size=Vector2(0,46)
+	content.add_child(close)
 	layout()
 
 func spawn_mob() -> void:
