@@ -3,7 +3,7 @@ extends Node2D
 var purity=false
 var camera: Camera2D
 var clock=0.32
-var world_bg=preload("res://assets/ui/background_v11.svg")
+var world_bg=preload("res://assets/backgrounds/dark_castles_generated.png")
 
 func _process(_delta:float) -> void:
 	queue_redraw()
