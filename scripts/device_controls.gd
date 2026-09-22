@@ -162,11 +162,11 @@ func _draw() -> void:
 
 func style(active: bool) -> StyleBoxFlat:
 	var box=StyleBoxFlat.new()
-	box.bg_color=Color("5b3869f2") if active else Color("120e1ae8")
-	box.border_color=Color("f0bd78") if active else Color("9d8068")
+	box.bg_color=Color("5b3869b8") if active else Color("120e1a88")
+	box.border_color=Color("f0bd78d0") if active else Color("9d8068b0")
 	box.set_border_width_all(4)
 	box.set_corner_radius_all(22)
-	box.shadow_color=Color(0,0,0,.5)
+	box.shadow_color=Color(0,0,0,.24)
 	box.shadow_size=6
 	return box
 
