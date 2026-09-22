@@ -8,7 +8,7 @@ func configure(p_kind:String,p_name:String) -> void:
 	kind=p_kind
 	display_name=p_name
 
-func add_prop(path:String,pos:Vector2,scale_value:float=1.0,modulate_color:Color=Color.WHITE) -> void:
+func add_prop(path:String,pos:Vector2,scale_value:float=1.0,modulate_color:Color=Color.WHITE,z:int=-1) -> void:
 	if not ResourceLoader.exists(path):
 		return
 	var sprite=Sprite2D.new()
@@ -17,50 +17,48 @@ func add_prop(path:String,pos:Vector2,scale_value:float=1.0,modulate_color:Color
 	sprite.position=pos
 	sprite.scale=Vector2(scale_value,scale_value)
 	sprite.modulate=modulate_color
-	sprite.z_index=-1
+	sprite.z_index=z
 	add_child(sprite)
 
 func _ready() -> void:
-	# Reuse the generated dark-fantasy artwork as a real image backdrop instead
-	# of the old flat placeholder SVG interiors.
-	var bg=Sprite2D.new()
-	bg.texture=load("res://assets/backgrounds/dark_castles_generated.png")
-	bg.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	bg.position=Vector2(640,360)
-	bg.scale=Vector2(8.0,8.0)
-	bg.modulate=Color(0.34,0.27,0.38,0.72)
-	bg.z_index=-10
-	add_child(bg)
+	# Full-room image backdrop fitted to 1280x720. No huge hard-coded image scale.
+	if ResourceLoader.exists("res://assets/backgrounds/dark_castles_generated.png"):
+		var bg=Sprite2D.new()
+		bg.texture=load("res://assets/backgrounds/dark_castles_generated.png")
+		bg.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+		var tex_size=bg.texture.get_size()
+		bg.position=Vector2(640,360)
+		bg.scale=Vector2(1280.0/maxf(1.0,tex_size.x),720.0/maxf(1.0,tex_size.y))
+		bg.modulate=Color(0.23,0.18,0.28,0.55)
+		bg.z_index=-20
+		add_child(bg)
 
-	# Existing game artwork becomes room decoration, so interiors feel like
-	# actual places while keeping entry/exit as the only mechanic.
+	# Small, controlled props. They decorate instead of covering the room.
 	if kind=="blacksmith":
-		add_prop("res://assets/items/table.png",Vector2(820,548),2.8)
-		add_prop("res://assets/items/iron.png",Vector2(750,470),2.1)
-		add_prop("res://assets/items/coal.png",Vector2(875,472),2.0)
-		add_prop("res://assets/items/generated/sword_iron.png",Vector2(1010,420),1.55)
-		add_prop("res://assets/items/generated/pickaxe_iron.png",Vector2(1090,425),1.55)
+		add_prop("res://assets/items/generated/sword_iron.png",Vector2(925,322),0.90)
+		add_prop("res://assets/items/generated/pickaxe_iron.png",Vector2(1035,322),0.90)
+		add_prop("res://assets/items/iron.png",Vector2(855,520),1.25)
+		add_prop("res://assets/items/coal.png",Vector2(955,520),1.25)
 	elif kind=="market":
-		add_prop("res://assets/items/table.png",Vector2(800,550),2.5)
-		add_prop("res://assets/items/planks.png",Vector2(690,470),1.8)
-		add_prop("res://assets/items/meat.png",Vector2(790,465),1.8)
-		add_prop("res://assets/items/diamond.png",Vector2(890,465),1.8)
-		add_prop("res://assets/items/backpack.png",Vector2(1030,455),1.6)
+		add_prop("res://assets/items/planks.png",Vector2(735,500),1.25)
+		add_prop("res://assets/items/meat.png",Vector2(835,500),1.25)
+		add_prop("res://assets/items/diamond.png",Vector2(935,500),1.25)
+		add_prop("res://assets/items/backpack.png",Vector2(1035,492),1.15)
 	else:
-		add_prop("res://assets/npcs/monk_generated.png",Vector2(920,520),0.52)
-		add_prop("res://assets/items/relic_vital.svg",Vector2(640,400),1.8)
+		add_prop("res://assets/npcs/monk_generated.png",Vector2(965,520),0.34)
+		add_prop("res://assets/items/relic_vital.svg",Vector2(640,388),1.05)
 
 	var floor_body=StaticBody2D.new()
 	floor_body.collision_layer=1
 	var floor_shape=RectangleShape2D.new()
-	floor_shape.size=Vector2(1280,46)
+	floor_shape.size=Vector2(1280,42)
 	var floor_col=CollisionShape2D.new()
 	floor_col.shape=floor_shape
 	floor_col.position=Vector2(640,648)
 	floor_body.add_child(floor_col)
 	for x in [10,1270]:
 		var wall_shape=RectangleShape2D.new()
-		wall_shape.size=Vector2(30,720)
+		wall_shape.size=Vector2(28,720)
 		var wall_col=CollisionShape2D.new()
 		wall_col.shape=wall_shape
 		wall_col.position=Vector2(x,360)
@@ -68,48 +66,71 @@ func _ready() -> void:
 	add_child(floor_body)
 	queue_redraw()
 
+func draw_beam(x:float,y:float,w:float,h:float) -> void:
+	draw_rect(Rect2(x,y,w,h),Color("3b271f"),true)
+	draw_rect(Rect2(x+3,y+2,maxf(0,w-6),3),Color("7a5137"),true)
+
+func draw_shelf(x:float,y:float,w:float) -> void:
+	draw_rect(Rect2(x,y,w,12),Color("76503a"),true)
+	draw_rect(Rect2(x+8,y+12,10,80),Color("493027"),true)
+	draw_rect(Rect2(x+w-18,y+12,10,80),Color("493027"),true)
+
 func _draw() -> void:
-	# Dark timber frame and warm floor over the image backdrop.
-	draw_rect(Rect2(0,0,1280,112),Color("0b0913e8"),true)
-	draw_rect(Rect2(0,112,1280,18),Color("7a4f35"),true)
-	draw_rect(Rect2(0,610,1280,110),Color("21151ae8"),true)
-	for x in range(0,1280,96):
-		draw_rect(Rect2(x,610,5,110),Color("68452f"),true)
-	draw_rect(Rect2(0,610,1280,7),Color("a5754b"),true)
+	# Coherent room shell.
+	draw_rect(Rect2(0,0,1280,720),Color("0b0910b8"),true)
+	draw_rect(Rect2(26,88,1228,500),Color("201821e8"),true)
+	draw_rect(Rect2(26,88,1228,500),Color("735441"),false,6)
+	draw_beam(26,118,1228,18)
+	draw_beam(26,560,1228,18)
+	for x in [250.0,520.0,790.0,1060.0]:
+		draw_beam(x,118,16,442)
 
-	# Timber columns keep the room readable without hiding the generated background.
-	for x in [250,560,960,1190]:
-		draw_rect(Rect2(x,145,14,465),Color("513423d9"),true)
-		draw_rect(Rect2(x+3,145,4,465),Color("8a5a36cc"),true)
+	# Warm wooden floor.
+	draw_rect(Rect2(0,578,1280,142),Color("201419"),true)
+	for y in range(590,720,28):
+		draw_rect(Rect2(0,y,1280,3),Color("664531"),true)
+	for x in range(0,1280,128):
+		draw_rect(Rect2(x,578,3,142),Color("513526"),true)
 
-	# Exit door at the left.
-	draw_rect(Rect2(46,432,142,178),Color("100b12f2"),true)
-	draw_rect(Rect2(46,432,142,178),Color("b98956"),false,5)
-	draw_rect(Rect2(70,465,94,145),Color("3d261f"),true)
-	draw_circle(Vector2(145,535),6,Color("d9b46a"))
+	# Exit door is always obvious and never covered.
+	draw_rect(Rect2(52,392,150,186),Color("100b12"),true)
+	draw_rect(Rect2(52,392,150,186),Color("b78a5b"),false,5)
+	draw_rect(Rect2(75,422,104,156),Color("4b2e24"),true)
+	draw_rect(Rect2(84,432,86,137),Color("38221c"),true)
+	draw_circle(Vector2(155,500),6,Color("e2bf72"))
+	draw_rect(Rect2(63,360,128,28),Color("17101aeb"),true)
 
-	# Role-specific focal furniture/signage.
 	if kind=="blacksmith":
-		draw_rect(Rect2(690,510,390,100),Color("38231ee8"),true)
-		draw_rect(Rect2(690,510,390,9),Color("a56b3f"),true)
-		draw_rect(Rect2(355,445,155,165),Color("2b1715e8"),true)
-		draw_circle(Vector2(432,500),58,Color("e16b2c55"))
-		draw_circle(Vector2(432,500),34,Color("ffb24a99"))
+		# Forge + workbench + weapon display.
+		draw_rect(Rect2(340,408,180,170),Color("251718"),true)
+		draw_rect(Rect2(356,440,148,138),Color("4c2b22"),true)
+		draw_circle(Vector2(430,520),52,Color("a43b2490"))
+		draw_circle(Vector2(430,520),30,Color("ff9b3ec0"))
+		draw_rect(Rect2(700,500,430,78),Color("3b2720"),true)
+		draw_rect(Rect2(700,500,430,9),Color("a56f47"),true)
+		draw_shelf(850,250,250)
 	elif kind=="market":
-		draw_rect(Rect2(610,500,455,110),Color("432d25e8"),true)
-		draw_rect(Rect2(610,500,455,10),Color("b17c4f"),true)
-		for x in [650,760,870,980]:
-			draw_rect(Rect2(x,315,72,110),Color("281923cc"),true)
-			draw_rect(Rect2(x,315,72,5),Color("9e744e"),true)
+		# Two clean shelves and a counter.
+		draw_shelf(330,290,260)
+		draw_shelf(690,290,360)
+		draw_rect(Rect2(640,490,500,88),Color("3d2922"),true)
+		draw_rect(Rect2(640,490,500,10),Color("b07b4e"),true)
+		draw_rect(Rect2(1110,205,90,255),Color("34221e"),true)
+		for y in [235,300,365]:
+			draw_rect(Rect2(1120,y,70,9),Color("8a5e3d"),true)
 	else:
-		draw_rect(Rect2(500,250,280,360),Color("191827dd"),true)
-		draw_arc(Vector2(640,330),118,PI,TAU,40,Color("c7ad78"),8)
-		draw_line(Vector2(640,315),Vector2(640,445),Color("d6b657"),12)
-		draw_line(Vector2(585,365),Vector2(695,365),Color("d6b657"),12)
-		for x in [300,430,850,980]:
-			draw_rect(Rect2(x,525,95,28),Color("654630"),true)
+		# Chapel: central altar, arch and benches.
+		draw_rect(Rect2(520,430,250,148),Color("272433"),true)
+		draw_rect(Rect2(540,450,210,128),Color("54465f"),true)
+		draw_arc(Vector2(645,330),120,PI,TAU,32,Color("c3ae7b"),8)
+		draw_line(Vector2(645,300),Vector2(645,420),Color("d8ba5b"),11)
+		draw_line(Vector2(595,342),Vector2(695,342),Color("d8ba5b"),11)
+		for x in [300.0,430.0,840.0,970.0]:
+			draw_rect(Rect2(x,520,105,28),Color("654630"),true)
+			draw_rect(Rect2(x+10,548,12,30),Color("463023"),true)
+			draw_rect(Rect2(x+83,548,12,30),Color("463023"),true)
 
 	var font=ThemeDB.fallback_font
-	draw_string(font,Vector2(52,405),display_name.to_upper(),HORIZONTAL_ALIGNMENT_LEFT,-1,20,Color("f3dfc2"))
-	draw_string(font,Vector2(67,454),"SAÍDA",HORIZONTAL_ALIGNMENT_CENTER,100,13,Color("e7c98e"))
-	draw_string(font,Vector2(64,585),"FALAR / ENTRAR",HORIZONTAL_ALIGNMENT_CENTER,108,10,Color("c8b5a2"))
+	draw_string(font,Vector2(70,380),display_name.to_upper(),HORIZONTAL_ALIGNMENT_CENTER,114,16,Color("f0d8b7"))
+	draw_string(font,Vector2(76,455),"PORTA",HORIZONTAL_ALIGNMENT_CENTER,100,12,Color("e7c98e"))
+	draw_string(font,Vector2(73,548),"FALAR / ENTRAR",HORIZONTAL_ALIGNMENT_CENTER,108,9,Color("c8b5a2"))
