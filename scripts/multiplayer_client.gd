@@ -81,6 +81,9 @@ func _process(delta:float) -> void:
 			_handle(data)
 
 	if active and is_instance_valid(game) and game.active and is_instance_valid(game.player):
+		for remote in remote_players.values():
+			if is_instance_valid(remote):
+				remote.visible=remote.zone==game.current_online_zone()
 		send_timer-=delta
 		if send_timer<=0:
 			send_timer=0.08
@@ -92,7 +95,8 @@ func _process(delta:float) -> void:
 				"x":game.player.position.x,
 				"y":game.player.position.y,
 				"face":game.player.face,
-				"anim":anim
+				"anim":anim,
+				"zone":game.current_online_zone()
 			})
 
 func _handle(data:Dictionary) -> void:
@@ -131,7 +135,7 @@ func _handle(data:Dictionary) -> void:
 		if not remote_players.has(id):
 			_spawn_remote(data)
 		if remote_players.has(id):
-			remote_players[id].set_state(Vector2(float(data.get("x",0)),float(data.get("y",0))),int(data.get("face",1)),str(data.get("anim","idle")))
+			remote_players[id].set_state(Vector2(float(data.get("x",0)),float(data.get("y",0))),int(data.get("face",1)),str(data.get("anim","idle")),str(data.get("zone","world")))
 	elif type=="block":
 		if is_instance_valid(game):
 			game.apply_online_block(Vector2i(int(data.get("x",0)),int(data.get("y",0))),int(data.get("id",0)))
@@ -145,6 +149,6 @@ func _spawn_remote(data:Dictionary) -> void:
 	if remote_players.has(id):
 		return
 	var remote=RemotePlayer.new()
-	remote.setup(str(data.get("name","Jogador")),Vector2(float(data.get("x",400)),float(data.get("y",1000))),int(data.get("face",1)),str(data.get("anim","idle")))
+	remote.setup(str(data.get("name","Jogador")),Vector2(float(data.get("x",400)),float(data.get("y",1000))),int(data.get("face",1)),str(data.get("anim","idle")),str(data.get("zone","world")))
 	game.add_child(remote)
 	remote_players[id]=remote
