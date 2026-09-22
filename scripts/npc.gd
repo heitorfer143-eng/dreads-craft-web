@@ -27,10 +27,11 @@ func _ready() -> void:
 	add_child(shape)
 
 	sprite=Sprite2D.new()
-	sprite.texture=load("res://assets/npcs/blacksmith_generated.svg")
+	var sprite_path="res://assets/npcs/monk_generated.png" if role=="monge" else "res://assets/npcs/blacksmith_generated.png"
+	sprite.texture=load(sprite_path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale=Vector2(2.25,2.25)
-	sprite.position=Vector2(0,-47)
+	sprite.scale=Vector2(0.72,0.72)
+	sprite.position=Vector2(0,-35)
 	sprite.z_index=5
 	add_child(sprite)
 	set_process(true)
