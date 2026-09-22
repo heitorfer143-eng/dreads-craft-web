@@ -16,11 +16,11 @@ func _draw() -> void:
 	# The normal world now uses an actual pixel-art landscape image instead of flat procedural shapes.
 	draw_texture_rect(world_bg,Rect2(Vector2.ZERO,size),false)
 	var night_strength=clampf(absf(clock-.5)*2.0,0.0,1.0)
-	var tint=Color(0.02,0.03,0.08,0.14+night_strength*.25)
+	var tint=Color(0.015,0.012,0.035,0.30+night_strength*.34)
 	draw_rect(Rect2(Vector2.ZERO,size),tint)
 	# Subtle parallax fog only; the scenery itself comes from the image asset.
 	var drift=fmod((camera.global_position.x*.04 if is_instance_valid(camera) else 0.0),size.x)
-	draw_rect(Rect2(-drift,size.y*.66,size.x*1.3,size.y*.13),Color(.45,.40,.62,.045))
+	draw_rect(Rect2(-drift,size.y*.66,size.x*1.3,size.y*.13),Color(.34,.30,.46,.075))
 	draw_rect(Rect2(size.x-drift,size.y*.66,size.x*1.3,size.y*.13),Color(.45,.40,.62,.045))
 
 func draw_purity(size:Vector2) -> void:
