@@ -10,6 +10,7 @@ const LobbyBackdrop = preload("res://scripts/lobby_backdrop.gd")
 const NPC = preload("res://scripts/npc.gd")
 const VillageStructure = preload("res://scripts/village_structure.gd")
 const Interior = preload("res://scripts/interior.gd")
+const Mel = preload("res://scripts/mel.gd")
 
 var in_purity=false
 var overworld: Node2D
@@ -78,6 +79,8 @@ var menu_tip_timer := 0.0
 var menu_tip_index := 0
 var menu_glow := 0.0
 var current_npc=null
+var mel: Area2D
+var mel_tamed := false
 const LOBBY_TIPS = [
 	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
 	"A noite é mais perigosa: prepare abrigo, espada e comida antes do escurecer.",
@@ -985,7 +988,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	boss=null
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
-	for node in [world,player,enemies,npcs,structures,interior,selection]:
+	for node in [world,player,enemies,npcs,structures,interior,selection,mel]:
 		if is_instance_valid(node):
 			remove_child(node)
 			node.queue_free()
@@ -1013,6 +1016,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	add_child(structures)
 	spawn_village_hub()
 	spawn_world_npcs()
+	spawn_mel()
 	selection=preload("res://scripts/selection.gd").new()
 	add_child(selection)
 	active=true
@@ -1370,10 +1374,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("attack"):
 		attack()
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.physical_keycode==KEY_R and find_near_npc()!=null:
-			interact_near_npc()
-			get_viewport().set_input_as_handled()
-			return
+		if event.physical_keycode==KEY_R:
+			if interact_nearby():
+				get_viewport().set_input_as_handled()
+				return
 		if event.physical_keycode>=KEY_1 and event.physical_keycode<=KEY_6:
 			selected=hotbar[event.physical_keycode-KEY_1]
 			refresh_hud()
@@ -1439,7 +1443,8 @@ func attack() -> void:
 	for mob in enemies.get_children():
 		var difference=mob.position-player.position
 		if absf(difference.x)<85 and absf(difference.y)<65 and signf(difference.x)==player.face:
-			mob.hit(Items.SWORD_DAMAGE.get(selected,8) if player.inventory.get(selected,0)>0 or player.creative else 8,300.0)
+			var base_damage=Items.SWORD_DAMAGE.get(selected,8) if player.inventory.get(selected,0)>0 or player.creative else 8
+			mob.hit(base_damage+(2 if mel_tamed else 0),300.0)
 
 func eat() -> void:
 	if player.inventory.get(10,0)>0:
@@ -1536,6 +1541,51 @@ func spawn_village_hub() -> void:
 		building.position=Vector2(x*32+16,world.surfaces[x]*32)
 		structures.add_child(building)
 
+func spawn_mel() -> void:
+	if not is_instance_valid(world):
+		return
+	mel=Mel.new()
+	mel.setup(player,mel_tamed)
+	var x=26
+	mel.position=Vector2(x*32+16,world.surfaces[x]*32-2)
+	mel.interacted.connect(func(_dog): show_mel_dialogue())
+	add_child(mel)
+
+func show_mel_dialogue() -> void:
+	if mel_tamed:
+		status.text="Mel está com você · +2 de dano contra mobs"
+		message_time=3
+		return
+	clear_menu("","mel_dialogue")
+	var title=label("🐾  MEL",25)
+	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color",Color("f1c987"))
+	menu_box.add_child(title)
+	var bones=int(player.inventory.get(23,0))
+	var speech=label("Mel abana o rabinho e olha para você.\n\nEla parece faminta e quer 3 ossos. Os monstros que surgem à noite deixam ossos quando são derrotados.\n\nOssos: %d / 3" % bones,17)
+	speech.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	speech.custom_minimum_size=Vector2(520,145)
+	menu_box.add_child(speech)
+	if bones>=3 or player.creative:
+		var tame=button("DAR 3 OSSOS E DOMESTICAR MEL",func():
+			if not player.creative:
+				player.inventory[23]=maxi(0,int(player.inventory.get(23,0))-3)
+			mel_tamed=true
+			if is_instance_valid(mel):
+				mel.set_tamed(true)
+			status.text="Mel foi domesticada! +2 de dano contra mobs."
+			message_time=5
+			refresh_hud()
+			resume()
+		)
+		menu_box.add_child(tame)
+	else:
+		var hint=label("Volte quando conseguir 3 ossos durante a noite.",13)
+		hint.add_theme_color_override("font_color",Color("b8a5c5"))
+		menu_box.add_child(hint)
+	menu_box.add_child(button("FECHAR",resume))
+	layout()
+
 func spawn_world_npcs() -> void:
 	if not is_instance_valid(npcs) or not is_instance_valid(world):
 		return
@@ -1588,6 +1638,9 @@ func interact_nearby() -> bool:
 			exit_structure()
 			return true
 		return false
+	if is_instance_valid(mel) and mel.can_interact():
+		mel.interact()
+		return true
 	var npc=find_near_npc()
 	if npc!=null:
 		npc.interact()
@@ -1613,6 +1666,7 @@ func enter_structure(kind: String, display_name: String) -> void:
 	set_world_collision(false)
 	world.hide()
 	if is_instance_valid(npcs): npcs.hide()
+	if is_instance_valid(mel): mel.hide()
 	if is_instance_valid(structures): structures.hide()
 	if is_instance_valid(enemies):
 		enemies.hide()
@@ -1641,6 +1695,7 @@ func exit_structure() -> void:
 	world.show()
 	set_world_collision(true)
 	if is_instance_valid(npcs): npcs.show()
+	if is_instance_valid(mel): mel.show()
 	if is_instance_valid(structures): structures.show()
 	if is_instance_valid(enemies):
 		enemies.show()
@@ -1703,6 +1758,9 @@ func spawn_mob() -> void:
 	mob.position=Vector2(cell*32,world.surfaces[cell]*32-2)
 	mob.killed.connect(func():
 		player.inventory[10]=player.inventory.get(10,0)+1
+		player.inventory[23]=player.inventory.get(23,0)+1
+		status.text="Osso obtido! Mel precisa de 3."
+		message_time=2.5
 		refresh_hud()
 	)
 	enemies.add_child(mob)
@@ -1716,7 +1774,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity}
+	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed}
 	if in_purity:
 		data["arena_position"]=[player.position.x,player.position.y]
 		data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
@@ -1752,6 +1810,9 @@ func load_world() -> void:
 	day=int(data.day)
 	difficulty=int(data.difficulty)
 	boss_defeated=bool(data.get("boss_defeated",false))
+	mel_tamed=bool(data.get("mel_tamed",false))
+	if is_instance_valid(mel):
+		mel.set_tamed(mel_tamed)
 	if bool(data.get("in_purity",false)):
 		enter_purity(bool(data.get("intro_complete",false)))
 		var arena_position=data.get("arena_position",[320,1118])
