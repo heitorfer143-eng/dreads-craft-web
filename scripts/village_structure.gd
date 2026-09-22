@@ -18,7 +18,8 @@ func _ready() -> void:
 	sprite=Sprite2D.new()
 	sprite.texture=load(texture_path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.position=Vector2(0,-112)
+	sprite.scale=Vector2(1.55,1.55)
+	sprite.position=Vector2(0,-124)
 	add_child(sprite)
 	z_index=1
 	set_process(true)
