@@ -23,8 +23,8 @@ func _ready() -> void:
 	sprite=Sprite2D.new()
 	sprite.texture=load("res://assets/npcs/mel.png")
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale=Vector2(0.92,0.92)
-	sprite.position=Vector2(0,-28)
+	sprite.scale=Vector2(0.68,0.68)
+	sprite.position=Vector2(0,-22)
 	# Keep the user's Mel image, removing only its white background at render time.
 	var shader=Shader.new()
 	shader.code="shader_type canvas_item; void fragment(){ vec4 c=texture(TEXTURE,UV); if(c.r>.94 && c.g>.94 && c.b>.94) discard; COLOR=c; }"
@@ -62,6 +62,6 @@ func _process(_delta: float) -> void:
 
 func _draw() -> void:
 	if can_interact() and not tamed:
-		draw_circle(Vector2(0,-80),13,Color("17111ee8"))
-		draw_arc(Vector2(0,-80),13,0,TAU,20,Color("e5b66f"),2)
-		draw_string(ThemeDB.fallback_font,Vector2(-5,-74),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("ffe7a3"))
+		draw_circle(Vector2(0,-64),13,Color("17111ee8"))
+		draw_arc(Vector2(0,-64),13,0,TAU,20,Color("e5b66f"),2)
+		draw_string(ThemeDB.fallback_font,Vector2(-5,-58),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("ffe7a3"))
