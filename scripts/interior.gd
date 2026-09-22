@@ -21,6 +21,7 @@ func add_prop(path:String,pos:Vector2,scale_value:float=1.0,modulate_color:Color
 	add_child(sprite)
 
 func _ready() -> void:
+	z_index=-10
 	# Full-room image backdrop fitted to 1280x720. No huge hard-coded image scale.
 	if ResourceLoader.exists("res://assets/backgrounds/dark_castles_generated.png"):
 		var bg=Sprite2D.new()
