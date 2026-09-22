@@ -1826,7 +1826,7 @@ func load_world() -> void:
 	world_name=str(data.name)
 	world.cells=data.cells
 	world.surfaces.assign(data.surfaces)
-	world.rebuild_collision()
+	world.repair_village_zone()
 	player.position=Vector2(data.position[0],data.position[1])
 	for attempt in 96:
 		var feet=Vector2i(player.position/32)
