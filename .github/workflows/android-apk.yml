@@ -19,8 +19,8 @@ jobs:
         run: |
           set -e
           mkdir -p build/android
-          godot --version
-          godot --headless --export-debug "Android" build/android/DreadsCraft.apk
+          HOME=/root godot --version
+          HOME=/root godot --headless --export-debug "Android" build/android/DreadsCraft.apk
           test -f build/android/DreadsCraft.apk
           ls -lh build/android/DreadsCraft.apk
 
