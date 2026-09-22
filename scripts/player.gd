@@ -32,7 +32,7 @@ func _ready() -> void:
 	collider.shape=shape
 	collider.position=Vector2(0,-22)
 	add_child(collider)
-		sprite=Sprites.make("demon" if creative else "normal")
+	sprite=Sprites.make("demon" if creative else "normal")
 	sprite.scale=Vector2(1.12,1.12)
 	add_child(sprite)
 	camera=Camera2D.new()
