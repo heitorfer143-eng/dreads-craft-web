@@ -23,8 +23,8 @@ func _ready() -> void:
 	sprite=Sprite2D.new()
 	sprite.texture=load("res://assets/npcs/mel.png")
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale=Vector2(0.68,0.68)
-	sprite.position=Vector2(0,-22)
+	sprite.scale=Vector2(0.46,0.46)
+	sprite.position=Vector2(0,-18)
 	# Keep the user's Mel image, removing only its white background at render time.
 	var shader=Shader.new()
 	shader.code="shader_type canvas_item; void fragment(){ vec4 c=texture(TEXTURE,UV); if(c.r>.94 && c.g>.94 && c.b>.94) discard; COLOR=c; }"
