@@ -236,7 +236,7 @@ func build_ui() -> void:
 	build_badge.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	ui.add_child(build_badge)
 	menu_background=TextureRect.new()
-	menu_background.texture=load("res://assets/backgrounds/dreads_craft_cover.jpg")
+	menu_background.texture=load("res://assets/backgrounds/dark_castles_generated.png")
 	menu_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	menu_background.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	menu_background.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -829,12 +829,9 @@ func show_main() -> void:
 	var menu_label=label("ESCOLHA SEU CAMINHO",13)
 	menu_label.add_theme_color_override("font_color",Color("c9a6dc"))
 	right.add_child(menu_label)
-	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/sword_iron_v11.svg",show_creation,true)
+	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/portal_new_world.png",show_creation,true)
 	right.add_child(new_button)
 	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer))
-	var continue_button=lobby_button("CONTINUAR","Retorne exatamente ao último save.","res://assets/items/backpack.png",load_world)
-	continue_button.disabled=saved_worlds.is_empty()
-	right.add_child(continue_button)
 	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2))
 	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia e controles do PC.","res://assets/items/menu.png",func(): show_settings(true)))
 	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit())
