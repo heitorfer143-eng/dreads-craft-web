@@ -19,7 +19,7 @@ const ICONS = {
 	13: "res://assets/items/generated/pickaxe_wood.png",
 	14: "res://assets/items/item_14.svg",
 	15: "res://assets/items/item_15.svg",
-	16: "res://assets/items/item_16.svg",
+	16: "res://assets/items/portal_new_world.png",
 	17: "res://assets/items/generated/pickaxe_stone.png",
 	18: "res://assets/items/generated/pickaxe_iron.png",
 	19: "res://assets/items/generated/pickaxe_diamond.png",
@@ -37,7 +37,7 @@ const CRAFT_ICONS = {
 	21: "res://assets/items/generated/sword_stone.png",
 	11: "res://assets/items/generated/sword_iron.png",
 	22: "res://assets/items/generated/sword_diamond.png",
-	16: "res://assets/craft_ref/portal_purity.png"
+	16: "res://assets/items/portal_new_world.png"
 }
 
 const TILE_TEXTURES = {
@@ -52,7 +52,7 @@ const TILE_TEXTURES = {
 	9: "res://assets/tiles/table.png",
 	14: "res://assets/tiles/tile_14.svg",
 	15: "res://assets/tiles/tile_15.svg",
-	16: "res://assets/tiles/tile_16.svg"
+	16: "res://assets/items/portal_new_world.png"
 }
 const RECIPES = [
 	{"name": "Tábuas x4", "cost": {4: 1}, "id": 8, "count": 4, "table": false},
