@@ -829,7 +829,7 @@ func show_main() -> void:
 	var menu_label=label("ESCOLHA SEU CAMINHO",13)
 	menu_label.add_theme_color_override("font_color",Color("c9a6dc"))
 	right.add_child(menu_label)
-	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/portal_new_world.png",show_creation,true)
+	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/portal_new_world.svg",show_creation,true)
 	right.add_child(new_button)
 	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer))
 	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2))
