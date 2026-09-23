@@ -283,7 +283,13 @@ func _draw() -> void:
 				continue
 			var pos=Vector2(x,y)*TILE
 			var texture: Texture2D = tile_textures.get(id)
-			if texture:
+			if id==16 and texture:
+				# Portal da Pureza uses the generated artwork and is intentionally much
+				# larger than its logical one-cell interaction point.
+				var portal_size=Vector2(TILE*4.0,TILE*4.0)
+				var portal_pos=pos+Vector2(TILE*0.5-portal_size.x*0.5,TILE-portal_size.y)
+				draw_texture_rect(texture,Rect2(portal_pos,portal_size),false)
+			elif texture:
 				draw_texture_rect(texture,Rect2(pos,Vector2(TILE,TILE)),false)
 			else:
 				draw_rect(Rect2(pos,Vector2(TILE,TILE)),Items.COLORS.get(id,Color.GRAY))
