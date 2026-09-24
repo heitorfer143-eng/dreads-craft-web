@@ -156,7 +156,7 @@ func generate_ores() -> void:
 					if not visited.has(current+offset):
 						frontier.append(current+offset)
 
-	for ore in [14,15]:
+	for ore in [14,15,25]:
 		var count=0
 		for row in cells:
 			count+=row.count(ore)
