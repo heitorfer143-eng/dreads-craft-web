@@ -41,6 +41,8 @@ func _initialize() -> void:
 			for i in rects.size():
 				var region:Rect2i=rects[i]
 				var crop=source.get_region(region)
+				if crop.get_format()!=Image.FORMAT_RGBA8:
+					crop.convert(Image.FORMAT_RGBA8)
 				var canvas=Image.create(360,360,false,Image.FORMAT_RGBA8)
 				canvas.fill(Color(0,0,0,0))
 				var target=Vector2i((360-region.size.x)/2,360-region.size.y)
