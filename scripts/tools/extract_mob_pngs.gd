@@ -26,6 +26,9 @@ func _initialize() -> void:
 		push_error("Could not load mob source sheet: "+SOURCE)
 		quit(1)
 		return
+	if source.is_compressed():
+		source.decompress()
+	source.convert(Image.FORMAT_RGBA8)
 
 	var abs_dir=ProjectSettings.globalize_path(OUT_DIR)
 	var dir_error=DirAccess.make_dir_recursive_absolute(abs_dir)
@@ -41,9 +44,7 @@ func _initialize() -> void:
 			for i in rects.size():
 				var region:Rect2i=rects[i]
 				var crop=source.get_region(region)
-				if crop.get_format()!=Image.FORMAT_RGBA8:
-					crop.convert(Image.FORMAT_RGBA8)
-				var canvas=Image.create(360,360,false,Image.FORMAT_RGBA8)
+				var canvas=Image.create(360,360,false,source.get_format())
 				canvas.fill(Color(0,0,0,0))
 				var target=Vector2i((360-region.size.x)/2,360-region.size.y)
 				canvas.blit_rect(crop,Rect2i(Vector2i.ZERO,region.size),target)
