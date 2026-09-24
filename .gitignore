@@ -1,0 +1,14 @@
+# Local secrets - never commit these
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.keystore
+*.jks
+
+# Godot/build cache
+.godot/
+build/
+export/
