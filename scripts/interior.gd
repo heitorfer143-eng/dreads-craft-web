@@ -1,7 +1,5 @@
 extends Node2D
 
-const SheetAssets=preload("res://scripts/generated_sheet_assets.gd")
-
 var kind="blacksmith"
 var display_name="Interior"
 var exit_position=Vector2(105,610)
@@ -14,7 +12,7 @@ func configure(p_kind:String,p_name:String) -> void:
 func _ready() -> void:
 	z_index=-10
 	background=Sprite2D.new()
-	background.texture=SheetAssets.interior(kind)
+	background.texture=load("res://assets/backgrounds/dark_castles_generated.png")
 	background.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	background.position=Vector2(640,360)
 	# Generated rooms are square panels. Stretch only enough to fill the gameplay viewport.
