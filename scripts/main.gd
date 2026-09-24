@@ -1179,8 +1179,12 @@ func show_creation() -> void:
 	name_input.add_theme_stylebox_override("focus",button_style(Color("171022ff"),Color("c268e5")))
 	name_input.gui_input.connect(func(event):
 		if event is InputEventScreenTouch and event.pressed:
-			name_input.grab_focus()
-			name_input.caret_column=name_input.text.length()
+			if OS.has_feature("web"):
+				mobile_web_prompt(name_input,"Nome do mundo")
+			else:
+				name_input.grab_focus()
+				name_input.caret_column=name_input.text.length()
+			get_viewport().set_input_as_handled()
 	)
 	form.add_child(name_input)
 
@@ -1225,8 +1229,12 @@ func show_creation() -> void:
 	seed_input.add_theme_stylebox_override("focus",button_style(Color("171022ff"),Color("c268e5")))
 	seed_input.gui_input.connect(func(event):
 		if event is InputEventScreenTouch and event.pressed:
-			seed_input.grab_focus()
-			seed_input.caret_column=seed_input.text.length()
+			if OS.has_feature("web"):
+				mobile_web_prompt(seed_input,"Digite a seed")
+			else:
+				seed_input.grab_focus()
+				seed_input.caret_column=seed_input.text.length()
+			get_viewport().set_input_as_handled()
 	)
 	form.add_child(seed_input)
 	var note=label("Mesma seed = mesmo mundo. Números são usados exatamente; texto também funciona.",11)
@@ -1337,7 +1345,7 @@ func show_settings(from_main: bool=false) -> void:
 	controls.add_theme_stylebox_override("panel",panel_style(0.82,Color("5c4a67")))
 	controls.custom_minimum_size=Vector2(520,150)
 	menu_box.add_child(controls)
-	var controls_text=label("CONTROLES\nA/D ou ←/→  mover     ·     Espaço/W  pular\nMouse esquerdo  minerar/atacar     ·     Mouse direito  colocar/interagir\nE  inventário     ·     C  crafting     ·     Esc  menu",13)
+	var controls_text=label("CONTROLES\nA/D ou ←/→  mover     ·     Espaço/W  pular\nMouse esquerdo  minerar/atacar     ·     Mouse direito  colocar/interagir\nE  inventário     ·     C  crafting     ·     Q  dropar item     ·     Esc  menu",13)
 	controls_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	controls_text.add_theme_color_override("font_color",Color("d7cadb"))
 	controls.add_child(controls_text)
@@ -2142,7 +2150,7 @@ func spawn_ground_drop(item_id:int,count:int,world_position:Vector2,remaining:fl
 	drops.add_child(pickup)
 
 func drop_selected_item(amount:int=1) -> void:
-	if not active or modal or player.creative or in_purity or selected<=0:
+	if not active or (modal and pause_kind!="inventory") or player.creative or in_purity or selected<=0:
 		return
 	var owned=int(player.inventory.get(selected,0))
 	if owned<=0:
@@ -2187,42 +2195,26 @@ func play_weapon_swing() -> void:
 	if not player.creative and player.inventory.get(selected,0)<=0:
 		return
 	var texture=item_display_texture(selected,true)
-	if texture==null:
-		return
-	var weapon=Sprite2D.new()
-	weapon.texture=texture
-	weapon.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	weapon.z_index=20
-	weapon.position=Vector2(player.face*25,-30)
-	weapon.scale=Vector2(0.72,0.72)
-	weapon.flip_h=player.face<0
-	weapon.rotation=deg_to_rad(-70.0*player.face)
-	player.add_child(weapon)
-	var tween=weapon.create_tween()
-	tween.set_trans(Tween.TRANS_QUAD)
-	tween.set_ease(Tween.EASE_OUT)
-	tween.tween_property(weapon,"rotation",deg_to_rad(65.0*player.face),0.16)
-	tween.parallel().tween_property(weapon,"position",Vector2(player.face*47,-19),0.16)
-	tween.tween_property(weapon,"modulate:a",0.0,0.07)
-	tween.tween_callback(weapon.queue_free)
+	if texture!=null and player.has_method("play_weapon_attack"):
+		player.play_weapon_attack(texture,0.28)
 
-func show_damage_popup(world_position: Vector2, amount: float, critical: bool=false) -> void:
-	var pop=Label.new()
-	pop.text=("CRÍTICO! " if critical else "")+"-%d" % int(round(amount))
-	pop.add_theme_font_size_override("font_size",22 if critical else 17)
-	pop.add_theme_color_override("font_color",Color("fff29b") if critical else Color("ffffff"))
-	pop.add_theme_color_override("font_shadow_color",Color(0,0,0,0.92))
-	pop.add_theme_constant_override("shadow_offset_x",2)
-	pop.add_theme_constant_override("shadow_offset_y",2)
-	pop.position=world_position+Vector2(-42,-92)
-	pop.z_index=100
-	add_child(pop)
-	var tween=create_tween()
+func show_damage_popup(world_position:Vector2,amount:int,critical:bool) -> void:
+	var popup=Label.new()
+	popup.text=("✦ %d" if critical else "%d") % amount
+	popup.position=world_position+Vector2(-22,-82)
+	popup.z_index=50
+	popup.add_theme_font_size_override("font_size",18 if critical else 14)
+	popup.add_theme_color_override("font_color",Color("fff0a3") if critical else Color("f4e9e1"))
+	popup.add_theme_color_override("font_shadow_color",Color.BLACK)
+	popup.add_theme_constant_override("shadow_offset_x",2)
+	popup.add_theme_constant_override("shadow_offset_y",2)
+	add_child(popup)
+	var tween=popup.create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(pop,"position:y",pop.position.y-42,0.55)
-	tween.tween_property(pop,"modulate:a",0.0,0.55)
+	tween.tween_property(popup,"position:y",popup.position.y-34,0.55)
+	tween.tween_property(popup,"modulate:a",0.0,0.55)
 	tween.set_parallel(false)
-	tween.tween_callback(pop.queue_free)
+	tween.tween_callback(popup.queue_free)
 
 func attack() -> void:
 	if player.attack_time>0:
