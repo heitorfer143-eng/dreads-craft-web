@@ -86,6 +86,7 @@ const DETAILS = {
 	22: {"category":"weapons", "desc":"Poder e velocidade em suas mãos.", "stats":["Dano de Ataque: 12", "Durabilidade: 1560", "Velocidade: 1.3"]},
 	16: {"category":"special", "desc":"Abre as portas para uma dimensão além da realidade. Somente os mais preparados devem atravessá-lo.", "stats":["“A pureza não é o fim...", "mas o verdadeiro início.”"]},
 	24: {"category":"special", "desc":"Pedra rúnica de retorno. Use-a longe da vila para voltar ao centro do povoado.", "stats":["Teleporte: Vila", "Uso permanente"]},
+	25: {"category":"special", "desc":"Um minério branco e brilhante encontrado nas profundezas. Parece guardar ecos de almas antigas.", "stats":["Raridade: Muito rara", "Requer picareta de diamante"]},
 	25: {"category":"materials", "desc":"Minério branco brilhante encontrado nas profundezas. Vibra com energia de almas antigas.", "stats":["Raridade: Muito rara", "Requer: Picareta de diamante"]}
 }
 
@@ -120,6 +121,8 @@ static func craft(inventory: Dictionary, recipe: Dictionary, creative: bool, nea
 
 const PICK_TIERS = {13: 1, 17: 2, 18: 3, 19: 4}
 const SWORD_DAMAGE = {20: 14, 21: 20, 11: 28, 22: 42}
+const SWORD_CRIT_CHANCE = {20: 0.08, 21: 0.10, 11: 0.13, 22: 0.18}
+const SWORD_CRIT_MULT = {20: 1.50, 21: 1.55, 11: 1.65, 22: 1.80}
 
 static func mining_speed(inventory: Dictionary) -> float:
 	return 1.0 + best_pick(inventory) * 0.8
@@ -133,3 +136,9 @@ static func best_pick(inventory: Dictionary) -> int:
 
 static func can_mine(id: int, inventory: Dictionary) -> bool:
 	return best_pick(inventory)>=int({7:2,14:3,15:4,25:4}.get(id,0))
+
+static func crit_chance(id:int) -> float:
+	return float(SWORD_CRIT_CHANCE.get(id,0.05))
+
+static func crit_multiplier(id:int) -> float:
+	return float(SWORD_CRIT_MULT.get(id,1.50))
