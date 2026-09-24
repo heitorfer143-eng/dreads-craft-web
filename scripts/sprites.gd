@@ -23,6 +23,19 @@ const PLAYER_FILES = {
 }
 
 const PATHS = {"skeleton": "res://assets/image-003.png", "wolf": "res://assets/image-003.png"}
+const GENERATED_MOBS = {
+	"corrupted_skeleton": "res://assets/sprites/mobs/corrupted_skeleton_sheet.png",
+	"dark_slime": "res://assets/sprites/mobs/dark_slime_sheet.png",
+	"undead_knight": "res://assets/sprites/mobs/undead_knight_sheet.png",
+	"polar_bear": "res://assets/sprites/mobs/polar_bear_sheet.png"
+}
+const GENERATED_ACTIONS = {
+	"idle": [0],
+	"walk": [1,2],
+	"attack": [3],
+	"hurt": [4],
+	"death": [5]
+}
 
 static func _add_player_frames(frames: SpriteFrames, kind: String) -> void:
 	for action in PLAYER_FILES[kind]:
@@ -47,13 +60,23 @@ static func _add_mob_frames(frames: SpriteFrames, kind: String) -> void:
 			texture.margin=Rect2(pad_x/2.0,pad_y,pad_x,pad_y)
 			frames.add_frame(action,texture)
 
+static func _add_generated_mob_frames(frames: SpriteFrames, kind: String) -> void:
+	var sheet=load(GENERATED_MOBS[kind]) as Texture2D
+	for action in GENERATED_ACTIONS:
+		frames.add_animation(action)
+		frames.set_animation_speed(action,9.0 if action=="walk" else 8.0)
+		frames.set_animation_loop(action,action in ["idle","walk"])
+		for index in GENERATED_ACTIONS[action]:
+			var texture=AtlasTexture.new()
+			texture.atlas=sheet
+			texture.region=Rect2(int(index)*96,0,96,96)
+			frames.add_frame(action,texture)
+
 static func make(kind: String) -> AnimatedSprite2D:
 	var visual_kind=kind
 	if kind in ["corrupted_skeleton","undead_knight"]:
 		visual_kind="skeleton"
-	elif kind=="dark_slime":
-		visual_kind="wolf"
-	elif kind=="polar_bear":
+	elif kind in ["dark_slime","polar_bear"]:
 		visual_kind="wolf"
 	var sprite=AnimatedSprite2D.new()
 	var frames=SpriteFrames.new()
@@ -61,24 +84,25 @@ static func make(kind: String) -> AnimatedSprite2D:
 	if visual_kind in ["normal","demon"]:
 		_add_player_frames(frames,visual_kind)
 		sprite.scale=Vector2(0.16,0.16)
-		# Normalized player frames use a 400x360 canvas with the feet at y=350.
-		# Moving the centered texture up by ~27px anchors every animation to the floor.
 		sprite.position.y=-27.2
+	elif GENERATED_MOBS.has(kind):
+		_add_generated_mob_frames(frames,kind)
+		sprite.scale=Vector2(0.72,0.72)
+		if kind=="dark_slime":
+			sprite.scale=Vector2(0.62,0.62)
+			sprite.position.y=-24
+		elif kind=="corrupted_skeleton":
+			sprite.scale=Vector2(0.72,0.72)
+			sprite.position.y=-36
+		elif kind=="undead_knight":
+			sprite.scale=Vector2(0.82,0.82)
+			sprite.position.y=-40
+		elif kind=="polar_bear":
+			sprite.scale=Vector2(1.02,1.02)
+			sprite.position.y=-34
 	else:
 		_add_mob_frames(frames,visual_kind)
 		sprite.scale=Vector2(0.25,0.25) if visual_kind=="wolf" else Vector2(0.23,0.23)
-		if kind=="corrupted_skeleton":
-			sprite.modulate=Color("8f6bad")
-			sprite.scale=Vector2(0.24,0.24)
-		elif kind=="dark_slime":
-			sprite.modulate=Color("5b8068")
-			sprite.scale=Vector2(0.22,0.22)
-		elif kind=="undead_knight":
-			sprite.modulate=Color("707681")
-			sprite.scale=Vector2(0.29,0.29)
-		elif kind=="polar_bear":
-			sprite.modulate=Color("eef4ff")
-			sprite.scale=Vector2(0.42,0.42)
 		sprite.position.y=-31.0
 	sprite.sprite_frames=frames
 	if visual_kind in ["normal","demon"]:
