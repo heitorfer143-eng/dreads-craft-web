@@ -3,7 +3,7 @@ extends RefCounted
 const PATH = "user://dreads_world.json"
 const INDEX_PATH = "user://dreads_worlds.json"
 const WORLDS_DIR = "user://worlds"
-const SAVE_VERSION = 3
+const SAVE_VERSION = 4
 const VALID_BLOCK_IDS = [0,1,2,3,4,5,6,7,8,9,14,15,16,25]
 static var active_id := ""
 
@@ -32,10 +32,13 @@ static func list_worlds() -> Array:
 	return result
 
 static func _read_index() -> Array:
-	if not FileAccess.file_exists(INDEX_PATH):
-		return []
-	var parsed=JSON.parse_string(FileAccess.get_file_as_string(INDEX_PATH))
-	return parsed if parsed is Array else []
+	for path in [INDEX_PATH,INDEX_PATH+".bak"]:
+		if not FileAccess.file_exists(path):
+			continue
+		var parsed=JSON.parse_string(FileAccess.get_file_as_string(path))
+		if parsed is Array:
+			return parsed
+	return []
 
 static func _write_index(entries: Array) -> void:
 	var tmp=INDEX_PATH+".tmp"
@@ -48,6 +51,9 @@ static func _write_index(entries: Array) -> void:
 	var index_abs=_abs(INDEX_PATH)
 	var tmp_abs=_abs(tmp)
 	if FileAccess.file_exists(INDEX_PATH):
+		var backup_abs=_abs(INDEX_PATH+".bak")
+		DirAccess.remove_absolute(backup_abs)
+		DirAccess.copy_absolute(index_abs,backup_abs)
 		DirAccess.remove_absolute(index_abs)
 	DirAccess.rename_absolute(tmp_abs,index_abs)
 
@@ -124,8 +130,23 @@ static func read_path(save_path: String) -> Dictionary:
 	if not FileAccess.file_exists(save_path):
 		return {}
 	var parsed=JSON.parse_string(FileAccess.get_file_as_string(save_path))
-	if not parsed is Dictionary or int(parsed.get("version",0)) not in [1,2,3]:
+	if not parsed is Dictionary:
 		return {}
+	var version=int(parsed.get("version",1))
+	if version<1 or version>SAVE_VERSION:
+		return {}
+	# Forward migration: old worlds keep working after game updates.
+	if not parsed.has("hotbar"):
+		parsed["hotbar"]=[0,0,0,0,0,0,0,0,0]
+	if not parsed.has("selected"):
+		parsed["selected"]=0
+	if not parsed.has("dropped_items"):
+		parsed["dropped_items"]=[]
+	if not parsed.has("boss_defeated"):
+		parsed["boss_defeated"]=false
+	if not parsed.has("in_purity_realm"):
+		parsed["in_purity_realm"]=false
+	parsed["version"]=SAVE_VERSION
 	var cells=parsed.get("cells",[])
 	if not cells is Array or cells.size()!=96:
 		return {}
