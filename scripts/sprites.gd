@@ -51,6 +51,8 @@ static func make(kind: String) -> AnimatedSprite2D:
 		visual_kind="skeleton"
 	elif kind=="dark_slime":
 		visual_kind="wolf"
+	elif kind=="polar_bear":
+		visual_kind="wolf"
 	var sprite=AnimatedSprite2D.new()
 	var frames=SpriteFrames.new()
 	frames.remove_animation("default")
@@ -66,6 +68,9 @@ static func make(kind: String) -> AnimatedSprite2D:
 		if kind=="corrupted_skeleton": sprite.modulate=Color("8f6bad")
 		elif kind=="dark_slime": sprite.modulate=Color("5b8068")
 		elif kind=="undead_knight": sprite.modulate=Color("707681")
+		elif kind=="polar_bear":
+			sprite.modulate=Color("eef4ff")
+			sprite.scale=Vector2(0.30,0.30)
 		sprite.position.y=-25.0
 	sprite.sprite_frames=frames
 	if visual_kind in ["normal","demon"]:
