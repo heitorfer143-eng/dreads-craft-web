@@ -13,7 +13,6 @@ const Interior = preload("res://scripts/interior.gd")
 const Mel = preload("res://scripts/mel.gd")
 const GeneratedAssets = preload("res://scripts/generated_assets.gd")
 const GeneratedIntro = preload("res://scripts/generated_intro.gd")
-const SheetAssets = preload("res://scripts/generated_sheet_assets.gd")
 const MultiplayerClient = preload("res://scripts/multiplayer_client.gd")
 
 var in_purity=false
@@ -2223,9 +2222,9 @@ func spawn_village_hub() -> void:
 	if not is_instance_valid(structures) or not is_instance_valid(world):
 		return
 	var defs=[
-		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/blacksmith.svg"},
-		{"x":34,"kind":"market","name":"Casa do Mercador","texture":"res://assets/structures/market.svg"},
-		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/chapel.svg"}
+		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/village_house_generated.png"},
+		{"x":34,"kind":"market","name":"Casa do Mercador","texture":"res://assets/structures/village_house_generated.png"},
+		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/village_house_generated.png"}
 	]
 	for data in defs:
 		var x=int(data.x)
@@ -2252,15 +2251,12 @@ func maybe_start_mel_quest() -> void:
 	mel_quest_started=true
 	show_mel_dialogue()
 
-func npc_face_texture(_path: String, role: String="") -> Texture2D:
-	if role=="mel":
-		return SheetAssets.mel_portrait()
-	return SheetAssets.portrait(role)
+func npc_face_texture(path: String, role: String="") -> Texture2D:
+	if not ResourceLoader.exists(path):
+		return null
+	return load(path)
 
 func item_display_texture(id:int, craft:bool=false) -> Texture2D:
-	var generated=SheetAssets.item_icon(id)
-	if generated!=null:
-		return generated
 	var path=Items.CRAFT_ICONS.get(id,Items.ICONS.get(id,"res://assets/items/dirt.png")) if craft else Items.ICONS.get(id,"res://assets/items/dirt.png")
 	return load(path) if ResourceLoader.exists(path) else null
 
@@ -2283,7 +2279,7 @@ func show_mel_dialogue() -> void:
 	header.add_theme_constant_override("separation",10)
 	content.add_child(header)
 	var portrait=TextureRect.new()
-	portrait.texture=SheetAssets.mel_portrait()
+	portrait.texture=npc_face_texture("res://assets/npcs/mel_generated.png","mel")
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -2540,7 +2536,7 @@ func show_npc_dialogue(npc) -> void:
 	current_npc=npc
 	clear_menu("","npc_dialogue")
 	var mobile=get_viewport_rect().size.x<=760
-	var portrait_path=""
+	var portrait_path="res://assets/npcs/monk_generated.png" if npc.role=="monge" else "res://assets/npcs/blacksmith_generated.png"
 	var card=PanelContainer.new()
 	card.add_theme_stylebox_override("panel",compact_panel_style(0.98,Color("8b6e9d"),10))
 	card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -2553,7 +2549,7 @@ func show_npc_dialogue(npc) -> void:
 	header.add_theme_constant_override("separation",10)
 	content.add_child(header)
 	var portrait=TextureRect.new()
-	portrait.texture=SheetAssets.portrait(npc.role)
+	portrait.texture=npc_face_texture(portrait_path,npc.role)
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
