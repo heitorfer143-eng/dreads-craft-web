@@ -3,6 +3,8 @@ extends RefCounted
 const PATH = "user://dreads_world.json"
 const INDEX_PATH = "user://dreads_worlds.json"
 const WORLDS_DIR = "user://worlds"
+const SAVE_VERSION = 3
+const VALID_BLOCK_IDS = [0,1,2,3,4,5,6,7,8,9,14,15,16,25]
 static var active_id := ""
 
 static func _safe_id(name: String) -> String:
@@ -10,6 +12,9 @@ static func _safe_id(name: String) -> String:
 	for ch in ["/","\\",":","*","?","\"","<",">","|"]:
 		clean=clean.replace(ch,"")
 	return clean.left(36)+"_"+str(abs(name.hash()))
+
+static func _abs(path: String) -> String:
+	return ProjectSettings.globalize_path(path)
 
 static func list_worlds() -> Array:
 	var result=[]
@@ -33,42 +38,82 @@ static func _read_index() -> Array:
 	return parsed if parsed is Array else []
 
 static func _write_index(entries: Array) -> void:
-	var f=FileAccess.open(INDEX_PATH,FileAccess.WRITE)
-	if f:
-		f.store_string(JSON.stringify(entries))
-		f.close()
+	var tmp=INDEX_PATH+".tmp"
+	var f=FileAccess.open(tmp,FileAccess.WRITE)
+	if not f:
+		return
+	f.store_string(JSON.stringify(entries))
+	f.flush()
+	f.close()
+	var index_abs=_abs(INDEX_PATH)
+	var tmp_abs=_abs(tmp)
+	if FileAccess.file_exists(INDEX_PATH):
+		DirAccess.remove_absolute(index_abs)
+	DirAccess.rename_absolute(tmp_abs,index_abs)
 
 static func select_world(id: String) -> void:
 	active_id=id
 
 static func write(data: Dictionary) -> Error:
-	var directory_error=DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(WORLDS_DIR))
+	var dir_abs=_abs(WORLDS_DIR)
+	var directory_error=DirAccess.make_dir_recursive_absolute(dir_abs)
 	if directory_error!=OK:
 		return directory_error
 	if active_id.is_empty():
 		active_id=_safe_id(str(data.get("name","Reino do Abismo")))
+
+	data["version"]=SAVE_VERSION
 	var save_path=WORLDS_DIR+"/"+active_id+".json"
-	if directory_error!=OK:
-		return directory_error
-	var file=FileAccess.open(save_path+".tmp",FileAccess.WRITE)
+	var tmp_path=save_path+".tmp"
+	var bak_path=save_path+".bak"
+	var save_abs=_abs(save_path)
+	var tmp_abs=_abs(tmp_path)
+	var bak_abs=_abs(bak_path)
+
+	var file=FileAccess.open(tmp_path,FileAccess.WRITE)
 	if file==null:
 		return FileAccess.get_open_error()
 	file.store_string(JSON.stringify(data))
+	file.flush()
 	file.close()
+
+	# Save atomically: keep the last valid file as .bak, remove the old
+	# destination, then rename the fully-written temporary file.
 	if FileAccess.file_exists(save_path):
-		var backup_error=DirAccess.copy_absolute(save_path,save_path+".bak")
+		if FileAccess.file_exists(bak_path):
+			DirAccess.remove_absolute(bak_abs)
+		var backup_error=DirAccess.copy_absolute(save_abs,bak_abs)
 		if backup_error!=OK:
+			DirAccess.remove_absolute(tmp_abs)
 			return backup_error
-	var rename_error=DirAccess.rename_absolute(save_path+".tmp",save_path)
+		var remove_error=DirAccess.remove_absolute(save_abs)
+		if remove_error!=OK:
+			DirAccess.remove_absolute(tmp_abs)
+			return remove_error
+
+	var rename_error=DirAccess.rename_absolute(tmp_abs,save_abs)
 	if rename_error!=OK:
+		# Last-resort restore if replacing an existing save failed.
+		if FileAccess.file_exists(bak_path) and not FileAccess.file_exists(save_path):
+			DirAccess.copy_absolute(bak_abs,save_abs)
 		return rename_error
+
 	var entries=_read_index()
-	var meta={"id":active_id,"name":str(data.get("name","Reino")),"day":int(data.get("day",1)),"clock":float(data.get("clock",0.32)),"creative":bool(data.get("creative",false)),"difficulty":int(data.get("difficulty",1)),"saved_at":int(data.get("saved_at",0))}
+	var meta={
+		"id":active_id,
+		"name":str(data.get("name","Reino")),
+		"day":int(data.get("day",1)),
+		"clock":float(data.get("clock",0.32)),
+		"creative":bool(data.get("creative",false)),
+		"difficulty":int(data.get("difficulty",1)),
+		"saved_at":int(data.get("saved_at",0))
+	}
 	var replaced=false
 	for i in entries.size():
 		if str(entries[i].get("id",""))==active_id:
 			entries[i]=meta
 			replaced=true
+			break
 	if not replaced:
 		entries.push_front(meta)
 	_write_index(entries)
@@ -78,7 +123,7 @@ static func read_path(save_path: String) -> Dictionary:
 	if not FileAccess.file_exists(save_path):
 		return {}
 	var parsed=JSON.parse_string(FileAccess.get_file_as_string(save_path))
-	if not parsed is Dictionary or int(parsed.get("version",0)) not in [1,2]:
+	if not parsed is Dictionary or int(parsed.get("version",0)) not in [1,2,3]:
 		return {}
 	var cells=parsed.get("cells",[])
 	if not cells is Array or cells.size()!=96:
@@ -89,7 +134,7 @@ static func read_path(save_path: String) -> Dictionary:
 		for id in row:
 			if not id is float and not id is int:
 				return {}
-			if id!=int(id) or int(id) not in [0,1,2,3,4,5,6,7,8,9,14,15,16]:
+			if id!=int(id) or int(id) not in VALID_BLOCK_IDS:
 				return {}
 	for row in cells:
 		for x in row.size():
@@ -99,18 +144,23 @@ static func read_path(save_path: String) -> Dictionary:
 static func read_save() -> Dictionary:
 	if active_id.is_empty():
 		var worlds=list_worlds()
-		if worlds.is_empty(): return {}
+		if worlds.is_empty():
+			return {}
 		active_id=str(worlds[0].get("id",""))
-	return read_path(WORLDS_DIR+"/"+active_id+".json")
+	var save_path=WORLDS_DIR+"/"+active_id+".json"
+	var data=read_path(save_path)
+	if data.is_empty():
+		data=read_path(save_path+".bak")
+	return data
 
 static func erase_save() -> Error:
 	var save_path=WORLDS_DIR+"/"+active_id+".json"
-	if FileAccess.file_exists(save_path):
-		var error=DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
-		if error!=OK:
-			return error
-	if FileAccess.file_exists(save_path+".bak"):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path+".bak"))
+	for suffix in ["",".bak",".tmp"]:
+		var path=save_path+suffix
+		if FileAccess.file_exists(path):
+			var error=DirAccess.remove_absolute(_abs(path))
+			if error!=OK:
+				return error
 	var entries=_read_index().filter(func(e): return str(e.get("id",""))!=active_id)
 	_write_index(entries)
 	active_id=""
