@@ -2100,17 +2100,61 @@ func place_block() -> bool:
 	refresh_hud()
 	return true
 
+func play_weapon_swing() -> void:
+	if not (Items.SWORD_DAMAGE.has(selected) or Items.PICK_TIERS.has(selected)):
+		return
+	if not player.creative and player.inventory.get(selected,0)<=0:
+		return
+	var texture=item_display_texture(selected,true)
+	if texture==null:
+		return
+	var weapon=Sprite2D.new()
+	weapon.texture=texture
+	weapon.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+	weapon.z_index=20
+	weapon.position=Vector2(player.face*25,-30)
+	weapon.scale=Vector2(0.72,0.72)
+	weapon.flip_h=player.face<0
+	weapon.rotation=deg_to_rad(-70.0*player.face)
+	player.add_child(weapon)
+	var tween=weapon.create_tween()
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(weapon,"rotation",deg_to_rad(65.0*player.face),0.16)
+	tween.parallel().tween_property(weapon,"position",Vector2(player.face*47,-19),0.16)
+	tween.tween_property(weapon,"modulate:a",0.0,0.07)
+	tween.tween_callback(weapon.queue_free)
+
 func attack() -> void:
 	if player.attack_time>0:
 		return
 	player.attack_time=.35
-	if is_instance_valid(game_audio): game_audio.hit()
+	if is_instance_valid(game_audio):
+		game_audio.hit()
 	player.face=1 if (player.position+touch_aim if device_controls.mobile else get_global_mouse_position()).x>=player.position.x else -1
+	play_weapon_swing()
+	var critical=not player.creative and not player.is_on_floor() and player.velocity.y>70
+	var landed=false
+	var shown_damage=0
 	for mob in enemies.get_children():
+		if not is_instance_valid(mob) or not mob.has_method("hit"):
+			continue
 		var difference=mob.position-player.position
-		if absf(difference.x)<85 and absf(difference.y)<65 and signf(difference.x)==player.face:
+		if absf(difference.x)<92 and absf(difference.y)<72 and (absf(difference.x)<8 or signf(difference.x)==player.face):
 			var base_damage=Items.SWORD_DAMAGE.get(selected,8) if player.inventory.get(selected,0)>0 or player.creative else 8
-			mob.hit(base_damage+(2 if mel_tamed else 0),300.0)
+			var damage=float(base_damage+(2 if mel_tamed else 0))
+			if critical:
+				damage=roundf(damage*1.5)
+			if is_instance_valid(boss) and mob==boss:
+				# The Purity boss accepts only the damage argument; normal mobs also receive knockback.
+				mob.hit(damage)
+			else:
+				mob.hit(damage,300.0)
+			landed=true
+			shown_damage=maxi(shown_damage,int(damage))
+	if landed:
+		status.text=("CRÍTICO!  %d DE DANO" if critical else "%d DE DANO") % shown_damage
+		message_time=1.1
 
 func eat() -> void:
 	if player.inventory.get(10,0)>0:
@@ -2161,7 +2205,7 @@ func _process(delta: float) -> void:
 			message_time=1.5
 		elif not player.creative and not Items.can_mine(id,player.inventory):
 			progress=0
-			status.text="Requer picareta de "+str({7:"pedra",14:"ferro",15:"diamante"}.get(id,"material superior"))
+			status.text="Requer picareta de "+str({7:"pedra",14:"ferro",15:"diamante",25:"diamante"}.get(id,"material superior"))
 			message_time=1
 		else:
 			progress+=delta*Items.mining_speed(player.inventory)
@@ -2671,7 +2715,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated}
+	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated}
 	if in_purity:
 		data["arena_position"]=[player.position.x,player.position.y]
 		data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
@@ -2841,11 +2885,17 @@ func update_purity_hud() -> void:
 	portal_button.visible=active and not modal and nearby_portal()
 	portal_button.text="VOLTAR AO MUNDO" if in_purity else "ENTRAR NA PUREZA"
 
+func set_overworld_entities_visible(value: bool) -> void:
+	for node in [structures,npcs,mel]:
+		if is_instance_valid(node):
+			node.visible=value
+
 func enter_purity(skip_dialogue: bool=false) -> void:
 	if in_purity:
 		return
 	ensure_purity_hud()
 	return_position=player.position
+	set_overworld_entities_visible(false)
 	overworld=world
 	remove_child(overworld)
 	world=World.new()
@@ -2955,6 +3005,7 @@ func leave_purity() -> void:
 	overworld=null
 	add_child(world)
 	world.camera=player.camera
+	set_overworld_entities_visible(true)
 	player.position=return_position
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0
