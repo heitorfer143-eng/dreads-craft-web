@@ -16,7 +16,7 @@ Projeto Godot 4.7.2, GDScript, renderizador Compatibility. Criado a partir da ve
 
 Extraia o ZIP e execute `Instalar-e-abrir.cmd`. O arquivo baixa o Godot 4.7.2 x64 do endereço oficial, extrai para `.tools` dentro deste projeto e abre o editor. Não precisa de instalação global nem altera PATH ou políticas do Windows. Requer conexão com a internet e PowerShell. O comando foi preparado, mas não foi executado em Windows neste ambiente Linux.
 
-Se você já tem Godot, importe `project.godot`. No editor, F6 executa a cena aberta e F5 executa o projeto. Para abrir no VS Code, abra esta pasta inteira. As modificações do código nesta pasta serão lidas pelo Godot; não existe sincronização automática com o chat.
+Se você já tem Godot, importe `project.godot`. No editor, F6 executa a cena aberta e F5 executa o projeto. Para abrir no VS Code, abra esta pasta inteira. As modificações do código nesta pasta serão lidas diretamente pelo Godot.
 
 Download manual oficial: https://godotengine.org/download/windows/
 
@@ -71,3 +71,12 @@ Godot 4.7.2 instalado e executado no ambiente Linux. Importação de recursos e 
 Executar: `godot --headless --path . --script tests/smoke.gd`
 
 A validação visual com janela e o instalador Windows ainda precisam de teste no PC. O ambiente não tinha servidor gráfico disponível.
+
+
+## Segurança do cliente
+
+- O APK não contém chave de API do Dreads Craft.
+- Segredos, tokens e chaves privadas devem existir somente no servidor, via variáveis de ambiente.
+- O Android exportado não solicita acesso ao armazenamento do aparelho.
+- Builds Android de distribuição usam exportação release.
+- Nunca adicione arquivos `.env`, keystores, chaves `.gdkey` ou tokens ao repositório.
