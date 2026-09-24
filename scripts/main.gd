@@ -1107,6 +1107,16 @@ func on_multiplayer_disconnected() -> void:
 		message_time=5
 
 
+func seed_from_text(raw:String) -> int:
+	var value=raw.strip_edges()
+	if value.is_empty():
+		return int(Time.get_unix_time_from_system()*1000.0)+int(Time.get_ticks_msec()%100000)
+	if value.is_valid_int():
+		return int(value)
+	# Text seeds are deterministic: the same text always becomes the same integer seed.
+	return int(value.hash())
+
+
 func show_creation() -> void:
 	clear_menu("","creation")
 	var mobile=get_viewport_rect().size.x<=900
@@ -1219,7 +1229,7 @@ func show_creation() -> void:
 			seed_input.caret_column=seed_input.text.length()
 	)
 	form.add_child(seed_input)
-	var note=label("Deixe em branco para um mundo aleatório.",11)
+	var note=label("Mesma seed = mesmo mundo. Números são usados exatamente; texto também funciona.",11)
 	note.add_theme_color_override("font_color",Color("9f90ac"))
 	form.add_child(note)
 
@@ -1233,7 +1243,7 @@ func show_creation() -> void:
 		world_name=name_input.text.strip_edges()
 		if world_name.is_empty():
 			world_name="Reino do Abismo"
-		var seed_value=int(Time.get_unix_time_from_system()) if seed_input.text.is_empty() else seed_input.text.hash()
+		var seed_value=seed_from_text(seed_input.text)
 		Saves.active_id=""
 		show_world_intro(creative.button_pressed,seed_value,0)
 	)
@@ -2313,7 +2323,8 @@ func _process(delta: float) -> void:
 				online.send_block_change(target,0)
 			if is_instance_valid(game_audio): game_audio.mine()
 			var drop=2 if id==1 else id
-			player.inventory[drop]=player.inventory.get(drop,0)+1
+			var drop_position=Vector2(target.x*32+16,target.y*32+8)
+			spawn_ground_drop(drop,1,drop_position)
 			progress=0
 			if is_instance_valid(device_controls) and device_controls.mobile and mining_held:
 				target=Vector2i(-1,-1)
@@ -2789,18 +2800,18 @@ func spawn_mob() -> void:
 	mob.damage=[0,4,7,11][difficulty]
 	mob.position=Vector2(cell*32,world.surfaces[cell]*32-2)
 	mob.killed.connect(func():
-		player.inventory[10]=player.inventory.get(10,0)+1
-		player.inventory[23]=player.inventory.get(23,0)+1
+		var death_pos=mob.position
+		spawn_ground_drop(10,1,death_pos+Vector2(-10,-8))
+		spawn_ground_drop(23,1,death_pos+Vector2(10,-8))
 		if not monk_quest_done:
 			night_kills+=1
 		if not mel_tamed:
-			status.text="Osso obtido! Mel: %d/3 · Prova do Monge: %d/5" % [mini(3,int(player.inventory.get(23,0))),mini(5,night_kills)]
+			status.text="Criatura derrotada · carne e osso caíram no chão · Prova do Monge: %d/5" % mini(5,night_kills)
 		elif not monk_quest_done:
-			status.text="Criatura derrotada · Prova do Monge: %d/5" % mini(5,night_kills)
+			status.text="Criatura derrotada · drops no chão · Prova do Monge: %d/5" % mini(5,night_kills)
 		else:
-			status.text="Criatura derrotada."
+			status.text="Criatura derrotada · recolha os drops no chão."
 		message_time=2.5
-		refresh_hud()
 	)
 	enemies.add_child(mob)
 
@@ -2813,7 +2824,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated}
+	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"dropped_items":serialize_ground_drops()}
 	if in_purity:
 		data["arena_position"]=[player.position.x,player.position.y]
 		data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
@@ -2857,6 +2868,7 @@ func load_world() -> void:
 	monk_quest_done=bool(data.get("monk_quest_done",false))
 	night_kills=int(data.get("night_kills",0))
 	polar_bear_defeated=bool(data.get("polar_bear_defeated",false))
+	restore_ground_drops(data.get("dropped_items",[]))
 	if monk_quest_done:
 		player.max_hp=maxf(player.max_hp,120.0)
 		player.hp=minf(player.hp,player.max_hp)
@@ -2987,7 +2999,7 @@ func update_purity_hud() -> void:
 	portal_button.text="VOLTAR AO MUNDO" if in_purity else "ENTRAR NA PUREZA"
 
 func set_overworld_entities_visible(value: bool) -> void:
-	for node in [structures,npcs,mel]:
+	for node in [structures,npcs,mel,drops]:
 		if is_instance_valid(node):
 			node.visible=value
 
