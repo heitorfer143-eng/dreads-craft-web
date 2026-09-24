@@ -31,6 +31,7 @@ jobs:
         run: |
           set -e
           mkdir -p build/android
+          mkdir -p assets/mobs/generated
           mkdir -p /tmp/godot-config/godot
           cat > /tmp/godot-config/godot/editor_settings-4.3.tres <<'EOF'
           [gd_resource type="EditorSettings" format=3]
@@ -48,6 +49,8 @@ jobs:
           test -f /root/.local/share/godot/export_templates/4.3.stable/android_release.apk
           test -f /root/debug.keystore
           godot --version
+          godot --headless --script scripts/tools/extract_mob_pngs.gd
+          godot --headless --editor --quit
           godot --headless --export-release "Android" build/android/DreadsCraft.apk
           test -f build/android/DreadsCraft.apk
           ls -lh build/android/DreadsCraft.apk
@@ -55,7 +58,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: DreadsCraft-v0.10-Android
+          name: DreadsCraft-v0.11-Android
           path: build/android/DreadsCraft.apk
           if-no-files-found: error
           retention-days: 14
