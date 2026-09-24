@@ -15,7 +15,7 @@ func _ready() -> void:
 	z_index=-10
 	background=Sprite2D.new()
 	background.texture=SheetAssets.interior(kind)
-	background.texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR
+	background.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	background.position=Vector2(640,360)
 	# Generated rooms are square panels. Stretch only enough to fill the gameplay viewport.
 	var ts=background.texture.get_size()
