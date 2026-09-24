@@ -2225,13 +2225,28 @@ func show_damage_popup(world_position:Vector2,amount:int,critical:bool) -> void:
 	tween.set_parallel(false)
 	tween.tween_callback(popup.queue_free)
 
+func fire_soul_projectile() -> void:
+	var projectile=SoulProjectile.new()
+	projectile.setup(player.face,world,enemies,self)
+	projectile.position=player.position+Vector2(player.face*34,-28)
+	add_child(projectile)
+	status.text="✦ PROJÉTIL DE ALMA"
+	message_time=0.8
+
+
 func attack() -> void:
 	if player.attack_time>0:
+		return
+	player.face=1 if (player.position+touch_aim if device_controls.mobile else get_global_mouse_position()).x>=player.position.x else -1
+	if selected==26 and (player.creative or int(player.inventory.get(26,0))>0):
+		player.attack_time=.65
+		if is_instance_valid(game_audio):
+			game_audio.hit()
+		fire_soul_projectile()
 		return
 	player.attack_time=.35
 	if is_instance_valid(game_audio):
 		game_audio.hit()
-	player.face=1 if (player.position+touch_aim if device_controls.mobile else get_global_mouse_position()).x>=player.position.x else -1
 	play_weapon_swing()
 
 	var has_weapon=Items.SWORD_DAMAGE.has(selected) and (player.creative or int(player.inventory.get(selected,0))>0)
