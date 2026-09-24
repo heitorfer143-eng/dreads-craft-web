@@ -32,7 +32,16 @@ func _ready() -> void:
 	if ResourceLoader.exists(path):
 		sprite.texture=load(path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale=Vector2(0.78,0.78)
+	# Item art mixes tiny tile icons with large illustrated inventory icons.
+	# Normalize every dropped item to a world-sized pickup so a 256px dirt/leaves
+	# illustration can never become a giant block/tree in the world.
+	if sprite.texture!=null:
+		var tex_size=sprite.texture.get_size()
+		var longest=maxf(tex_size.x,tex_size.y)
+		var fit=28.0/maxf(1.0,longest)
+		sprite.scale=Vector2(fit,fit)
+	else:
+		sprite.scale=Vector2.ONE
 	sprite.position=Vector2(0,-12)
 	add_child(sprite)
 

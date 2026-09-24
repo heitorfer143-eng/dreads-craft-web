@@ -238,7 +238,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 13.2 • MOBILE UI"
+	build_badge.text="DREADS CRAFT • BUILD 13.3 • DROP + ESC FIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -1376,12 +1376,16 @@ func show_settings(from_main: bool=false) -> void:
 
 func toggle_fullscreen() -> void:
 	if OS.has_feature("web"):
-		var js="(function(){const d=document,e=d.documentElement;const ios=/iPad|iPhone|iPod/.test(navigator.userAgent);if(d.fullscreenElement){d.exitFullscreen&&d.exitFullscreen();return 'exit';}if(e.requestFullscreen){e.requestFullscreen().catch(()=>{});return 'native';}if(e.webkitRequestFullscreen){e.webkitRequestFullscreen();return 'webkit';}d.body.style.margin='0';d.body.style.padding='0';d.body.style.overflow='hidden';e.style.overflow='hidden';d.body.style.position='fixed';d.body.style.inset='0';d.body.style.width='100vw';d.body.style.height='100dvh';window.scrollTo(0,1);return ios?'ios-fallback':'fallback';})()"
+		# Keep a single ESC press available to the game while in browser fullscreen.
+		# Chrome supports Keyboard Lock in fullscreen; other browsers still receive
+		# preventDefault as a best-effort fallback. Holding ESC remains the browser's
+		# emergency way out of fullscreen.
+		var js="(function(){const d=document,e=d.documentElement;const ios=/iPad|iPhone|iPod/.test(navigator.userAgent);if(!window.__dreadsFullscreenKeys){d.addEventListener('keydown',(ev)=>{if(d.fullscreenElement&&ev.key==='Escape'){ev.preventDefault();}},true);d.addEventListener('fullscreenchange',()=>{if(!d.fullscreenElement&&navigator.keyboard&&navigator.keyboard.unlock){try{navigator.keyboard.unlock();}catch(_){}}});window.__dreadsFullscreenKeys=true;}if(d.fullscreenElement){if(navigator.keyboard&&navigator.keyboard.unlock){try{navigator.keyboard.unlock();}catch(_){}}d.exitFullscreen&&d.exitFullscreen();return 'exit';}if(e.requestFullscreen){Promise.resolve(e.requestFullscreen({navigationUI:'hide'})).then(()=>{if(navigator.keyboard&&navigator.keyboard.lock){navigator.keyboard.lock(['Escape']).catch(()=>{});}}).catch(()=>{});return 'native';}if(e.webkitRequestFullscreen){e.webkitRequestFullscreen();return 'webkit';}d.body.style.margin='0';d.body.style.padding='0';d.body.style.overflow='hidden';e.style.overflow='hidden';d.body.style.position='fixed';d.body.style.inset='0';d.body.style.width='100vw';d.body.style.height='100dvh';window.scrollTo(0,1);return ios?'ios-fallback':'fallback';})()"
 		var result=str(JavaScriptBridge.eval(js,true))
 		if result=="ios-fallback":
 			status.text="Modo tela cheia do iPhone ativado · para esconder a barra do Safari, abra pela Tela de Início"
 			message_time=6
-		return
+			return
 	var mode=DisplayServer.window_get_mode()
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if mode==DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
