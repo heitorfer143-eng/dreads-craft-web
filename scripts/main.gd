@@ -1459,6 +1459,7 @@ func show_objectives() -> void:
 		["🐶 MEL","Domestique Mel entregando 3 ossos.","CONCLUÍDA" if mel_tamed else "%d / 3 ossos" % int(player.inventory.get(23,0))],
 		["⚒ BORIN","Leve 6 ferros ao ferreiro.","CONCLUÍDA" if borin_quest_done else "%d / 6 ferros" % mini(6,int(player.inventory.get(7,0)))],
 		["☾ PROVA DO MONGE","Derrote 5 criaturas que aparecem à noite.","CONCLUÍDA" if monk_quest_done else "%d / 5 criaturas" % mini(5,night_kills)],
+		["❄ URSO DO NORTE","Explore o bioma nevado e derrote o Urso Polar Ancião.","CONCLUÍDA" if polar_bear_defeated else "Procure além das terras x=230"],
 		["✦ PORTAL DA PUREZA","Fabrique o portal com 9 diamantes + 1 Avarita e enfrente o Guardião.","CONCLUÍDA" if boss_defeated else "Em andamento"]
 	]
 	for task in tasks:
@@ -2128,8 +2129,11 @@ func _process(delta: float) -> void:
 	if in_structure!="":
 		mining_held=false
 		message_time=maxf(0,message_time-delta)
-		if message_time==0 and player.position.distance_to(Vector2(110,600))<150:
-			status.text="FALAR / ENTRAR: sair pela porta"
+		if message_time==0:
+			if player.position.distance_to(Vector2(110,600))<150:
+				status.text="FALAR / ENTRAR: sair pela porta"
+			elif in_structure=="market" and player.position.x>650:
+				status.text="FALAR / ENTRAR: abrir a loja de trocas"
 		queue_redraw()
 		return
 	if is_instance_valid(device_controls) and device_controls.mobile and mining_held:
@@ -2180,6 +2184,13 @@ func _process(delta: float) -> void:
 		clock-=1
 		day+=1
 	sky.clock=clock
+	var player_cell_x=int(player.position.x/32.0)
+	if not in_purity and player_cell_x>=World.SNOW_START_X:
+		if not snow_announced:
+			snow_announced=true
+			status.text="❄ BIOMA NEVADO · Há relatos de um Urso Polar Ancião nestas ruínas."
+			message_time=6
+		ensure_polar_bear()
 	spawn_timer+=delta
 	if spawn_timer>9:
 		spawn_timer=0
@@ -2315,6 +2326,61 @@ func show_mel_dialogue() -> void:
 	content.add_child(close)
 	layout()
 
+func can_pay_trade(cost:Dictionary) -> bool:
+	if player.creative:
+		return true
+	for raw_id in cost:
+		var id=int(raw_id)
+		if int(player.inventory.get(id,0))<int(cost[raw_id]):
+			return false
+	return true
+
+func perform_trade(cost:Dictionary,reward_id:int,reward_count:int,trade_name:String) -> void:
+	if not can_pay_trade(cost):
+		status.text="Você não tem materiais suficientes para essa troca."
+		message_time=3
+		return
+	if not player.creative:
+		for raw_id in cost:
+			var id=int(raw_id)
+			player.inventory[id]=int(player.inventory.get(id,0))-int(cost[raw_id])
+	player.inventory[reward_id]=int(player.inventory.get(reward_id,0))+reward_count
+	status.text=trade_name+" adquirido."
+	message_time=3
+	refresh_hud()
+	show_shop()
+
+func trade_button(title:String,cost:Dictionary,reward_id:int,reward_count:int) -> Button:
+	var parts:Array[String]=[]
+	for raw_id in cost:
+		var id=int(raw_id)
+		parts.append("%d %s" % [int(cost[raw_id]),Items.NAMES.get(id,"item")])
+	var text=title+"   ←   "+", ".join(parts)
+	var b=button(text,func(): perform_trade(cost,reward_id,reward_count,title))
+	b.disabled=not can_pay_trade(cost)
+	b.custom_minimum_size=Vector2(0,58)
+	if Items.ICONS.has(reward_id):
+		b.icon=load(Items.ICONS[reward_id])
+		b.expand_icon=true
+		b.add_theme_constant_override("icon_max_width",34)
+	return b
+
+func show_shop() -> void:
+	if not active:
+		return
+	clear_menu("LOJA DO MERCADOR","shop")
+	var intro=label("Troque recursos encontrados no mundo. Nada aqui é gratuito.",14)
+	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	intro.add_theme_color_override("font_color",Color("cbb9d4"))
+	menu_box.add_child(intro)
+	menu_box.add_child(trade_button("Waystone",{3:8,14:1},24,1))
+	menu_box.add_child(trade_button("Carne x3",{6:5},10,3))
+	menu_box.add_child(trade_button("Osso x2",{6:6},23,2))
+	menu_box.add_child(trade_button("Diamante",{7:12},14,1))
+	menu_box.add_child(button("VOLTAR PARA A CASA",resume))
+	layout()
+
+
 func spawn_world_npcs() -> void:
 	if not is_instance_valid(npcs) or not is_instance_valid(world):
 		return
@@ -2379,6 +2445,9 @@ func interact_nearby() -> bool:
 	if in_structure!="":
 		if player.position.distance_to(Vector2(110,600))<135:
 			exit_structure()
+			return true
+		if in_structure=="market" and player.position.x>650:
+			show_shop()
 			return true
 		return false
 	if is_instance_valid(mel) and mel.can_interact():
@@ -2544,6 +2613,33 @@ func show_npc_dialogue(npc) -> void:
 	content.add_child(close)
 	layout()
 
+func has_polar_bear() -> bool:
+	if not is_instance_valid(enemies):
+		return false
+	for mob in enemies.get_children():
+		if str(mob.kind)=="polar_bear":
+			return true
+	return false
+
+func ensure_polar_bear() -> void:
+	if polar_bear_defeated or not is_instance_valid(world) or has_polar_bear():
+		return
+	var spawn=world.snow_spawn_cell()
+	var bear=Mob.new()
+	bear.kind="polar_bear"
+	bear.player=player
+	bear.position=Vector2(spawn.x*32+16,spawn.y*32-2)
+	bear.killed.connect(func():
+		polar_bear_defeated=true
+		player.inventory[14]=int(player.inventory.get(14,0))+2
+		player.inventory[24]=int(player.inventory.get(24,0))+1
+		status.text="Urso Polar Ancião derrotado! Recompensa: 2 diamantes + Waystone."
+		message_time=6
+		refresh_hud()
+	)
+	enemies.add_child(bear)
+
+
 func spawn_mob() -> void:
 	var cell=clampi(int(player.position.x/32)+(18 if randf()>.5 else -18),2,317)
 	var mob=Mob.new()
@@ -2673,6 +2769,27 @@ func use_selected() -> void:
 		else:
 			status.text="Aponte para um espaço vazio ao lado de um bloco."
 		message_time=2.5
+
+func use_waystone() -> void:
+	if not active or not is_instance_valid(player):
+		return
+	if in_purity:
+		status.text="A Waystone não responde na Dimensão da Pureza."
+		message_time=3
+		return
+	if in_structure!="":
+		exit_structure()
+	var village_center=Vector2(34*32+16,35*32-2)
+	if player.position.distance_to(village_center)<520:
+		status.text="Você já está perto da vila."
+		message_time=2.5
+		return
+	player.position=village_center
+	player.velocity=Vector2.ZERO
+	player.camera.reset_smoothing()
+	status.text="✦ A Waystone trouxe você de volta à vila."
+	message_time=4
+
 
 func nearby_portal() -> bool:
 	if not active or not is_instance_valid(world):
