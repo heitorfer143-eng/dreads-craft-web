@@ -16,10 +16,19 @@ func _ready() -> void:
 	collision_layer=4
 	collision_mask=1
 	var shape=RectangleShape2D.new()
-	shape.size=Vector2(30,40)
+	var body_size=Vector2(38,54)
+	if kind=="wolf":
+		body_size=Vector2(48,38)
+	elif kind=="dark_slime":
+		body_size=Vector2(44,34)
+	elif kind=="undead_knight":
+		body_size=Vector2(46,62)
+	elif kind=="polar_bear":
+		body_size=Vector2(76,54)
+	shape.size=body_size
 	var collider=CollisionShape2D.new()
 	collider.shape=shape
-	collider.position=Vector2(0,-20)
+	collider.position=Vector2(0,-body_size.y/2.0)
 	add_child(collider)
 	sprite=Sprites.make(kind)
 	add_child(sprite)
@@ -60,7 +69,8 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	sprite.flip_h=direction<0
 	var distance=position.distance_to(player.position)
-	if distance<48 and attack_timer<=0:
+	var attack_range=82.0 if kind=="polar_bear" else 62.0 if kind in ["wolf","dark_slime"] else 58.0
+	if distance<attack_range and attack_timer<=0:
 		attack_timer=1.1
 		player.take_damage(damage)
 		player.velocity.x=direction*150
