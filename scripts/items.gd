@@ -86,7 +86,6 @@ const DETAILS = {
 	22: {"category":"weapons", "desc":"Poder e velocidade em suas mãos.", "stats":["Dano de Ataque: 12", "Durabilidade: 1560", "Velocidade: 1.3"]},
 	16: {"category":"special", "desc":"Abre as portas para uma dimensão além da realidade. Somente os mais preparados devem atravessá-lo.", "stats":["“A pureza não é o fim...", "mas o verdadeiro início.”"]},
 	24: {"category":"special", "desc":"Pedra rúnica de retorno. Use-a longe da vila para voltar ao centro do povoado.", "stats":["Teleporte: Vila", "Uso permanente"]},
-	25: {"category":"special", "desc":"Um minério branco e brilhante encontrado nas profundezas. Parece guardar ecos de almas antigas.", "stats":["Raridade: Muito rara", "Requer picareta de diamante"]},
 	25: {"category":"materials", "desc":"Minério branco brilhante encontrado nas profundezas. Vibra com energia de almas antigas.", "stats":["Raridade: Muito rara", "Requer: Picareta de diamante"]}
 }
 
