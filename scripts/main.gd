@@ -55,8 +55,8 @@ var action_box: HBoxContainer
 var sky: Node2D
 var active = false
 var modal = true
-var selected = 2
-var hotbar = [2,3,4,8,9,11]
+var selected = 0
+var hotbar = [0,0,0,0,0,0,0,0,0]
 var target = Vector2i(-1,-1)
 var progress = 0.0
 var last_target = Vector2i(-1,-1)
@@ -88,6 +88,8 @@ var mel_tamed := false
 var borin_quest_done := false
 var monk_quest_done := false
 var night_kills := 0
+var polar_bear_defeated := false
+var snow_announced := false
 var online: Node
 var multiplayer_active := false
 var multiplayer_host := false
@@ -342,7 +344,7 @@ func build_ui() -> void:
 	mode_frame.add_child(mode_label)
 
 	hotbar_back=Panel.new()
-	hotbar_back.size=Vector2(404,58)
+	hotbar_back.size=Vector2(492,58)
 	hotbar_back.add_theme_stylebox_override("panel",panel_style(0.90,Color("725f78")))
 	ui.add_child(hotbar_back)
 	bar=HBoxContainer.new()
@@ -424,11 +426,11 @@ func layout() -> void:
 		mode_frame.size=Vector2(132,32)
 	if is_instance_valid(hotbar_back):
 		hotbar_back.scale=Vector2(0.62,0.62) if size.x<560 else Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
-		hotbar_back.position=Vector2((size.x-291)/2.0,size.y-126) if mobile_layout else Vector2((size.x-404)/2.0,size.y-68)
-		hotbar_back.size=Vector2(404,58)
+		hotbar_back.position=Vector2((size.x-354)/2.0,size.y-126) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
+		hotbar_back.size=Vector2(492,58)
 	if is_instance_valid(bar):
 		bar.scale=Vector2(0.62,0.62) if size.x<560 else Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
-		bar.position=Vector2((size.x-246)/2.0,size.y-121) if mobile_layout else Vector2((size.x-342)/2.0,size.y-61)
+		bar.position=Vector2((size.x-324)/2.0,size.y-121) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
 	if is_instance_valid(selected_name):
 		selected_name.visible=not mobile_layout
 		selected_name.position=Vector2((size.x-240)/2.0,size.y-92)
@@ -1362,6 +1364,8 @@ func start_world(creative: bool, seed_value: int) -> void:
 	borin_quest_done=false
 	monk_quest_done=false
 	night_kills=0
+	polar_bear_defeated=false
+	snow_announced=false
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
 	for node in [world,player,enemies,npcs,structures,interior,selection,mel]:
@@ -1380,6 +1384,11 @@ func start_world(creative: bool, seed_value: int) -> void:
 	if creative:
 		for id in Items.NAMES:
 			player.inventory[id]=999
+		hotbar=[2,3,4,8,9,11,16,19,22]
+		selected=2
+	else:
+		hotbar=[0,0,0,0,0,0,0,0,0]
+		selected=0
 	world.camera=player.camera
 	sky.camera=player.camera
 	enemies=Node2D.new()
@@ -1399,7 +1408,6 @@ func start_world(creative: bool, seed_value: int) -> void:
 	active=true
 	clock=.32
 	day=1
-	selected=2
 	auto_save=0
 	spawn_timer=0
 	hud.show()
@@ -1581,7 +1589,8 @@ func show_inventory() -> void:
 		var row=button("%s    %s" % [Items.NAMES[id],amount],func():
 			selected=id
 			if not hotbar.has(id):
-				hotbar[5]=id
+				var empty_slot=hotbar.find(0)
+				hotbar[empty_slot if empty_slot>=0 else hotbar.size()-1]=id
 			resume()
 		)
 		if Items.ICONS.has(id):
@@ -1840,7 +1849,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			use_selected()
 			get_viewport().set_input_as_handled()
 			return
-		if event.physical_keycode>=KEY_1 and event.physical_keycode<=KEY_6:
+		if event.physical_keycode>=KEY_1 and event.physical_keycode<=KEY_9:
 			selected=hotbar[event.physical_keycode-KEY_1]
 			refresh_hud()
 	if event is InputEventMouseButton and event.pressed:
@@ -2018,6 +2027,10 @@ func update_target() -> void:
 func place_block() -> bool:
 	if in_purity or target.x<0 or world.get_cell(target)!=0 or selected not in [2,3,4,5,6,7,8,9,14,15,16]:
 		return false
+	if world.is_village_protected(target) and not player.creative:
+		status.text="A vila é uma zona protegida: não é possível construir aqui."
+		message_time=2.5
+		return false
 	var area=Rect2(Vector2(target)*32,Vector2(32,32))
 	if player.body_rect().intersects(area):
 		return false
@@ -2083,13 +2096,17 @@ func _process(delta: float) -> void:
 		last_target=target
 	if not in_purity and mining_held and target.x>=0 and world.get_cell(target)!=0:
 		var id=world.get_cell(target)
-		if not player.creative and not Items.can_mine(id,player.inventory):
+		if world.is_village_protected(target) and not player.creative:
+			progress=0
+			status.text="A vila é protegida: não é possível quebrar blocos aqui."
+			message_time=1.5
+		elif not player.creative and not Items.can_mine(id,player.inventory):
 			progress=0
 			status.text="Requer picareta de "+str({7:"pedra",14:"ferro",15:"diamante"}.get(id,"material superior"))
 			message_time=1
 		else:
 			progress+=delta*Items.mining_speed(player.inventory)
-		if player.creative or progress>=Items.HARDNESS.get(id,1.0):
+		if (player.creative or not world.is_village_protected(target)) and (player.creative or progress>=Items.HARDNESS.get(id,1.0)):
 			world.set_cell(target,0)
 			if multiplayer_active and is_instance_valid(online):
 				online.send_block_change(target,0)
@@ -2139,9 +2156,9 @@ func spawn_village_hub() -> void:
 	if not is_instance_valid(structures) or not is_instance_valid(world):
 		return
 	var defs=[
-		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/village_house_generated.png"},
-		{"x":34,"kind":"market","name":"Mercado do Abismo","texture":"res://assets/structures/village_house_generated.png"},
-		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/village_house_generated.png"}
+		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/blacksmith.svg"},
+		{"x":34,"kind":"market","name":"Casa do Mercador","texture":"res://assets/structures/market.svg"},
+		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/chapel.svg"}
 	]
 	for data in defs:
 		var x=int(data.x)
@@ -2505,7 +2522,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills}
+	var data={"version":2,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated}
 	if in_purity:
 		data["arena_position"]=[player.position.x,player.position.y]
 		data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
@@ -2548,6 +2565,7 @@ func load_world() -> void:
 	borin_quest_done=bool(data.get("borin_quest_done",false))
 	monk_quest_done=bool(data.get("monk_quest_done",false))
 	night_kills=int(data.get("night_kills",0))
+	polar_bear_defeated=bool(data.get("polar_bear_defeated",false))
 	if monk_quest_done:
 		player.max_hp=maxf(player.max_hp,120.0)
 		player.hp=minf(player.hp,player.max_hp)
@@ -2588,6 +2606,9 @@ func use_selected() -> void:
 		return
 	if selected==10:
 		eat()
+		return
+	if selected==24:
+		use_waystone()
 		return
 	if is_instance_valid(device_controls) and device_controls.mobile:
 		set_touch_place_target()
