@@ -23,7 +23,11 @@ function headers(res, code=200, type="text/plain; charset=utf-8") {
     "Cross-Origin-Embedder-Policy": "require-corp",
     "Cross-Origin-Resource-Policy": "same-origin",
     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-    "Pragma":"no-cache", "Expires":"0"
+    "Pragma":"no-cache", "Expires":"0",
+    "X-Content-Type-Options":"nosniff",
+    "Referrer-Policy":"no-referrer",
+    "Permissions-Policy":"camera=(), microphone=(), geolocation=()",
+    "X-Frame-Options":"DENY"
   });
 }
 
