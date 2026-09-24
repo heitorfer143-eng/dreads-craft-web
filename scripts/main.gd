@@ -409,11 +409,11 @@ func layout() -> void:
 	var stats_frame=hud.get_node_or_null("StatsFrame") if is_instance_valid(hud) else null
 	if stats_frame:
 		stats_frame.position=Vector2(6,6) if mobile_layout else Vector2(12,10)
-		stats_frame.scale=Vector2(0.66,0.66) if size.x<560 else Vector2(0.76,0.76) if mobile_layout else Vector2.ONE
+		stats_frame.scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
 		stats_frame.size=Vector2(244,90)
 	var clock_frame=hud.get_node_or_null("ClockFrame") if is_instance_valid(hud) else null
 	if clock_frame:
-		clock_frame.scale=Vector2(0.68,0.68) if size.x<560 else Vector2(0.78,0.78) if mobile_layout else Vector2.ONE
+		clock_frame.scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
 		clock_frame.position=Vector2((size.x-138)/2.0,6) if mobile_layout else Vector2((size.x-184)/2.0,10)
 		clock_frame.size=Vector2(184,38)
 	if is_instance_valid(action_box):
@@ -425,12 +425,12 @@ func layout() -> void:
 		mode_frame.position=Vector2(size.x-144,56)
 		mode_frame.size=Vector2(132,32)
 	if is_instance_valid(hotbar_back):
-		hotbar_back.scale=Vector2(0.62,0.62) if size.x<560 else Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
-		hotbar_back.position=Vector2((size.x-354)/2.0,size.y-126) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
+		hotbar_back.scale=Vector2(0.82,0.82) if size.x<560 else Vector2(0.92,0.92) if mobile_layout else Vector2.ONE
+		hotbar_back.position=Vector2((size.x-454)/2.0,size.y-132) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
 		hotbar_back.size=Vector2(492,58)
 	if is_instance_valid(bar):
-		bar.scale=Vector2(0.62,0.62) if size.x<560 else Vector2(0.72,0.72) if mobile_layout else Vector2.ONE
-		bar.position=Vector2((size.x-324)/2.0,size.y-121) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
+		bar.scale=Vector2(0.82,0.82) if size.x<560 else Vector2(0.92,0.92) if mobile_layout else Vector2.ONE
+		bar.position=Vector2((size.x-414)/2.0,size.y-125) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
 	if is_instance_valid(selected_name):
 		selected_name.visible=not mobile_layout
 		selected_name.position=Vector2((size.x-240)/2.0,size.y-92)
@@ -2222,9 +2222,9 @@ func spawn_village_hub() -> void:
 	if not is_instance_valid(structures) or not is_instance_valid(world):
 		return
 	var defs=[
-		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/village_house_generated.png"},
-		{"x":34,"kind":"market","name":"Casa do Mercador","texture":"res://assets/structures/village_house_generated.png"},
-		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/village_house_generated.png"}
+		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/blacksmith.svg"},
+		{"x":34,"kind":"market","name":"Casa do Mercador","texture":"res://assets/structures/market.svg"},
+		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/chapel.svg"}
 	]
 	for data in defs:
 		var x=int(data.x)
