@@ -1,5 +1,7 @@
 extends Area2D
 
+const SheetAssets=preload("res://scripts/generated_sheet_assets.gd")
+
 signal interacted(mel)
 
 var player: CharacterBody2D
@@ -25,16 +27,10 @@ func _ready() -> void:
 	shape.position=Vector2(0,-16)
 	add_child(shape)
 	sprite=Sprite2D.new()
-	sprite.texture=load("res://assets/npcs/mel.png")
+	sprite.texture=SheetAssets.mel_frame(0,0)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale=Vector2(0.46,0.46)
-	sprite.position=Vector2(0,-18)
-	# Keep the user's Mel image, removing only its white background at render time.
-	var shader=Shader.new()
-	shader.code="shader_type canvas_item; void fragment(){ vec4 c=texture(TEXTURE,UV); if(c.r>.94 && c.g>.94 && c.b>.94) discard; COLOR=c; }"
-	var material=ShaderMaterial.new()
-	material.shader=shader
-	sprite.material=material
+	sprite.scale=Vector2(0.95,0.95)
+	sprite.position=Vector2(0,-20)
 	add_child(sprite)
 	home_position=global_position
 	wander_timer=randf_range(1.4,3.2)
@@ -79,11 +75,16 @@ func _physics_process(delta: float) -> void:
 		global_position.x=clampf(global_position.x+wander_dir*42.0*delta,min_x,max_x)
 		sprite.flip_h=wander_dir<0
 
-	# Small pixel-art style idle/walk animation without changing the sprite asset.
+	# Real generated sprite-sheet animation: no character drawing in code.
 	var moving=tamed and global_position.distance_to(player.position)>70.0 or not tamed
-	sprite.position.y=-18.0+sin(anim_time*(9.0 if moving else 4.0))*(2.4 if moving else 1.2)
-	var pulse=1.0+sin(anim_time*6.0)*0.018
-	sprite.scale=Vector2(0.46*pulse,0.46/pulse)
+	if moving:
+		var frame=int(anim_time*8.0)%8
+		sprite.texture=SheetAssets.mel_frame(1,frame)
+	else:
+		var frame=int(anim_time*3.0)%4
+		sprite.texture=SheetAssets.mel_frame(0,frame)
+	sprite.position=Vector2(0,-20)
+	sprite.scale=Vector2(0.95,0.95)
 
 func _process(_delta: float) -> void:
 	queue_redraw()
