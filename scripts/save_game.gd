@@ -102,6 +102,7 @@ static func write(data: Dictionary) -> Error:
 	var meta={
 		"id":active_id,
 		"name":str(data.get("name","Reino")),
+		"seed":int(data.get("seed",1)),
 		"day":int(data.get("day",1)),
 		"clock":float(data.get("clock",0.32)),
 		"creative":bool(data.get("creative",false)),
