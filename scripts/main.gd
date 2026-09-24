@@ -2824,7 +2824,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"dropped_items":serialize_ground_drops()}
+	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops()}
 	if in_purity:
 		data["arena_position"]=[player.position.x,player.position.y]
 		data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
@@ -2868,6 +2868,15 @@ func load_world() -> void:
 	monk_quest_done=bool(data.get("monk_quest_done",false))
 	night_kills=int(data.get("night_kills",0))
 	polar_bear_defeated=bool(data.get("polar_bear_defeated",false))
+	if data.has("hotbar") and data.hotbar is Array:
+		hotbar.clear()
+		for raw_id in data.hotbar:
+			hotbar.append(int(raw_id))
+		while hotbar.size()<9:
+			hotbar.append(0)
+		if hotbar.size()>9:
+			hotbar.resize(9)
+	selected=int(data.get("selected",0))
 	restore_ground_drops(data.get("dropped_items",[]))
 	if monk_quest_done:
 		player.max_hp=maxf(player.max_hp,120.0)
