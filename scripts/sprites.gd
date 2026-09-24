@@ -42,7 +42,9 @@ static func _add_mob_frames(frames: SpriteFrames, kind: String) -> void:
 			var texture=AtlasTexture.new()
 			texture.atlas=sheet
 			texture.region=region
-			texture.margin=Rect2((360.0-region.size.x)/2.0,300.0-region.size.y,360.0-region.size.x,300.0-region.size.y)
+			var pad_x=maxf(0.0,360.0-region.size.x)
+			var pad_y=maxf(0.0,360.0-region.size.y)
+			texture.margin=Rect2(pad_x/2.0,pad_y,pad_x,pad_y)
 			frames.add_frame(action,texture)
 
 static func make(kind: String) -> AnimatedSprite2D:
