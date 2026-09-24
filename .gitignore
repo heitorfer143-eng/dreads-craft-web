@@ -12,3 +12,6 @@ secrets/
 .godot/
 build/
 export/
+
+# Godot export credentials / encryption material
+.godot/export_credentials.cfg
