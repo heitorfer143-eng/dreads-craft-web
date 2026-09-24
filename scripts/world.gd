@@ -14,6 +14,7 @@ var world_seed: int = 1
 var camera: Camera2D
 var dirty_rows: Dictionary = {}
 var tile_textures: Dictionary = {}
+var purity_realm := false
 
 func _ready() -> void:
 	for id in Items.TILE_TEXTURES:
@@ -35,7 +36,7 @@ func generate(seed_value: int) -> void:
 		var height = 35 + int(noise.get_noise_1d(x) * (6 if x < 100 else 13))
 		if x < 70:
 			height = 35
-		elif x>=SNOW_START_X:
+		elif not purity_realm and x>=SNOW_START_X:
 			height = 37 + int(noise.get_noise_1d(x*1.35)*6)
 		surfaces.append(height)
 		for y in range(height, HEIGHT):
@@ -122,12 +123,12 @@ func generate_ores() -> void:
 	var rng=RandomNumberGenerator.new()
 	rng.seed=world_seed ^ 0x5F3759DF
 	# Seeded connected clusters, with a stone buffer between different minerals.
-	for ore in [6,7,14,15,25]:
-		var attempts=int({6:180,7:100,14:24,15:5,25:18}[ore])
+	for ore in [6,7,14,15]:
+		var attempts=int({6:180,7:100,14:24,15:5}[ore])
 		for attempt in attempts:
-			var cell=Vector2i(rng.randi_range(3,WIDTH-4),rng.randi_range(int({6:43,7:55,14:72,15:85,25:76}[ore]),HEIGHT-4))
-			var min_size=int({6:5,7:3,14:3,15:1,25:2}[ore])
-			var max_size=int({6:11,7:7,14:5,15:1,25:4}[ore])
+			var cell=Vector2i(rng.randi_range(3,WIDTH-4),rng.randi_range(int({6:43,7:55,14:72,15:85}[ore]),HEIGHT-4))
+			var min_size=int({6:5,7:3,14:3,15:1}[ore])
+			var max_size=int({6:11,7:7,14:5,15:1}[ore])
 			var target_size=rng.randi_range(min_size,max_size)
 			var frontier: Array[Vector2i]=[cell]
 			var visited: Dictionary={}
@@ -146,7 +147,7 @@ func generate_ores() -> void:
 				var mixed=false
 				for offset in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
 					var neighbor=get_cell(current+offset)
-					if neighbor in [6,7,14,15,25] and neighbor!=ore:
+					if neighbor in [6,7,14,15] and neighbor!=ore:
 						mixed=true
 				if mixed:
 					continue
@@ -156,13 +157,13 @@ func generate_ores() -> void:
 					if not visited.has(current+offset):
 						frontier.append(current+offset)
 
-	for ore in [14,15,25]:
+	for ore in [14,15]:
 		var count=0
 		for row in cells:
 			count+=row.count(ore)
 		for y in range(90,80,-1):
 			for x in range(5,WIDTH-5,3):
-				if count>=int({14:18,15:1,25:8}[ore]):
+				if count>=int({14:18,15:1}[ore]):
 					break
 				var point=Vector2i(x,y)
 				if get_cell(point)!=3:
@@ -179,11 +180,11 @@ func generate_ores() -> void:
 func ensure_ore_minimums() -> void:
 	# Keeps both new worlds and older saves populated with useful ore.
 	# Only replaces deep stone, so caves/buildings/terrain remain untouched.
-	var minimums={6:110,7:70,14:24,15:3,25:12}
-	var min_depth={6:43,7:52,14:68,15:82,25:74}
+	var minimums={6:110,7:70,14:24,15:3}
+	var min_depth={6:43,7:52,14:68,15:82}
 	var rng=RandomNumberGenerator.new()
 	rng.seed=world_seed ^ 0x2A7D91C3
-	for ore in [6,7,14,15,25]:
+	for ore in [6,7,14,15]:
 		var count=0
 		for row in cells:
 			count+=row.count(ore)
@@ -199,7 +200,7 @@ func ensure_ore_minimums() -> void:
 			var clear=true
 			for offset in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
 				var neighbor=get_cell(Vector2i(x,y)+offset)
-				if neighbor in [6,7,14,15,25] and neighbor!=ore:
+				if neighbor in [6,7,14,15] and neighbor!=ore:
 					clear=false
 					break
 			if not clear:
@@ -207,7 +208,7 @@ func ensure_ore_minimums() -> void:
 			cells[y][x]=ore
 			count+=1
 			# Coal/iron/diamond form small readable veins. Avarita stays extremely rare.
-			if ore not in [15,25]:
+			if ore!=15
 				for offset in [Vector2i.RIGHT,Vector2i.DOWN,Vector2i.LEFT,Vector2i.UP]:
 					if count>=int(minimums[ore]):
 						break
@@ -216,6 +217,70 @@ func ensure_ore_minimums() -> void:
 						cells[p.y][p.x]=ore
 						count+=1
 	queue_redraw()
+
+func remove_ore(ore_id:int) -> void:
+	for y in range(cells.size()):
+		for x in range(cells[y].size()):
+			if int(cells[y][x])==ore_id:
+				cells[y][x]=3
+	rebuild_collision()
+	queue_redraw()
+
+func generate_purity_realm(seed_value:int) -> void:
+	purity_realm=true
+	world_seed=seed_value ^ 0x51A7F00D
+	var noise=FastNoiseLite.new()
+	noise.seed=world_seed
+	noise.frequency=0.031
+	cells.clear()
+	surfaces.clear()
+	for y in HEIGHT:
+		var row=[]
+		row.resize(WIDTH)
+		row.fill(0)
+		cells.append(row)
+
+	for x in WIDTH:
+		var height=33+int(noise.get_noise_1d(x)*7.0)
+		surfaces.append(height)
+		for y in range(height,HEIGHT):
+			cells[y][x]=3
+
+	# Crystalline caverns.
+	var rng=RandomNumberGenerator.new()
+	rng.seed=world_seed
+	for cave_index in range(34):
+		var cx=rng.randi_range(14,WIDTH-14)
+		var cy=rng.randi_range(49,HEIGHT-9)
+		var rx=rng.randi_range(4,9)
+		var ry=rng.randi_range(2,5)
+		for y in range(cy-ry,cy+ry+1):
+			for x in range(cx-rx,cx+rx+1):
+				if x<=2 or x>=WIDTH-2 or y<=surfaces[x]+7 or y>=HEIGHT-2:
+					continue
+				var nx=float(x-cx)/float(rx)
+				var ny=float(y-cy)/float(ry)
+				if nx*nx+ny*ny<=1.0:
+					cells[y][x]=0
+
+	# Soul Ore exists only in this unlocked realm.
+	for vein in range(34):
+		var x=rng.randi_range(12,WIDTH-12)
+		var y=rng.randi_range(60,HEIGHT-5)
+		var amount=rng.randi_range(2,5)
+		var p=Vector2i(x,y)
+		for step in range(amount):
+			if p.x>3 and p.x<WIDTH-3 and p.y>surfaces[p.x]+12 and p.y<HEIGHT-3 and cells[p.y][p.x]==3:
+				cells[p.y][p.x]=25
+			p+= [Vector2i.RIGHT,Vector2i.LEFT,Vector2i.UP,Vector2i.DOWN][rng.randi_range(0,3)]
+
+	# Return portal at realm spawn.
+	var portal_x=8
+	var portal_y=surfaces[portal_x]-1
+	cells[portal_y][portal_x]=16
+	rebuild_collision()
+	queue_redraw()
+
 
 func is_village_protected(cell: Vector2i) -> bool:
 	# The village is a safe/build-protected zone. Players can walk/interact,
