@@ -1,6 +1,6 @@
 extends RefCounted
 
-const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante", 23: "Osso", 24: "Waystone", 25: "Minério das Almas"}
+const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante", 23: "Osso", 24: "Waystone", 25: "Minério das Almas", 26: "Orbe das Almas"}
 const COLORS = {1: Color("68765b"), 2: Color("594237"), 3: Color("575663"), 4: Color("79503b"), 5: Color("354838"), 6: Color("33323d"), 7: Color("9b7768"), 8: Color("a67b50"), 9: Color("bd9160"), 25: Color("f4fbff")}
 const HARDNESS = {1: 0.5, 2: 0.65, 3: 1.8, 4: 1.15, 5: 0.3, 6: 2.1, 7: 2.6, 8: 0.8, 9: 1.2, 14: 5.0, 15: 9.0, 16: 3.0, 25: 7.5}
 
@@ -28,7 +28,8 @@ const ICONS = {
 	22: "res://assets/items/generated/sword_diamond.png",
 	23: "res://assets/items/bone.svg",
 	24: "res://assets/items/portal_new_world.svg",
-	25: "res://assets/items/soul_ore.svg"
+	25: "res://assets/items/soul_ore.svg",
+	26: "res://assets/items/soul_ore.svg"
 }
 
 const CRAFT_ICONS = {
@@ -40,7 +41,8 @@ const CRAFT_ICONS = {
 	11: "res://assets/items/generated/sword_iron.png",
 	22: "res://assets/items/generated/sword_diamond.png",
 	16: "res://assets/items/portal_new_world.svg",
-	25: "res://assets/tiles/soul_ore.svg"
+	25: "res://assets/tiles/soul_ore.svg",
+	26: "res://assets/items/soul_ore.svg"
 }
 
 const TILE_TEXTURES = {
@@ -70,7 +72,8 @@ const RECIPES = [
 	{"name": "Espada de ferro", "cost": {7: 2, 8: 1}, "id": 11, "count": 1, "table": true},
 	{"name": "Espada de diamante", "cost": {14: 2, 8: 1}, "id": 22, "count": 1, "table": true},
 	{"name": "Portal da Pureza", "cost": {14: 9, 15: 1}, "id": 16, "count": 1, "table": true},
-	{"name": "Waystone", "cost": {3: 8, 14: 1}, "id": 24, "count": 1, "table": true}
+	{"name": "Waystone", "cost": {3: 8, 14: 1}, "id": 24, "count": 1, "table": true},
+	{"name": "Orbe das Almas", "cost": {25: 6, 7: 2, 14: 1}, "id": 26, "count": 1, "table": true}
 ]
 
 const DETAILS = {
@@ -86,7 +89,8 @@ const DETAILS = {
 	22: {"category":"weapons", "desc":"Poder e velocidade em suas mãos.", "stats":["Dano de Ataque: 12", "Durabilidade: 1560", "Velocidade: 1.3"]},
 	16: {"category":"special", "desc":"Abre as portas para uma dimensão além da realidade. Somente os mais preparados devem atravessá-lo.", "stats":["“A pureza não é o fim...", "mas o verdadeiro início.”"]},
 	24: {"category":"special", "desc":"Pedra rúnica de retorno. Use-a longe da vila para voltar ao centro do povoado.", "stats":["Teleporte: Vila", "Uso permanente"]},
-	25: {"category":"materials", "desc":"Minério branco brilhante encontrado nas profundezas. Vibra com energia de almas antigas.", "stats":["Raridade: Muito rara", "Requer: Picareta de diamante"]}
+	25: {"category":"materials", "desc":"Minério branco brilhante encontrado apenas no Reino da Pureza após a queda do Guardião.", "stats":["Raridade: Muito rara", "Requer: Picareta de diamante"]},
+	26: {"category":"weapons", "desc":"Um foco arcano alimentado por Minério das Almas. Dispara projéteis em linha reta.", "stats":["Dano de projétil: 36", "Alcance: 18 blocos", "Recarga: 0,65 s"]}
 }
 
 static func recipe_category(id: int) -> String:
