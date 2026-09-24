@@ -1,7 +1,5 @@
 extends Area2D
 
-const SheetAssets=preload("res://scripts/generated_sheet_assets.gd")
-
 signal interacted(mel)
 
 var player: CharacterBody2D
@@ -27,7 +25,7 @@ func _ready() -> void:
 	shape.position=Vector2(0,-16)
 	add_child(shape)
 	sprite=Sprite2D.new()
-	sprite.texture=SheetAssets.mel_frame(0,0)
+	sprite.texture=load("res://assets/npcs/mel_generated.png")
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale=Vector2(0.95,0.95)
 	sprite.position=Vector2(0,-20)
@@ -75,16 +73,9 @@ func _physics_process(delta: float) -> void:
 		global_position.x=clampf(global_position.x+wander_dir*42.0*delta,min_x,max_x)
 		sprite.flip_h=wander_dir<0
 
-	# Real generated sprite-sheet animation: no character drawing in code.
 	var moving=tamed and global_position.distance_to(player.position)>70.0 or not tamed
-	if moving:
-		var frame=int(anim_time*8.0)%8
-		sprite.texture=SheetAssets.mel_frame(1,frame)
-	else:
-		var frame=int(anim_time*3.0)%4
-		sprite.texture=SheetAssets.mel_frame(0,frame)
-	sprite.position=Vector2(0,-20)
-	sprite.scale=Vector2(0.95,0.95)
+	sprite.position=Vector2(0,-20+sin(anim_time*(8.0 if moving else 3.0))*1.5)
+	sprite.scale=Vector2(0.46,0.46)
 
 func _process(_delta: float) -> void:
 	queue_redraw()
