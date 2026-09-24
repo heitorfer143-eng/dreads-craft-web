@@ -34,6 +34,9 @@ func _ready() -> void:
 	elif kind=="undead_knight":
 		hp=110
 		damage=12
+	elif kind=="polar_bear":
+		hp=220
+		damage=16
 
 func _physics_process(delta: float) -> void:
 	if death_timer>=0:
@@ -46,7 +49,7 @@ func _physics_process(delta: float) -> void:
 	attack_timer=maxf(0,attack_timer-delta)
 	hit_flash=maxf(0,hit_flash-delta)
 	var direction=signf(player.position.x-position.x)
-	var speed=105.0 if kind=="wolf" else 48.0 if kind=="undead_knight" else 72.0 if kind=="corrupted_skeleton" else 64.0
+	var speed=58.0 if kind=="polar_bear" else 105.0 if kind=="wolf" else 48.0 if kind=="undead_knight" else 72.0 if kind=="corrupted_skeleton" else 64.0
 	velocity.x=direction*speed+knockback.x
 	knockback=knockback.move_toward(Vector2.ZERO,700*delta)
 	velocity.y=minf(850,velocity.y+1500*delta)
