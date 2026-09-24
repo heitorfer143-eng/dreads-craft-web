@@ -64,14 +64,20 @@ static func make(kind: String) -> AnimatedSprite2D:
 		sprite.position.y=-27.2
 	else:
 		_add_mob_frames(frames,visual_kind)
-		sprite.scale=Vector2(0.17,0.17) if visual_kind=="wolf" else Vector2(0.155,0.155)
-		if kind=="corrupted_skeleton": sprite.modulate=Color("8f6bad")
-		elif kind=="dark_slime": sprite.modulate=Color("5b8068")
-		elif kind=="undead_knight": sprite.modulate=Color("707681")
+		sprite.scale=Vector2(0.25,0.25) if visual_kind=="wolf" else Vector2(0.23,0.23)
+		if kind=="corrupted_skeleton":
+			sprite.modulate=Color("8f6bad")
+			sprite.scale=Vector2(0.24,0.24)
+		elif kind=="dark_slime":
+			sprite.modulate=Color("5b8068")
+			sprite.scale=Vector2(0.22,0.22)
+		elif kind=="undead_knight":
+			sprite.modulate=Color("707681")
+			sprite.scale=Vector2(0.29,0.29)
 		elif kind=="polar_bear":
 			sprite.modulate=Color("eef4ff")
-			sprite.scale=Vector2(0.30,0.30)
-		sprite.position.y=-25.0
+			sprite.scale=Vector2(0.42,0.42)
+		sprite.position.y=-31.0
 	sprite.sprite_frames=frames
 	if visual_kind in ["normal","demon"]:
 		var clean_mat=ShaderMaterial.new()
