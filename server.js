@@ -12,7 +12,8 @@ const mime = {
   ".html":"text/html; charset=utf-8", ".js":"application/javascript; charset=utf-8",
   ".wasm":"application/wasm", ".pck":"application/octet-stream", ".png":"image/png",
   ".svg":"image/svg+xml", ".jpg":"image/jpeg", ".jpeg":"image/jpeg",
-  ".ogg":"audio/ogg", ".webp":"image/webp", ".ico":"image/x-icon"
+  ".ogg":"audio/ogg", ".webp":"image/webp", ".ico":"image/x-icon",
+  ".apk":"application/vnd.android.package-archive"
 };
 
 function headers(res, code=200, type="text/plain; charset=utf-8") {
