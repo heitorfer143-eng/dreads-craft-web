@@ -208,7 +208,7 @@ func ensure_ore_minimums() -> void:
 			cells[y][x]=ore
 			count+=1
 			# Coal/iron/diamond form small readable veins. Avarita stays extremely rare.
-			if ore!=15
+			if ore!=15:
 				for offset in [Vector2i.RIGHT,Vector2i.DOWN,Vector2i.LEFT,Vector2i.UP]:
 					if count>=int(minimums[ore]):
 						break
