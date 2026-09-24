@@ -25,6 +25,9 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /root/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /root/debug.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: android
         run: |
           set -e
           mkdir -p build/android
@@ -42,17 +45,17 @@ jobs:
           export/android/timestamping_authority_url = ""
           export/android/shutdown_adb_on_exit = true
           EOF
-          test -f /root/.local/share/godot/export_templates/4.3.stable/android_debug.apk
+          test -f /root/.local/share/godot/export_templates/4.3.stable/android_release.apk
           test -f /root/debug.keystore
           godot --version
-          godot --headless --export-debug "Android" build/android/DreadsCraft.apk
+          godot --headless --export-release "Android" build/android/DreadsCraft.apk
           test -f build/android/DreadsCraft.apk
           ls -lh build/android/DreadsCraft.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: DreadsCraft-Android
+          name: DreadsCraft-v0.10-Android
           path: build/android/DreadsCraft.apk
           if-no-files-found: error
           retention-days: 14
