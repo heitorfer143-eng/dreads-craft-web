@@ -5,6 +5,10 @@ signal interacted(mel)
 var player: CharacterBody2D
 var tamed := false
 var sprite: Sprite2D
+var home_position:=Vector2.ZERO
+var wander_dir:=1.0
+var wander_timer:=0.0
+var anim_time:=0.0
 
 func setup(target: CharacterBody2D, is_tamed: bool=false) -> void:
 	player=target
@@ -32,6 +36,8 @@ func _ready() -> void:
 	material.shader=shader
 	sprite.material=material
 	add_child(sprite)
+	home_position=global_position
+	wander_timer=randf_range(1.4,3.2)
 	z_index=6
 
 func can_interact() -> bool:
@@ -45,17 +51,39 @@ func set_tamed(value: bool) -> void:
 	tamed=value
 
 func _physics_process(delta: float) -> void:
-	if not tamed or not is_instance_valid(player):
+	if not is_instance_valid(player):
 		return
-	var target=player.position+Vector2(-player.face*72,0)
-	var distance=global_position.distance_to(target)
-	if distance>420:
-		global_position=target
-	elif distance>58:
-		global_position.x=move_toward(global_position.x,target.x,150.0*delta)
-		var ground_y=player.position.y
-		global_position.y=move_toward(global_position.y,ground_y,110.0*delta)
-	sprite.flip_h=player.position.x<global_position.x
+	anim_time+=delta
+	wander_timer-=delta
+
+	if tamed:
+		var target=player.position+Vector2(-player.face*72,0)
+		var distance=global_position.distance_to(target)
+		if distance>420:
+			global_position=target
+		elif distance>58:
+			global_position.x=move_toward(global_position.x,target.x,150.0*delta)
+			global_position.y=move_toward(global_position.y,player.position.y,110.0*delta)
+			sprite.flip_h=player.position.x<global_position.x
+	else:
+		# Before being tamed, Mel explores a small safe area near the village.
+		if wander_timer<=0:
+			wander_timer=randf_range(1.2,3.0)
+			wander_dir=-wander_dir if randf()<0.7 else wander_dir
+		var min_x=home_position.x-150.0
+		var max_x=home_position.x+150.0
+		if global_position.x<=min_x:
+			wander_dir=1.0
+		elif global_position.x>=max_x:
+			wander_dir=-1.0
+		global_position.x=clampf(global_position.x+wander_dir*42.0*delta,min_x,max_x)
+		sprite.flip_h=wander_dir<0
+
+	# Small pixel-art style idle/walk animation without changing the sprite asset.
+	var moving=tamed and global_position.distance_to(player.position)>70.0 or not tamed
+	sprite.position.y=-18.0+sin(anim_time*(9.0 if moving else 4.0))*(2.4 if moving else 1.2)
+	var pulse=1.0+sin(anim_time*6.0)*0.018
+	sprite.scale=Vector2(0.46*pulse,0.46/pulse)
 
 func _process(_delta: float) -> void:
 	queue_redraw()
