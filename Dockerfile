@@ -2,6 +2,11 @@ FROM barichello/godot-ci:4.3 AS build
 WORKDIR /app
 COPY . .
 
+# Build dedicated PNG mob frames from the original sprite sheet, then import them.
+RUN mkdir -p assets/mobs/generated && \
+    godot --headless --script scripts/tools/extract_mob_pngs.gd && \
+    godot --headless --editor --quit
+
 # Web build
 RUN mkdir -p build/web && godot --headless --export-release "Web" build/web/index.html
 
@@ -15,6 +20,9 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV GODOT_ANDROID_KEYSTORE_DEBUG_PATH=/root/debug.keystore
 ENV GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey
 ENV GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android
+ENV GODOT_ANDROID_KEYSTORE_RELEASE_PATH=/root/debug.keystore
+ENV GODOT_ANDROID_KEYSTORE_RELEASE_USER=androiddebugkey
+ENV GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android
 
 RUN mkdir -p build/android /tmp/godot-config/godot && \
     printf '%s\n' \
@@ -27,9 +35,9 @@ RUN mkdir -p build/android /tmp/godot-config/godot && \
       'export/android/debug_keystore_user = "androiddebugkey"' \
       'export/android/debug_keystore_pass = "android"' \
       > /tmp/godot-config/godot/editor_settings-4.3.tres && \
-    test -f /root/.local/share/godot/export_templates/4.3.stable/android_debug.apk && \
+    test -f /root/.local/share/godot/export_templates/4.3.stable/android_release.apk && \
     test -f /root/debug.keystore && \
-    godot --headless --export-debug "Android" build/android/DreadsCraft.apk && \
+    godot --headless --export-release "Android" build/android/DreadsCraft.apk && \
     test -s build/android/DreadsCraft.apk
 
 FROM node:20-alpine
