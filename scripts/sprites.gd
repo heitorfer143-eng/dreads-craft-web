@@ -17,26 +17,41 @@ const PLAYER_FILES = {
 	}
 }
 
-# One clean PNG generated specifically for the mobs.
-# 5 columns: idle, walk, attack, hurt, death.
-# 5 rows: skeleton, dark slime, undead knight, wolf, polar bear.
-const MOB_SHEET = "res://assets/mobs/mobs_generated.png"
-const MOB_ROWS = {
-	"skeleton": 0,
-	"corrupted_skeleton": 0,
-	"dark_slime": 1,
-	"undead_knight": 2,
-	"wolf": 3,
-	"polar_bear": 4
+# Existing, valid PNG sheets already in the project.
+# Each generated mob sheet is 6 frames wide (96x96 per frame):
+# idle, walk1, walk2, attack, hurt, death.
+const GENERATED_MOBS = {
+	"corrupted_skeleton": "res://assets/sprites/mobs/corrupted_skeleton_sheet.png",
+	"dark_slime": "res://assets/sprites/mobs/dark_slime_sheet.png",
+	"undead_knight": "res://assets/sprites/mobs/undead_knight_sheet.png",
+	"polar_bear": "res://assets/sprites/mobs/polar_bear_sheet.png"
 }
-const ACTION_COLUMNS = {
+const GENERATED_ACTIONS = {
 	"idle": [0],
-	"walk": [0,1],
-	"attack": [2],
-	"hurt": [3],
-	"death": [4]
+	"walk": [1,2],
+	"attack": [3],
+	"hurt": [4],
+	"death": [5]
 }
-const CELL_SIZE = Vector2i(70,60)
+
+# Fallback atlas for the original skeleton and wolf.
+const ATLAS_PATH = "res://assets/image-003.png"
+const ATLAS_FRAMES = {
+	"skeleton": {
+		"idle": [Rect2(28,189,248,344)],
+		"walk": [Rect2(28,189,248,344),Rect2(305,211,259,324)],
+		"attack": [Rect2(573,167,273,366)],
+		"hurt": [Rect2(854,225,323,309)],
+		"death": [Rect2(1154,311,269,226)]
+	},
+	"wolf": {
+		"idle": [Rect2(23,651,270,259)],
+		"walk": [Rect2(23,651,270,259),Rect2(299,668,279,241)],
+		"attack": [Rect2(585,665,283,244)],
+		"hurt": [Rect2(896,679,266,231)],
+		"death": [Rect2(1178,698,225,214)]
+	}
+}
 
 static func _add_player_frames(frames: SpriteFrames, kind: String) -> void:
 	for action in PLAYER_FILES[kind]:
@@ -46,21 +61,34 @@ static func _add_player_frames(frames: SpriteFrames, kind: String) -> void:
 		for path in PLAYER_FILES[kind][action]:
 			frames.add_frame(action,load(path) as Texture2D)
 
-static func _mob_frame(sheet: Texture2D,row:int,column:int) -> Texture2D:
-	var texture=AtlasTexture.new()
-	texture.atlas=sheet
-	texture.region=Rect2(column*CELL_SIZE.x,row*CELL_SIZE.y,CELL_SIZE.x,CELL_SIZE.y)
-	return texture
+static func _add_generated_mob_frames(frames: SpriteFrames, kind: String) -> void:
+	var sheet=load(GENERATED_MOBS[kind]) as Texture2D
+	for action in GENERATED_ACTIONS:
+		frames.add_animation(action)
+		frames.set_animation_speed(action,10.0 if action=="walk" else 9.0)
+		frames.set_animation_loop(action,action in ["idle","walk"])
+		for index in GENERATED_ACTIONS[action]:
+			var texture=AtlasTexture.new()
+			texture.atlas=sheet
+			texture.region=Rect2(int(index)*96,0,96,96)
+			frames.add_frame(action,texture)
 
-static func _add_mob_frames(frames: SpriteFrames, kind: String) -> void:
-	var sheet=load(MOB_SHEET) as Texture2D
-	var row=int(MOB_ROWS.get(kind,0))
-	for action in ACTION_COLUMNS:
+static func _add_atlas_mob_frames(frames: SpriteFrames, kind: String) -> void:
+	var sheet=load(ATLAS_PATH) as Texture2D
+	for action in ATLAS_FRAMES[kind]:
 		frames.add_animation(action)
 		frames.set_animation_speed(action,9.0 if action=="walk" else 8.0)
 		frames.set_animation_loop(action,action in ["idle","walk"])
-		for column in ACTION_COLUMNS[action]:
-			frames.add_frame(action,_mob_frame(sheet,row,int(column)))
+		for region in ATLAS_FRAMES[kind][action]:
+			var texture=AtlasTexture.new()
+			texture.atlas=sheet
+			texture.region=region
+			# Normalize each atlas crop to a stable square canvas so the sprite
+			# does not jump/shrink between animations.
+			var pad_x=maxf(0.0,380.0-region.size.x)
+			var pad_y=maxf(0.0,380.0-region.size.y)
+			texture.margin=Rect2(pad_x/2.0,pad_y,pad_x,pad_y)
+			frames.add_frame(action,texture)
 
 static func make(kind: String) -> AnimatedSprite2D:
 	var sprite=AnimatedSprite2D.new()
@@ -71,27 +99,26 @@ static func make(kind: String) -> AnimatedSprite2D:
 		_add_player_frames(frames,kind)
 		sprite.scale=Vector2(0.16,0.16)
 		sprite.position.y=-27.2
-	else:
-		_add_mob_frames(frames,kind)
+	elif GENERATED_MOBS.has(kind):
+		_add_generated_mob_frames(frames,kind)
 		match kind:
 			"dark_slime":
-				sprite.scale=Vector2(1.18,1.18)
-				sprite.position.y=-29
-			"undead_knight":
-				sprite.scale=Vector2(1.38,1.38)
-				sprite.position.y=-42
-			"wolf":
-				sprite.scale=Vector2(1.36,1.36)
-				sprite.position.y=-34
-			"polar_bear":
-				sprite.scale=Vector2(1.62,1.62)
-				sprite.position.y=-39
+				sprite.scale=Vector2(0.90,0.90)
+				sprite.position.y=-31
 			"corrupted_skeleton":
-				sprite.scale=Vector2(1.34,1.34)
-				sprite.position.y=-42
-			_:
+				sprite.scale=Vector2(0.95,0.95)
+				sprite.position.y=-43
+			"undead_knight":
+				sprite.scale=Vector2(1.06,1.06)
+				sprite.position.y=-47
+			"polar_bear":
 				sprite.scale=Vector2(1.28,1.28)
-				sprite.position.y=-40
+				sprite.position.y=-43
+	else:
+		var base_kind="wolf" if kind=="wolf" else "skeleton"
+		_add_atlas_mob_frames(frames,base_kind)
+		sprite.scale=Vector2(0.34,0.34) if base_kind=="wolf" else Vector2(0.32,0.32)
+		sprite.position.y=-44
 
 	sprite.sprite_frames=frames
 	if kind in ["normal","demon"]:
