@@ -4,6 +4,9 @@ const Items = preload("res://scripts/items.gd")
 const TILE = 32
 const WIDTH = 320
 const HEIGHT = 96
+const VILLAGE_MIN_X = 4
+const VILLAGE_MAX_X = 66
+const SNOW_START_X = 230
 var cells: Array = []
 var surfaces: Array[int] = []
 var rows: Dictionary = {}
@@ -32,6 +35,8 @@ func generate(seed_value: int) -> void:
 		var height = 35 + int(noise.get_noise_1d(x) * (6 if x < 100 else 13))
 		if x < 70:
 			height = 35
+		elif x>=SNOW_START_X:
+			height = 37 + int(noise.get_noise_1d(x*1.35)*6)
 		surfaces.append(height)
 		for y in range(height, HEIGHT):
 			var id = 1 if y == height else 2 if y < height+4 else 3
@@ -210,6 +215,19 @@ func ensure_ore_minimums() -> void:
 						count+=1
 	queue_redraw()
 
+func is_village_protected(cell: Vector2i) -> bool:
+	# The village is a safe/build-protected zone. Players can walk/interact,
+	# but cannot mine or place blocks over/under its houses.
+	return cell.x>=VILLAGE_MIN_X and cell.x<=VILLAGE_MAX_X
+
+func is_snow_biome(cell_x: int) -> bool:
+	return cell_x>=SNOW_START_X
+
+func snow_spawn_cell() -> Vector2i:
+	var x=282
+	return Vector2i(x,surfaces[x])
+
+
 func get_cell(cell: Vector2i) -> int:
 	if cell.x<0 or cell.x>=WIDTH or cell.y>=HEIGHT:
 		return 3
@@ -293,6 +311,18 @@ func _draw() -> void:
 				draw_texture_rect(texture,Rect2(pos,Vector2(TILE,TILE)),false)
 			else:
 				draw_rect(Rect2(pos,Vector2(TILE,TILE)),Items.COLORS.get(id,Color.GRAY))
+			if x>=SNOW_START_X:
+				# Snow biome is rendered as a cold overlay on the same destructible terrain.
+				if id in [1,2]:
+					if y==surfaces[x]:
+						draw_rect(Rect2(pos,Vector2(TILE,7)),Color("e8f1ffff"),true)
+						draw_rect(Rect2(pos+Vector2(0,7),Vector2(TILE,TILE-7)),Color("9eb4c633"),true)
+					else:
+						draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("8ba7c522"),true)
+				elif id==3:
+					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("7394bb28"),true)
+				elif id in [4,5]:
+					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("dce8f51f"),true)
 			if id==4:
 				# Bark detail is drawn procedurally too, so generated trees can never become flat brown columns.
 				draw_rect(Rect2(pos+Vector2(5,0),Vector2(3,TILE)),Color("a56b43"))
