@@ -233,7 +233,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 10.3"
+	build_badge.text="DREADS CRAFT • BUILD 11.0"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -979,6 +979,12 @@ func show_multiplayer(error_text:String="") -> void:
 	)
 	create_box.add_child(multiplayer_input_row(world_edit,"Nome do mundo multiplayer"))
 
+	var seed_title=label("SEED (OPCIONAL)",11)
+	seed_title.add_theme_color_override("font_color",Color("bda6ca"))
+	create_box.add_child(seed_title)
+	var online_seed_edit=multiplayer_line_edit("Ex.: 12345 ou ABISMO","","Seed do mundo multiplayer")
+	create_box.add_child(multiplayer_input_row(online_seed_edit,"Seed do mundo multiplayer"))
+
 	var create_btn=button("CRIAR SALA ONLINE",func():
 		online_player_name=name_edit.text.strip_edges()
 		online_world_name=world_edit.text.strip_edges()
@@ -989,7 +995,7 @@ func show_multiplayer(error_text:String="") -> void:
 			show_multiplayer("Digite o nome do mundo.")
 			return
 		status.text="Conectando ao servidor..."
-		online.create_room(online_player_name,int(Time.get_unix_time_from_system()),online_world_name)
+		online.create_room(online_player_name,seed_from_text(online_seed_edit.text),online_world_name)
 	)
 	create_btn.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	create_btn.custom_minimum_size=Vector2(0,54)
