@@ -19,7 +19,7 @@ func _ready() -> void:
 	sprite.texture=load(texture_path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	# Slightly larger than before so the new pixel-art details survive phone scaling.
-	var desired_width=300.0 if kind=="blacksmith" else 318.0 if kind=="market" else 285.0
+	var desired_width=304.0 if kind=="blacksmith" else 318.0 if kind=="market" else 318.0
 	var tex_size=sprite.texture.get_size()
 	var factor=desired_width/maxf(1.0,tex_size.x)
 	sprite.scale=Vector2(factor,factor)

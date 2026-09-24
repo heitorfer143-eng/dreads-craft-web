@@ -238,7 +238,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 13.5 • VILLAGE ART FIX"
+	build_badge.text="DREADS CRAFT • BUILD 13.6 • GENERATED VILLAGE ASSETS"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -2410,9 +2410,9 @@ func spawn_village_hub() -> void:
 	if not is_instance_valid(structures) or not is_instance_valid(world):
 		return
 	var defs=[
-		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/blacksmith.svg"},
+		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/blacksmith.png"},
 		{"x":34,"kind":"market","name":"Casa do Mercador","texture":"res://assets/structures/market.svg"},
-		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/chapel.svg"}
+		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/chapel.png"}
 	]
 	for data in defs:
 		var x=int(data.x)
