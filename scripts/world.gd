@@ -122,11 +122,13 @@ func generate_ores() -> void:
 	var rng=RandomNumberGenerator.new()
 	rng.seed=world_seed ^ 0x5F3759DF
 	# Seeded connected clusters, with a stone buffer between different minerals.
-	for ore in [6,7,14,15]:
-		var attempts=int({6:180,7:100,14:24,15:5}[ore])
+	for ore in [6,7,14,15,25]:
+		var attempts=int({6:180,7:100,14:24,15:5,25:18}[ore])
 		for attempt in attempts:
-			var cell=Vector2i(rng.randi_range(3,WIDTH-4),rng.randi_range(int({6:43,7:55,14:72,15:85}[ore]),HEIGHT-4))
-			var target_size=rng.randi_range(5,11) if ore==6 else rng.randi_range(3,7) if ore==7 else rng.randi_range(3,5) if ore==14 else 1
+			var cell=Vector2i(rng.randi_range(3,WIDTH-4),rng.randi_range(int({6:43,7:55,14:72,15:85,25:76}[ore]),HEIGHT-4))
+			var min_size=int({6:5,7:3,14:3,15:1,25:2}[ore])
+			var max_size=int({6:11,7:7,14:5,15:1,25:4}[ore])
+			var target_size=rng.randi_range(min_size,max_size)
 			var frontier: Array[Vector2i]=[cell]
 			var visited: Dictionary={}
 			var placed=0
@@ -144,7 +146,7 @@ func generate_ores() -> void:
 				var mixed=false
 				for offset in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
 					var neighbor=get_cell(current+offset)
-					if neighbor in [6,7,14,15] and neighbor!=ore:
+					if neighbor in [6,7,14,15,25] and neighbor!=ore:
 						mixed=true
 				if mixed:
 					continue
@@ -154,20 +156,20 @@ func generate_ores() -> void:
 					if not visited.has(current+offset):
 						frontier.append(current+offset)
 
-	for ore in [14,15]:
+	for ore in [14,15,25]:
 		var count=0
 		for row in cells:
 			count+=row.count(ore)
 		for y in range(90,80,-1):
 			for x in range(5,WIDTH-5,3):
-				if count>=(18 if ore==14 else 1):
+				if count>=int({14:18,15:1,25:8}[ore]):
 					break
 				var point=Vector2i(x,y)
 				if get_cell(point)!=3:
 					continue
 				var clear=true
 				for offset in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
-					if get_cell(point+offset) in [6,7,14,15]:
+					if get_cell(point+offset) in [6,7,14,15,25]:
 						clear=false
 				if clear:
 					cells[y][x]=ore
@@ -177,11 +179,11 @@ func generate_ores() -> void:
 func ensure_ore_minimums() -> void:
 	# Keeps both new worlds and older saves populated with useful ore.
 	# Only replaces deep stone, so caves/buildings/terrain remain untouched.
-	var minimums={6:110,7:70,14:24,15:3}
-	var min_depth={6:43,7:52,14:68,15:82}
+	var minimums={6:110,7:70,14:24,15:3,25:12}
+	var min_depth={6:43,7:52,14:68,15:82,25:74}
 	var rng=RandomNumberGenerator.new()
 	rng.seed=world_seed ^ 0x2A7D91C3
-	for ore in [6,7,14,15]:
+	for ore in [6,7,14,15,25]:
 		var count=0
 		for row in cells:
 			count+=row.count(ore)
@@ -197,7 +199,7 @@ func ensure_ore_minimums() -> void:
 			var clear=true
 			for offset in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
 				var neighbor=get_cell(Vector2i(x,y)+offset)
-				if neighbor in [6,7,14,15] and neighbor!=ore:
+				if neighbor in [6,7,14,15,25] and neighbor!=ore:
 					clear=false
 					break
 			if not clear:
@@ -205,7 +207,7 @@ func ensure_ore_minimums() -> void:
 			cells[y][x]=ore
 			count+=1
 			# Coal/iron/diamond form small readable veins. Avarita stays extremely rare.
-			if ore!=15:
+			if ore not in [15,25]:
 				for offset in [Vector2i.RIGHT,Vector2i.DOWN,Vector2i.LEFT,Vector2i.UP]:
 					if count>=int(minimums[ore]):
 						break
@@ -323,6 +325,10 @@ func _draw() -> void:
 					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("7394bb28"),true)
 				elif id in [4,5]:
 					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("dce8f51f"),true)
+			if id==25:
+				# Soul Ore emits a soft white-blue glow while keeping the pixel-art tile readable.
+				draw_circle(pos+Vector2(TILE/2.0,TILE/2.0),18,Color(0.82,0.95,1.0,0.10))
+				draw_circle(pos+Vector2(TILE/2.0,TILE/2.0),10,Color(0.95,0.99,1.0,0.13))
 			if id==4:
 				# Bark detail is drawn procedurally too, so generated trees can never become flat brown columns.
 				draw_rect(Rect2(pos+Vector2(5,0),Vector2(3,TILE)),Color("a56b43"))
