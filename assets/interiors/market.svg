@@ -1,1 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" shape-rendering="crispEdges"><rect width="1280" height="720" fill="#12101a"/><rect y="80" width="1280" height="540" fill="#2c2028"/><path fill="#4c2f37" d="M0 90h1280v36H0zM0 280h1280v20H0z"/><rect x="110" y="170" width="250" height="320" fill="#402b28"/><rect x="135" y="195" width="200" height="270" fill="#1e171c"/><path fill="#96515c" d="M90 145h290l-28 80H118z"/><rect x="480" y="350" width="560" height="150" fill="#5d3c2e"/><path fill="#a86a45" d="M510 375h110v80H510zm150 0h110v80H660zm150 0h110v80H810z"/><circle cx="555" cy="405" r="16" fill="#a2394f"/><circle cx="705" cy="405" r="16" fill="#568b67"/><circle cx="855" cy="405" r="16" fill="#7d609b"/><rect y="620" width="1280" height="100" fill="#35272b"/><rect y="612" width="1280" height="12" fill="#6b4a51"/><rect x="54" y="520" width="118" height="92" fill="#171019"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" shape-rendering="crispEdges">
+<rect width="1280" height="720" fill="#100e16"/><rect y="76" width="1280" height="518" fill="#29202a"/>
+<path fill="#17141c" d="M0 76h1280v34H0zM0 250h1280v18H0zM0 430h1280v18H0z"/><path fill="#51333d" d="M0 110h1280v12H0zM0 280h1280v10H0z"/>
+<!-- shelves -->
+<rect x="92" y="138" width="290" height="350" fill="#352628"/><rect x="112" y="160" width="250" height="300" fill="#1b171d"/>
+<path fill="#79513c" d="M126 206h222v16H126zm0 288h222v16H126zm0-144h222v16H126z"/>
+<path fill="#a65a43" d="M146 174h38v28h-38zm82 8h44v20h-44z"/><path fill="#537963" d="M156 306h44v30h-44zm76-8h54v38h-54z"/><path fill="#6f527f" d="M146 392h52v34h-52zm92 4h46v30h-46z"/>
+<!-- counter -->
+<rect x="492" y="388" width="568" height="114" fill="#50352d"/><rect x="470" y="370" width="612" height="30" fill="#76503a"/>
+<path fill="#8e5a3e" d="M520 414h122v64H520zm158 0h122v64H678zm158 0h122v64H836z"/>
+<!-- hanging cloth -->
+<path fill="#743344" d="M466 150h620l-34 92H500z"/><path fill="#a54a55" d="M466 150h92l-18 92h-40zm184 0h92l-6 92h-92zm184 0h92l8 92h-92z"/>
+<!-- goods -->
+<circle cx="576" cy="432" r="18" fill="#b14850"/><circle cx="734" cy="432" r="18" fill="#5d8f69"/><circle cx="892" cy="432" r="18" fill="#80629b"/>
+<path fill="#c68a49" d="M544 458h64v16h-64zm158 0h64v16h-64zm158 0h64v16h-64z"/>
+<!-- crates/barrels -->
+<rect x="1080" y="438" width="110" height="112" fill="#60402d"/><path fill="#8a5b3b" d="M1092 452h86v18h-86zm0 60h86v18h-86z"/>
+<path fill="#5b3a2c" d="M402 458h64v112h-64z"/><path fill="#292020" d="M398 474h72v10h-72zm0 70h72v10h-72z"/>
+<!-- exit -->
+<path fill="#171319" d="M42 474h138v120H42z"/><path fill="#573d36" d="M58 488h106v106H58z"/><rect x="142" y="542" width="8" height="8" fill="#d8a95b"/>
+<!-- floor -->
+<rect y="594" width="1280" height="126" fill="#30262b"/><rect y="586" width="1280" height="12" fill="#70515d"/>
+<path fill="#3b3036" d="M0 626h1280v8H0zM0 674h1280v8H0z"/><path stroke="#1d181d" stroke-width="4" d="M120 598l-42 122M340 598l-20 122M590 598l-5 122M850 598l10 122M1090 598l34 122"/>
+</svg>

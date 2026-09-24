@@ -1,1 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" shape-rendering="crispEdges"><rect width="1280" height="720" fill="#15101a"/><rect y="80" width="1280" height="540" fill="#2b1c1c"/><path fill="#4b3024" d="M0 90h1280v40H0zM0 260h1280v24H0z"/><rect x="90" y="155" width="270" height="330" fill="#6b3d29"/><rect x="115" y="180" width="220" height="280" fill="#231619"/><rect x="170" y="260" width="110" height="140" fill="#d45c26"/><rect x="185" y="280" width="80" height="110" fill="#f49b3e"/><rect x="720" y="340" width="270" height="120" fill="#3b2923"/><rect x="760" y="305" width="190" height="55" fill="#6c6f78"/><rect x="785" y="285" width="140" height="35" fill="#a8abb4"/><rect x="1010" y="170" width="130" height="250" fill="#24191b"/><path fill="#89705a" d="M1025 195h100v18h-100zm0 55h100v18h-100zm0 55h100v18h-100z"/><rect y="620" width="1280" height="100" fill="#3c2a26"/><rect y="612" width="1280" height="12" fill="#6b5141"/><rect x="54" y="520" width="118" height="92" fill="#171019"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" shape-rendering="crispEdges">
+<rect width="1280" height="720" fill="#100d13"/><rect y="76" width="1280" height="518" fill="#2a1c1c"/>
+<path fill="#171216" d="M0 76h1280v34H0zM0 246h1280v18H0zM0 430h1280v18H0z"/>
+<path fill="#4a3026" d="M0 110h1280v12H0zM0 276h1280v10H0z"/>
+<path fill="#5a3a2b" d="M52 94h42v500H52zM390 94h34v500h-34zM1150 94h44v500h-44z"/>
+<!-- forge -->
+<rect x="108" y="154" width="282" height="342" fill="#4e3027"/><rect x="132" y="178" width="234" height="294" fill="#1b1417"/>
+<path fill="#6b4330" d="M154 210h190v34H154z"/><rect x="176" y="254" width="146" height="166" fill="#251619"/>
+<rect x="192" y="280" width="114" height="124" fill="#b84225"/><rect x="210" y="302" width="78" height="92" fill="#f07832"/>
+<path fill="#ffb54f" d="M220 356l18-44 18 44 17-30 15 68h-78z"/>
+<!-- anvil/workbench -->
+<rect x="610" y="414" width="360" height="86" fill="#3b2924"/><rect x="630" y="392" width="320" height="30" fill="#5a3b2e"/>
+<path fill="#8c9098" d="M710 330h168v34h-168l-30 24h228l-30-24H710z"/><rect x="748" y="364" width="92" height="58" fill="#646870"/>
+<!-- tool rack -->
+<rect x="996" y="150" width="154" height="302" fill="#1d1518"/><path fill="#765842" d="M1012 180h122v14h-122zm0 70h122v14h-122zm0 70h122v14h-122z"/>
+<path fill="#a3a5aa" d="M1030 200h10v40h-10zm42 60h10v50h-10zm38-54h10v38h-10z"/>
+<path fill="#70472f" d="M1022 392h120v46h-120z"/>
+<!-- barrels -->
+<path fill="#5c3a2a" d="M486 452h76v118h-76zM1030 470h84v118h-84z"/><path fill="#2a2020" d="M482 466h84v10h-84zm0 80h84v10h-84zm544-62h92v10h-92zm0 76h92v10h-92z"/>
+<!-- exit -->
+<path fill="#171217" d="M42 474h138v120H42z"/><path fill="#55382e" d="M58 488h106v106H58z"/><rect x="142" y="542" width="8" height="8" fill="#d39b4d"/>
+<!-- floor -->
+<rect y="594" width="1280" height="126" fill="#382923"/><rect y="586" width="1280" height="12" fill="#735444"/>
+<path fill="#49352d" d="M0 626h1280v8H0zM0 674h1280v8H0z"/><path stroke="#211718" stroke-width="4" d="M140 598l-45 122M360 598l-20 122M600 598l-4 122M840 598l8 122M1080 598l30 122"/>
+</svg>

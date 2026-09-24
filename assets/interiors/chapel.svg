@@ -1,1 +1,54 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" shape-rendering="crispEdges"><rect width="1280" height="720" fill="#10111b"/><rect y="90" width="1280" height="530" fill="#292a37"/><path fill="#494954" d="M0 110h1280v28H0zM0 300h1280v20H0z"/><rect x="480" y="140" width="320" height="360" fill="#191824"/><path fill="#736284" d="M520 180h240v280H520z"/><circle cx="640" cy="290" r="80" fill="#594a70"/><path fill="#e0b85f" d="M628 210h24v160h-24zm-65 55h154v24H563z"/><rect x="170" y="360" width="240" height="60" fill="#3c332f"/><rect x="870" y="360" width="240" height="60" fill="#3c332f"/><rect y="620" width="1280" height="100" fill="#30303a"/><rect y="612" width="1280" height="12" fill="#5a5966"/><rect x="54" y="520" width="118" height="92" fill="#171019"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" shape-rendering="crispEdges">
+<rect width="1280" height="720" fill="#0d0f18"/>
+<rect y="70" width="1280" height="518" fill="#242635"/>
+<path fill="#171824" d="M0 70h1280v34H0zM0 198h1280v14H0zM0 330h1280v14H0zM0 476h1280v14H0z"/>
+<path fill="#303244" d="M0 104h1280v8H0zM0 238h1280v7H0zM0 370h1280v7H0zM0 516h1280v7H0z"/>
+<!-- stone joints -->
+<path fill="#1e202d" d="M100 112h5v86h-5zm210 100h5v118h-5zm760-100h5v86h-5zm-214 100h5v118h-5z"/>
+<!-- side pillars -->
+<path fill="#34364a" d="M18 90h86v498H18zM1176 90h86v498h-86zM188 126h54v462h-54zM1038 126h54v462h-54z"/>
+<path fill="#4a4c60" d="M8 90h106v22H8zM178 126h74v20h-74zM1028 126h74v20h-74zM1166 90h106v22h-106z"/>
+<path fill="#171824" d="M34 112h14v452H34zm1148 0h14v452h-14z"/>
+<!-- central apse -->
+<path fill="#141521" d="M448 146h384v442H448z"/>
+<path fill="#343047" d="M480 164h320v390H480z"/>
+<path fill="#514763" d="M512 194h256v330H512z"/>
+<path fill="#2b293b" d="M532 214h216v290H532z"/>
+<!-- integrated stained glass -->
+<circle cx="640" cy="286" r="92" fill="#211f32"/>
+<circle cx="640" cy="286" r="76" fill="#5f5377"/>
+<path fill="#78668d" d="M640 210l46 76-46 76-46-76z"/>
+<path fill="#d5ac55" d="M632 225h16v122h-16zm-54 53h124v16H578z"/>
+<path fill="#f0cf78" d="M636 225h8v122h-8zm-58 57h124v8H578z"/>
+<!-- altar platform -->
+<rect x="532" y="408" width="216" height="18" fill="#15151e"/>
+<rect x="548" y="426" width="184" height="66" fill="#51433f"/>
+<rect x="564" y="438" width="152" height="42" fill="#6a574d"/>
+<path fill="#d7b96d" d="M626 439h28v8h-28v28h-8v-28h-28v-8h28v-28h8z"/>
+<rect x="520" y="492" width="240" height="18" fill="#2b2933"/>
+<!-- candles -->
+<path fill="#e5c677" d="M548 388h8v28h-8zm176 0h8v28h-8z"/>
+<path fill="#f4a64e" d="M546 380h12l-6 10zm176 0h12l-6 10z"/>
+<!-- pews -->
+<path fill="#3a2c2a" d="M268 418h210v28H268zm-24 34h234v18H244zm-10 70h244v28H234zm568-104h210v28H802zm0 34h234v18H802zm0 70h244v28H802z"/>
+<path fill="#5b4034" d="M284 424h178v10H284zm-34 104h212v10H250zm568-104h178v10H818zm0 104h212v10H818z"/>
+<!-- wall sconces -->
+<path fill="#6a5540" d="M144 268h36v8h-36zm956 0h36v8h-36z"/>
+<path fill="#e3b65d" d="M154 236h10v34h-10zm956 0h10v34h-10z"/>
+<path fill="#f19845" d="M151 226h16l-8 13zm956 0h16l-8 13z"/>
+<!-- clear exit -->
+<path fill="#16131b" d="M44 470h132v118H44z"/>
+<path fill="#594137" d="M58 486h104v102H58z"/>
+<path fill="#33272a" d="M68 496h84v92H68z"/>
+<rect x="138" y="540" width="8" height="8" fill="#d9b25c"/>
+<path fill="#72594b" d="M36 462h148v12H36z"/>
+<!-- floor -->
+<rect y="588" width="1280" height="132" fill="#262630"/>
+<rect y="588" width="1280" height="12" fill="#626172"/>
+<path fill="#31313d" d="M0 620h1280v6H0zM0 666h1280v6H0z"/>
+<path stroke="#171821" stroke-width="4" d="M120 600L70 720M330 600l-20 120M530 600l-6 120M750 600l6 120M950 600l20 120M1160 600l50 120"/>
+<!-- center carpet -->
+<path fill="#4c3654" d="M560 588h160l48 132H512z"/>
+<path fill="#745876" d="M580 588h120l30 132H550z"/>
+<path fill="#c39a58" d="M635 596h10v112h-10z"/>
+</svg>

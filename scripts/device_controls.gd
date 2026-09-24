@@ -18,17 +18,22 @@ func set_mobile(value: bool) -> void:
 	release_all()
 	mobile=value
 	rebuild_regions()
+	if is_instance_valid(game) and game.has_method("layout"):
+		game.call_deferred("layout")
 
 func rebuild_regions() -> void:
 	var viewport=get_viewport_rect().size
-	var bottom=viewport.y-14.0
-	# Intentionally large. Mobile buttons should be comfortable, not tiny desktop buttons.
-	var b=clampf(viewport.y*0.24,110.0,148.0)
-	var gap=10.0
-	var right=viewport.x-16.0
+	var bottom_margin=maxf(18.0,viewport.y*0.025)
+	var side_margin=maxf(18.0,viewport.x*0.012)
+	var bottom=viewport.y-bottom_margin
+	# About 70% of the old button footprint: still finger-friendly, but no longer
+	# covers the player, buildings and half of the hotbar in landscape.
+	var b=clampf(viewport.y*0.145,82.0,104.0)
+	var gap=8.0
+	var right=viewport.x-side_margin
 	regions={
-		"left":Rect2(18,bottom-b,b,b),
-		"right":Rect2(18+b+gap,bottom-b,b,b),
+		"left":Rect2(side_margin,bottom-b,b,b),
+		"right":Rect2(side_margin+b+gap,bottom-b,b,b),
 		"attack":Rect2(right-b*3-gap*2,bottom-b,b,b),
 		"mine":Rect2(right-b*2-gap,bottom-b,b,b),
 		"jump":Rect2(right-b,bottom-b,b,b),
@@ -39,6 +44,8 @@ func rebuild_regions() -> void:
 	}
 	release_all()
 	queue_redraw()
+	if is_instance_valid(game) and game.has_method("layout"):
+		game.call_deferred("layout")
 
 func release_all() -> void:
 	for action in ["left","right","jump","down"]:
@@ -150,7 +157,7 @@ func _draw() -> void:
 		return
 
 	var captions={
-		"left":"◀","right":"▶",
+		"left":"","right":"",
 		"jump":"SUBIR" if game.player.creative else "PULAR",
 		"down":"DESCER","mine":"MINERAR","place":"USAR / COLOCAR",
 		"attack":"ATACAR","interact":"FALAR / ENTRAR","inventory":"MOCHILA"
@@ -161,17 +168,36 @@ func _draw() -> void:
 		var rect:Rect2=regions[action]
 		var active=action in fingers.values()
 		draw_style_box(style(active),rect)
-		var font_size=19 if action in ["left","right"] else 15
-		draw_string(font,rect.position+Vector2(0,rect.size.y/2+7),captions[action],HORIZONTAL_ALIGNMENT_CENTER,rect.size.x,font_size,Color("fff1df"))
+		if action in ["left","right"]:
+			# Draw our own arrow so Android/Web never depends on a missing Unicode glyph.
+			var center=rect.get_center()
+			var half=minf(rect.size.x,rect.size.y)*0.18
+			var points=PackedVector2Array()
+			if action=="left":
+				points=PackedVector2Array([
+					center+Vector2(-half,0),
+					center+Vector2(half,-half),
+					center+Vector2(half,half)
+				])
+			else:
+				points=PackedVector2Array([
+					center+Vector2(half,0),
+					center+Vector2(-half,-half),
+					center+Vector2(-half,half)
+				])
+			draw_colored_polygon(points,Color("fff1df"))
+		else:
+			var font_size=13
+			draw_string(font,rect.position+Vector2(0,rect.size.y/2+5),captions[action],HORIZONTAL_ALIGNMENT_CENTER,rect.size.x,font_size,Color("fff1df"))
 
 func style(active: bool) -> StyleBoxFlat:
 	var box=StyleBoxFlat.new()
-	box.bg_color=Color("5b3869b8") if active else Color("120e1a88")
-	box.border_color=Color("f0bd78d0") if active else Color("9d8068b0")
-	box.set_border_width_all(4)
-	box.set_corner_radius_all(22)
-	box.shadow_color=Color(0,0,0,.24)
-	box.shadow_size=6
+	box.bg_color=Color("5b3869a8") if active else Color("120e1a70")
+	box.border_color=Color("f0bd78c8") if active else Color("9d806895")
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(14)
+	box.shadow_color=Color(0,0,0,.20)
+	box.shadow_size=3
 	return box
 
 func _notification(what: int) -> void:

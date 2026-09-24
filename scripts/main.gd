@@ -123,6 +123,9 @@ func _ready() -> void:
 	device_controls=preload("res://scripts/device_controls.gd").new()
 	device_controls.game=self
 	ui.add_child(device_controls)
+	# DeviceControls resolves the real touch/mobile state in _ready(). Re-layout now so
+	# landscape phones do not accidentally keep the desktop-sized hotbar.
+	layout()
 	online=MultiplayerClient.new()
 	online.game=self
 	online.failed.connect(on_multiplayer_failed)
@@ -235,7 +238,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 11.0"
+	build_badge.text="DREADS CRAFT • BUILD 13.2 • MOBILE UI"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -387,7 +390,7 @@ func layout() -> void:
 		hp_bar.size=Vector2(142,10)
 		food_bar.size=Vector2(142,10)
 	var size=get_viewport_rect().size
-	var mobile_layout=size.x <= 900
+	var mobile_layout=size.x <= 900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
 	var menu_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
 	if menu_scroll:
 		if pause_kind=="creation":
@@ -429,12 +432,15 @@ func layout() -> void:
 		mode_frame.position=Vector2(size.x-144,56)
 		mode_frame.size=Vector2(132,32)
 	if is_instance_valid(hotbar_back):
-		hotbar_back.scale=Vector2(0.82,0.82) if size.x<560 else Vector2(0.92,0.92) if mobile_layout else Vector2.ONE
-		hotbar_back.position=Vector2((size.x-454)/2.0,size.y-132) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
-		hotbar_back.size=Vector2(492,58)
+		# Mobile hotbar is deliberately larger than desktop: 9 x 64px slots plus a
+		# compact frame. It remains centered between the movement and action clusters.
+		hotbar_back.scale=Vector2.ONE
+		hotbar_back.size=Vector2(612,74) if mobile_layout else Vector2(492,58)
+		hotbar_back.position=Vector2((size.x-hotbar_back.size.x)/2.0,size.y-94) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
 	if is_instance_valid(bar):
-		bar.scale=Vector2(0.82,0.82) if size.x<560 else Vector2(0.92,0.92) if mobile_layout else Vector2.ONE
-		bar.position=Vector2((size.x-414)/2.0,size.y-125) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
+		bar.scale=Vector2.ONE
+		var mobile_bar_width=592.0
+		bar.position=Vector2((size.x-mobile_bar_width)/2.0,size.y-89) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
 	if is_instance_valid(selected_name):
 		selected_name.visible=not mobile_layout
 		selected_name.position=Vector2((size.x-240)/2.0,size.y-92)
@@ -1610,13 +1616,15 @@ func refresh_hud() -> void:
 		bar.remove_child(child)
 		child.queue_free()
 
+	var mobile_hotbar=get_viewport_rect().size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	bar.add_theme_constant_override("separation",2 if mobile_hotbar else 5)
 	for slot_index in range(9):
 		var id=int(hotbar[slot_index]) if slot_index<hotbar.size() else 0
 		var slot=Button.new()
 		slot.focus_mode=Control.FOCUS_NONE
-		slot.custom_minimum_size=Vector2(48,48)
+		slot.custom_minimum_size=Vector2(64,64) if mobile_hotbar else Vector2(48,48)
 		slot.expand_icon=true
-		slot.add_theme_constant_override("icon_max_width",30)
+		slot.add_theme_constant_override("icon_max_width",44 if mobile_hotbar else 30)
 		slot.tooltip_text=Items.NAMES.get(id,"Slot vazio") if id!=0 else "Slot vazio"
 
 		var empty_style=StyleBoxFlat.new()
@@ -1645,19 +1653,19 @@ func refresh_hud() -> void:
 				refresh_hud()
 			)
 			var amount=int(player.inventory.get(id,0))
-			var count=label("∞" if player.creative else str(amount),10)
+			var count=label("∞" if player.creative else str(amount),13 if mobile_hotbar else 10)
 			count.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 			count.vertical_alignment=VERTICAL_ALIGNMENT_BOTTOM
-			count.position=Vector2(26,29)
-			count.size=Vector2(18,14)
+			count.position=Vector2(36,43) if mobile_hotbar else Vector2(26,29)
+			count.size=Vector2(24,17) if mobile_hotbar else Vector2(18,14)
 			count.mouse_filter=Control.MOUSE_FILTER_IGNORE
 			slot.add_child(count)
 		else:
 			slot.disabled=true
 
-		var number=label(str(slot_index+1),8)
-		number.position=Vector2(3,1)
-		number.size=Vector2(14,10)
+		var number=label(str(slot_index+1),10 if mobile_hotbar else 8)
+		number.position=Vector2(4,2) if mobile_hotbar else Vector2(3,1)
+		number.size=Vector2(16,12) if mobile_hotbar else Vector2(14,10)
 		number.add_theme_color_override("font_color",Color("a9a3aa"))
 		number.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		slot.add_child(number)
