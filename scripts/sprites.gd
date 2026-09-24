@@ -5,6 +5,23 @@ const FRAMES = {
 	"wolf": {"idle": [Rect2(23,651,270,259)], "walk": [Rect2(23,651,270,259),Rect2(299,668,279,241)], "attack": [Rect2(585,665,283,244)], "hurt": [Rect2(896,679,266,231)], "death": [Rect2(1178,698,225,214)]}
 }
 
+const MOB_FILES = {
+	"skeleton": {
+		"idle": ["res://assets/mobs/generated/skeleton_idle.png"],
+		"walk": ["res://assets/mobs/generated/skeleton_walk_0.png","res://assets/mobs/generated/skeleton_walk_1.png"],
+		"attack": ["res://assets/mobs/generated/skeleton_attack.png"],
+		"hurt": ["res://assets/mobs/generated/skeleton_hurt.png"],
+		"death": ["res://assets/mobs/generated/skeleton_death.png"]
+	},
+	"wolf": {
+		"idle": ["res://assets/mobs/generated/wolf_idle.png"],
+		"walk": ["res://assets/mobs/generated/wolf_walk_0.png","res://assets/mobs/generated/wolf_walk_1.png"],
+		"attack": ["res://assets/mobs/generated/wolf_attack.png"],
+		"hurt": ["res://assets/mobs/generated/wolf_hurt.png"],
+		"death": ["res://assets/mobs/generated/wolf_death.png"]
+	}
+}
+
 const PLAYER_FILES = {
 	"normal": {
 		"idle": ["res://assets/sprites/normal_idle_0.png"],
@@ -46,19 +63,25 @@ static func _add_player_frames(frames: SpriteFrames, kind: String) -> void:
 			frames.add_frame(action, load(path) as Texture2D)
 
 static func _add_mob_frames(frames: SpriteFrames, kind: String) -> void:
+	var use_pngs=ResourceLoader.exists(MOB_FILES[kind]["idle"][0])
 	var sheet=load(PATHS[kind]) as Texture2D
 	for action in FRAMES[kind]:
 		frames.add_animation(action)
 		frames.set_animation_speed(action,8.0)
 		frames.set_animation_loop(action,action in ["idle","walk"])
-		for region in FRAMES[kind][action]:
-			var texture=AtlasTexture.new()
-			texture.atlas=sheet
-			texture.region=region
-			var pad_x=maxf(0.0,360.0-region.size.x)
-			var pad_y=maxf(0.0,360.0-region.size.y)
-			texture.margin=Rect2(pad_x/2.0,pad_y,pad_x,pad_y)
-			frames.add_frame(action,texture)
+		if use_pngs:
+			for path in MOB_FILES[kind][action]:
+				if ResourceLoader.exists(path):
+					frames.add_frame(action,load(path) as Texture2D)
+		else:
+			for region in FRAMES[kind][action]:
+				var texture=AtlasTexture.new()
+				texture.atlas=sheet
+				texture.region=region
+				var pad_x=maxf(0.0,360.0-region.size.x)
+				var pad_y=maxf(0.0,360.0-region.size.y)
+				texture.margin=Rect2(pad_x/2.0,pad_y,pad_x,pad_y)
+				frames.add_frame(action,texture)
 
 static func _add_generated_mob_frames(frames: SpriteFrames, kind: String) -> void:
 	var sheet=load(GENERATED_MOBS[kind]) as Texture2D
@@ -102,8 +125,8 @@ static func make(kind: String) -> AnimatedSprite2D:
 			sprite.position.y=-34
 	else:
 		_add_mob_frames(frames,visual_kind)
-		sprite.scale=Vector2(0.25,0.25) if visual_kind=="wolf" else Vector2(0.23,0.23)
-		sprite.position.y=-31.0
+		sprite.scale=Vector2(0.33,0.33) if visual_kind=="wolf" else Vector2(0.31,0.31)
+		sprite.position.y=-41.0
 	sprite.sprite_frames=frames
 	if visual_kind in ["normal","demon"]:
 		var clean_mat=ShaderMaterial.new()
