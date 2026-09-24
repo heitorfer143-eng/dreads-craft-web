@@ -1517,9 +1517,51 @@ func show_pause() -> void:
 			show_main()
 	))
 
+func sync_hotbar_from_inventory() -> void:
+	if not is_instance_valid(player) or player.creative:
+		return
+	# Remove exhausted items: empty slots really look empty, like Minecraft.
+	for i in range(hotbar.size()):
+		var id=int(hotbar[i])
+		if id!=0 and int(player.inventory.get(id,0))<=0:
+			hotbar[i]=0
+			if selected==id:
+				selected=0
+	# Newly collected/crafted/dropped items automatically occupy the first free slot.
+	for raw_id in Items.NAMES:
+		var id=int(raw_id)
+		if id==1 or int(player.inventory.get(id,0))<=0 or hotbar.has(id):
+			continue
+		var empty=hotbar.find(0)
+		if empty<0:
+			break
+		hotbar[empty]=id
+	if selected==0:
+		for id in hotbar:
+			if int(id)!=0:
+				selected=int(id)
+				break
+
+func cycle_hotbar(step:int) -> void:
+	if hotbar.is_empty():
+		selected=0
+		return
+	var start=hotbar.find(selected)
+	if start<0:
+		start=0
+	for n in range(1,hotbar.size()+1):
+		var index=posmod(start+step*n,hotbar.size())
+		if int(hotbar[index])!=0:
+			selected=int(hotbar[index])
+			refresh_hud()
+			return
+	selected=0
+	refresh_hud()
+
 func refresh_hud() -> void:
 	if not active:
 		return
+	sync_hotbar_from_inventory()
 	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png" if player.creative else "res://assets/ui/spike_portrait.png")
 	hp_bar.max_value=player.max_hp
 	hp_bar.value=player.max_hp if player.creative else player.hp
@@ -1529,49 +1571,63 @@ func refresh_hud() -> void:
 	var minutes=int(clock*1440)
 	time_label.text="DIA %d  ·  %02d:%02d" % [day,minutes/60,minutes%60]
 	mode_label.text="CRIATIVO" if player.creative else "SOBREVIVÊNCIA"
-	selected_name.text=Items.NAMES.get(selected,"Item")
+	selected_name.text=Items.NAMES.get(selected,"Mãos vazias") if selected!=0 else "Mãos vazias"
+
 	for child in bar.get_children():
 		bar.remove_child(child)
 		child.queue_free()
-	for id in hotbar:
+
+	for slot_index in range(9):
+		var id=int(hotbar[slot_index]) if slot_index<hotbar.size() else 0
 		var slot=Button.new()
 		slot.focus_mode=Control.FOCUS_NONE
-		slot.custom_minimum_size=Vector2(52,44)
-		slot.icon=load(Items.ICONS.get(id,"res://assets/items/dirt.png"))
+		slot.custom_minimum_size=Vector2(48,48)
 		slot.expand_icon=true
-		slot.add_theme_constant_override("icon_max_width",28)
-		slot.tooltip_text=Items.NAMES.get(id,"Item")
-		var normal=button_style(Color("0d0a12b8"),Color("4a3d50"))
-		normal.set_corner_radius_all(4)
-		for style in [normal]:
-			style.content_margin_left=4
-			style.content_margin_right=4
-			style.content_margin_top=4
-			style.content_margin_bottom=4
-		var hover=button_style(Color("21172cdd"),Color("9e72be"))
-		hover.set_corner_radius_all(4)
-		var selected_style=button_style(Color("2d1840ee"),Color("c48ae6"))
-		selected_style.set_border_width_all(2)
-		selected_style.set_corner_radius_all(4)
-		for style in [hover,selected_style]:
-			style.content_margin_left=4
-			style.content_margin_right=4
-			style.content_margin_top=4
-			style.content_margin_bottom=4
-		slot.add_theme_stylebox_override("normal",selected_style if id==selected else normal)
-		slot.add_theme_stylebox_override("hover",hover)
+		slot.add_theme_constant_override("icon_max_width",30)
+		slot.tooltip_text=Items.NAMES.get(id,"Slot vazio") if id!=0 else "Slot vazio"
+
+		var empty_style=StyleBoxFlat.new()
+		empty_style.bg_color=Color("08080bcc")
+		empty_style.border_color=Color("5e5962")
+		empty_style.set_border_width_all(2)
+		empty_style.set_corner_radius_all(2)
+		empty_style.content_margin_left=4
+		empty_style.content_margin_right=4
+		empty_style.content_margin_top=4
+		empty_style.content_margin_bottom=4
+
+		var selected_style=empty_style.duplicate()
+		selected_style.bg_color=Color("29252ddd")
+		selected_style.border_color=Color("f4eee5")
+		selected_style.set_border_width_all(3)
+
+		slot.add_theme_stylebox_override("normal",selected_style if id!=0 and id==selected else empty_style)
+		slot.add_theme_stylebox_override("hover",selected_style)
 		slot.add_theme_stylebox_override("pressed",selected_style)
-		slot.pressed.connect(func():
-			selected=id
-			refresh_hud()
-		)
-		var count=label("∞" if player.creative and id not in [11,12,13] else str(player.inventory.get(id,0)),9)
-		count.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
-		count.vertical_alignment=VERTICAL_ALIGNMENT_BOTTOM
-		count.position=Vector2(30,27)
-		count.size=Vector2(18,12)
-		count.mouse_filter=Control.MOUSE_FILTER_IGNORE
-		slot.add_child(count)
+
+		if id!=0 and Items.ICONS.has(id):
+			slot.icon=load(Items.ICONS[id])
+			slot.pressed.connect(func():
+				selected=id
+				refresh_hud()
+			)
+			var amount=int(player.inventory.get(id,0))
+			var count=label("∞" if player.creative else str(amount),10)
+			count.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+			count.vertical_alignment=VERTICAL_ALIGNMENT_BOTTOM
+			count.position=Vector2(26,29)
+			count.size=Vector2(18,14)
+			count.mouse_filter=Control.MOUSE_FILTER_IGNORE
+			slot.add_child(count)
+		else:
+			slot.disabled=true
+
+		var number=label(str(slot_index+1),8)
+		number.position=Vector2(3,1)
+		number.size=Vector2(14,10)
+		number.add_theme_color_override("font_color",Color("a9a3aa"))
+		number.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		slot.add_child(number)
 		bar.add_child(slot)
 	layout()
 
@@ -1863,8 +1919,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			use_selected()
 		elif event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
 			var offset=1 if event.button_index==MOUSE_BUTTON_WHEEL_DOWN else -1
-			selected=hotbar[posmod(hotbar.find(selected)+offset,hotbar.size())]
-			refresh_hud()
+			cycle_hotbar(offset)
 
 func set_touch_action_target() -> void:
 	if not is_instance_valid(player) or in_structure!="" or in_purity or not is_instance_valid(world):
