@@ -312,7 +312,9 @@ func set_cell(cell: Vector2i, id: int) -> void:
 	queue_redraw()
 
 func is_solid(cell: Vector2i) -> bool:
-	return get_cell(cell) not in [0,5,16]
+	# Terraria-style trees: wood and leaves remain mineable world cells, but never
+	# become movement collision. Players can run through the whole tree.
+	return get_cell(cell) not in [0,4,5,16]
 
 func rebuild_collision() -> void:
 	for body in rows.values():
@@ -415,3 +417,42 @@ func _draw() -> void:
 				# Regiões continuam reconhecíveis sem trocar a linguagem visual do bloco.
 				var tint=Color("ffffff") if x<100 else Color("d8c0db") if x<220 else Color("d9e2ef")
 				draw_rect(Rect2(pos,Vector2(TILE,TILE)),tint*Color(1,1,1,0.08))
+	if not purity_realm:
+		draw_surface_decor(left,right)
+
+
+func draw_surface_decor(left:int,right:int) -> void:
+	if purity_realm or surfaces.is_empty():
+		return
+	for x in range(maxi(left,VILLAGE_MAX_X+7),mini(right,WIDTH-1)):
+		if x<0 or x>=surfaces.size():
+			continue
+		var ground_y=surfaces[x]*TILE
+		# Do not paint decor over generated tree trunks/canopies.
+		if get_cell(Vector2i(x,surfaces[x]-1)) in [4,5]:
+			continue
+		var code=absi((x*73+world_seed*19)%101)
+		var base=Vector2(x*TILE+TILE/2.0,ground_y)
+		if code%47==0:
+			# Tiny ruined roadside arch / broken masonry.
+			draw_rect(Rect2(base+Vector2(-17,-28),Vector2(7,28)),Color("3b3742"))
+			draw_rect(Rect2(base+Vector2(10,-20),Vector2(7,20)),Color("45414c"))
+			draw_rect(Rect2(base+Vector2(-17,-29),Vector2(34,6)),Color("5d5662"))
+		elif code%37==0:
+			# Fallen log: purely decorative, no physics body.
+			draw_rect(Rect2(base+Vector2(-18,-8),Vector2(36,8)),Color("4c3028"))
+			draw_rect(Rect2(base+Vector2(-14,-6),Vector2(27,3)),Color("81543a"))
+			draw_circle(base+Vector2(18,-4),5,Color("2b1c1b"))
+		elif code%29==0:
+			# Rock cluster.
+			draw_circle(base+Vector2(-7,-5),7,Color("4b4a55"))
+			draw_circle(base+Vector2(5,-4),9,Color("5a5964"))
+			draw_rect(Rect2(base+Vector2(-12,-3),Vector2(24,3)),Color("33323b"))
+		elif code%23==0:
+			# Dark shrub / small flower patch.
+			draw_line(base+Vector2(0,-2),base+Vector2(0,-17),Color("40513e"),3)
+			draw_line(base+Vector2(0,-10),base+Vector2(-8,-15),Color("40513e"),2)
+			draw_line(base+Vector2(0,-9),base+Vector2(8,-14),Color("40513e"),2)
+			var bloom=Color("b690c5") if x<SNOW_START_X else Color("d9edf8")
+			draw_circle(base+Vector2(-8,-16),3,bloom)
+			draw_circle(base+Vector2(8,-15),3,bloom)

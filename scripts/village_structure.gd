@@ -6,6 +6,7 @@ var texture_path=""
 var player: CharacterBody2D
 var game: Node2D
 var sprite: Sprite2D
+var quest_marker:=""
 
 func configure(p_kind:String,p_name:String,p_texture:String,p_player:CharacterBody2D,p_game:Node2D) -> void:
 	kind=p_kind
@@ -18,15 +19,21 @@ func _ready() -> void:
 	sprite=Sprite2D.new()
 	sprite.texture=load(texture_path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	# Slightly larger than before so the new pixel-art details survive phone scaling.
 	var desired_width=304.0 if kind=="blacksmith" else 318.0 if kind=="market" else 318.0
 	var tex_size=sprite.texture.get_size()
 	var factor=desired_width/maxf(1.0,tex_size.x)
 	sprite.scale=Vector2(factor,factor)
-	sprite.position=Vector2(0,-tex_size.y*factor*0.5)
+	# Generated PNGs contain transparent breathing room. Compensate only for the
+	# known bottom padding so the visible masonry actually touches the ground.
+	var bottom_pad=12.0 if kind=="blacksmith" else 4.0 if kind=="chapel" else 0.0
+	sprite.position=Vector2(0,-tex_size.y*factor*0.5+bottom_pad*factor)
 	add_child(sprite)
 	z_index=1
 	set_process(true)
+
+func set_quest_marker(value:String) -> void:
+	quest_marker=value if value in ["!","?"] else ""
+	queue_redraw()
 
 func door_position() -> Vector2:
 	var offset=Vector2.ZERO
@@ -47,8 +54,13 @@ func _process(_delta:float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	# Small grounding shadow makes buildings sit in the world instead of floating.
-	draw_ellipse_shadow(Vector2(0,-5),Vector2(132,13),Color(0,0,0,0.28))
+	draw_ellipse_shadow(Vector2(0,-3),Vector2(132,13),Color(0,0,0,0.28))
+	if quest_marker!="":
+		var y=-238.0
+		var marker_color=Color("e5b66f") if quest_marker=="!" else Color("9fe7b2")
+		draw_circle(Vector2(0,y),16,Color("18121ff0"))
+		draw_arc(Vector2(0,y),16,0,TAU,24,marker_color,2)
+		draw_string(ThemeDB.fallback_font,Vector2(-5,y+6),quest_marker,HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("fff1df"))
 	if not is_near():
 		return
 	var font=ThemeDB.fallback_font

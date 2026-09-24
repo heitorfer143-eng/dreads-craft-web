@@ -94,6 +94,13 @@ var monk_quest_done := false
 var night_kills := 0
 var polar_bear_defeated := false
 var snow_announced := false
+var snow_reached := false
+var quest_states: Dictionary = {}
+const QUEST_MEL := "mel_bones"
+const QUEST_BORIN := "borin_supplies"
+const QUEST_MERCHANT := "merchant_supplies"
+const QUEST_MONK := "monk_hunt"
+const QUEST_SNOW := "snow_hunt"
 var online: Node
 var multiplayer_active := false
 var multiplayer_host := false
@@ -238,7 +245,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 13.6 • GENERATED VILLAGE ASSETS"
+	build_badge.text="DREADS CRAFT • BUILD 13.8 • QUESTS + TREE PASS + NPC FIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -1405,6 +1412,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	night_kills=0
 	polar_bear_defeated=false
 	snow_announced=false
+	reset_quest_progress()
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
 	for node in [world,player,enemies,npcs,structures,drops,interior,selection,mel]:
@@ -1459,52 +1467,191 @@ func start_world(creative: bool, seed_value: int) -> void:
 	status.show()
 	resume()
 
-func complete_borin_quest(npc) -> void:
-	if borin_quest_done:
+func reset_quest_progress() -> void:
+	quest_states={
+		QUEST_MEL:"not_started",
+		QUEST_BORIN:"not_started",
+		QUEST_MERCHANT:"not_started",
+		QUEST_MONK:"not_started",
+		QUEST_SNOW:"not_started"
+	}
+	snow_reached=false
+
+func quest_state(id:String) -> String:
+	return str(quest_states.get(id,"not_started"))
+
+func quest_unlocked(id:String) -> bool:
+	match id:
+		QUEST_MEL, QUEST_BORIN:
+			return true
+		QUEST_MERCHANT:
+			return quest_state(QUEST_BORIN)=="completed"
+		QUEST_MONK:
+			return quest_state(QUEST_MERCHANT)=="completed"
+		QUEST_SNOW:
+			return quest_state(QUEST_MONK)=="completed"
+	return false
+
+func quest_ready(id:String) -> bool:
+	if not is_instance_valid(player):
+		return false
+	match id:
+		QUEST_MEL:
+			return player.creative or int(player.inventory.get(23,0))>=3
+		QUEST_BORIN:
+			return player.creative or (int(player.inventory.get(3,0))>=10 and int(player.inventory.get(7,0))>=5)
+		QUEST_MERCHANT:
+			return player.creative or (int(player.inventory.get(4,0))>=12 and int(player.inventory.get(6,0))>=6)
+		QUEST_MONK:
+			return player.creative or night_kills>=7
+		QUEST_SNOW:
+			return player.creative or (snow_reached and polar_bear_defeated)
+	return false
+
+func quest_progress_text(id:String) -> String:
+	match id:
+		QUEST_MEL:
+			return "%d / 3 ossos" % mini(3,int(player.inventory.get(23,0)))
+		QUEST_BORIN:
+			return "Pedra %d/10  ·  Ferro %d/5" % [mini(10,int(player.inventory.get(3,0))),mini(5,int(player.inventory.get(7,0)))]
+		QUEST_MERCHANT:
+			return "Madeira %d/12  ·  Carvão %d/6" % [mini(12,int(player.inventory.get(4,0))),mini(6,int(player.inventory.get(6,0)))]
+		QUEST_MONK:
+			return "%d / 7 criaturas noturnas" % mini(7,night_kills)
+		QUEST_SNOW:
+			return "Bioma encontrado: %s  ·  Urso Ancião: %s" % ["SIM" if snow_reached else "NÃO","DERROTADO" if polar_bear_defeated else "PENDENTE"]
+	return ""
+
+func quest_status_text(id:String) -> String:
+	if not quest_unlocked(id):
+		return "BLOQUEADA"
+	match quest_state(id):
+		"not_started": return "NÃO INICIADA"
+		"in_progress": return "EM PROGRESSO"
+		"completed": return "CONCLUÍDA"
+	return "NÃO INICIADA"
+
+func completed_quest_count() -> int:
+	var amount=0
+	for id in [QUEST_MEL,QUEST_BORIN,QUEST_MERCHANT,QUEST_MONK,QUEST_SNOW]:
+		if quest_state(id)=="completed":
+			amount+=1
+	return amount
+
+func accept_quest(id:String) -> void:
+	if not quest_unlocked(id) or quest_state(id)!="not_started":
 		return
-	if not player.creative and int(player.inventory.get(7,0))<6:
-		status.text="Borin ainda precisa de 6 ferros."
+	quest_states[id]="in_progress"
+	if id==QUEST_MEL:
+		mel_quest_started=true
+	status.text="MISSÃO ACEITA · "+quest_progress_text(id)
+	message_time=4
+	update_quest_markers()
+
+func sync_legacy_quest_flags() -> void:
+	mel_quest_started=quest_state(QUEST_MEL)!="not_started"
+	mel_tamed=quest_state(QUEST_MEL)=="completed"
+	borin_quest_done=quest_state(QUEST_BORIN)=="completed"
+	monk_quest_done=quest_state(QUEST_MONK)=="completed"
+
+func complete_quest(id:String,npc=null) -> void:
+	if quest_state(id)!="in_progress":
+		return
+	if not quest_ready(id):
+		status.text="Objetivo ainda incompleto · "+quest_progress_text(id)
 		message_time=3
-		resume()
 		return
 	if not player.creative:
-		player.inventory[7]=maxi(0,int(player.inventory.get(7,0))-6)
-	player.inventory[11]=int(player.inventory.get(11,0))+1
-	player.inventory[14]=int(player.inventory.get(14,0))+1
-	borin_quest_done=true
+		match id:
+			QUEST_MEL:
+				player.inventory[23]=maxi(0,int(player.inventory.get(23,0))-3)
+			QUEST_BORIN:
+				player.inventory[3]=maxi(0,int(player.inventory.get(3,0))-10)
+				player.inventory[7]=maxi(0,int(player.inventory.get(7,0))-5)
+			QUEST_MERCHANT:
+				player.inventory[4]=maxi(0,int(player.inventory.get(4,0))-12)
+				player.inventory[6]=maxi(0,int(player.inventory.get(6,0))-6)
+	match id:
+		QUEST_MEL:
+			mel_tamed=true
+			if is_instance_valid(mel):
+				mel.set_tamed(true)
+			status.text="MISSÃO CONCLUÍDA · Mel agora acompanha você."
+		QUEST_BORIN:
+			player.inventory[11]=int(player.inventory.get(11,0))+1
+			player.inventory[14]=int(player.inventory.get(14,0))+1
+			status.text="MISSÃO CONCLUÍDA · Espada de ferro + 1 diamante."
+		QUEST_MERCHANT:
+			player.inventory[24]=int(player.inventory.get(24,0))+1
+			player.inventory[10]=int(player.inventory.get(10,0))+3
+			status.text="MISSÃO CONCLUÍDA · Waystone + 3 carnes."
+		QUEST_MONK:
+			player.max_hp=maxf(player.max_hp,120.0)
+			player.hp=player.max_hp
+			player.inventory[14]=int(player.inventory.get(14,0))+2
+			status.text="MISSÃO CONCLUÍDA · Bênção: +20 vida máxima + 2 diamantes."
+		QUEST_SNOW:
+			player.inventory[12]=int(player.inventory.get(12,0))+1
+			player.inventory[14]=int(player.inventory.get(14,0))+2
+			status.text="MISSÃO CONCLUÍDA · Relíquia Vital + 2 diamantes. O Guardião agora pode ser enfrentado."
+	quest_states[id]="completed"
+	sync_legacy_quest_flags()
+	message_time=6
 	refresh_hud()
-	show_npc_dialogue(npc)
+	update_quest_markers()
+	save_world()
+	if npc!=null:
+		show_npc_dialogue(npc)
+
+func complete_borin_quest(npc) -> void:
+	complete_quest(QUEST_BORIN,npc)
 
 func complete_monk_quest(npc) -> void:
-	if monk_quest_done:
-		return
-	if not player.creative and night_kills<5:
-		status.text="A prova exige 5 criaturas derrotadas à noite."
-		message_time=3
-		resume()
-		return
-	monk_quest_done=true
-	player.max_hp=maxf(player.max_hp,120.0)
-	player.hp=player.max_hp
-	player.inventory[14]=int(player.inventory.get(14,0))+2
-	refresh_hud()
-	show_npc_dialogue(npc)
+	complete_quest(QUEST_MONK,npc)
+
+func marker_for_quest(id:String) -> String:
+	if not quest_unlocked(id):
+		return ""
+	var state=quest_state(id)
+	if state=="not_started":
+		return "!"
+	if state=="in_progress" and quest_ready(id):
+		return "?"
+	return ""
+
+func update_quest_markers() -> void:
+	if is_instance_valid(mel) and mel.has_method("set_quest_marker"):
+		mel.set_quest_marker(marker_for_quest(QUEST_MEL))
+	if is_instance_valid(npcs):
+		for npc in npcs.get_children():
+			if not npc.has_method("set_quest_marker"):
+				continue
+			var marker=""
+			if str(npc.role)=="ferreiro":
+				marker=marker_for_quest(QUEST_BORIN)
+			elif str(npc.role)=="monge":
+				marker=marker_for_quest(QUEST_MONK) if quest_state(QUEST_MONK)!="completed" else marker_for_quest(QUEST_SNOW)
+			npc.set_quest_marker(marker)
+	if is_instance_valid(structures):
+		for building in structures.get_children():
+			if building.has_method("set_quest_marker"):
+				building.set_quest_marker(marker_for_quest(QUEST_MERCHANT) if str(building.kind)=="market" else "")
 
 func show_objectives() -> void:
-	clear_menu("MISSÕES / OBJETIVOS","objectives")
-	var title=label("COISAS PARA FAZER NESTE MUNDO",18)
+	clear_menu("MISSÕES","objectives")
+	var title=label("JORNADA DO DREADS CRAFT",18)
 	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color",Color("f0d99a"))
 	menu_box.add_child(title)
-
 	var tasks=[
-		["🐶 MEL","Domestique Mel entregando 3 ossos.","CONCLUÍDA" if mel_tamed else "%d / 3 ossos" % int(player.inventory.get(23,0))],
-		["⚒ BORIN","Leve 6 ferros ao ferreiro.","CONCLUÍDA" if borin_quest_done else "%d / 6 ferros" % mini(6,int(player.inventory.get(7,0)))],
-		["☾ PROVA DO MONGE","Derrote 5 criaturas que aparecem à noite.","CONCLUÍDA" if monk_quest_done else "%d / 5 criaturas" % mini(5,night_kills)],
-		["❄ URSO DO NORTE","Explore o bioma nevado e derrote o Urso Polar Ancião.","CONCLUÍDA" if polar_bear_defeated else "Siga para o leste · a neve começa perto de x=190"],
-		["✦ PORTAL DA PUREZA","Fabrique o portal com 9 diamantes + 1 Avarita e enfrente o Guardião.","CONCLUÍDA" if boss_defeated else "Em andamento"]
+		[QUEST_MEL,"MEL · UMA COMPANHEIRA","Entregue 3 ossos para conquistar a confiança de Mel."],
+		[QUEST_BORIN,"BORIN · REFORÇANDO A FORJA","Entregue 10 pedras e 5 ferros ao ferreiro."],
+		[QUEST_MERCHANT,"MERCADOR · SUPRIMENTOS DA VILA","Leve 12 madeiras e 6 carvões para reabastecer a loja."],
+		[QUEST_MONK,"MONGE · PROVA DA NOITE","Derrote 7 criaturas hostis durante a noite, longe da vila."],
+		[QUEST_SNOW,"MONGE · URSO DO NORTE","Explore o bioma de neve e derrote o Urso Polar Ancião."]
 	]
 	for task in tasks:
+		var id=str(task[0])
 		var card=PanelContainer.new()
 		card.add_theme_stylebox_override("panel",compact_panel_style(0.80,Color("66536f"),9))
 		card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -1512,15 +1659,22 @@ func show_objectives() -> void:
 		var box=VBoxContainer.new()
 		box.add_theme_constant_override("separation",4)
 		card.add_child(box)
-		var name=label(str(task[0]),15)
+		var name=label(str(task[1]),15)
 		name.add_theme_color_override("font_color",Color("ead8f0"))
 		box.add_child(name)
-		var desc=label(str(task[1]),12)
+		var desc=label(str(task[2]),12)
 		desc.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(desc)
-		var prog=label(str(task[2]),12)
-		prog.add_theme_color_override("font_color",Color("9fe7b2") if str(task[2])=="CONCLUÍDA" else Color("e3bd78"))
+		var state_label=label(quest_status_text(id),11)
+		state_label.add_theme_color_override("font_color",Color("9fe7b2") if quest_state(id)=="completed" else Color("e3bd78"))
+		box.add_child(state_label)
+		var prog=label("Concluída e recompensa recebida." if quest_state(id)=="completed" else ("Conclua a missão anterior para desbloquear." if not quest_unlocked(id) else quest_progress_text(id)),12)
+		prog.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(prog)
+	var gate=label("A Dimensão da Pureza só aceita desafiantes que concluíram a missão Urso do Norte.",11)
+	gate.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	gate.add_theme_color_override("font_color",Color("b8a5c5"))
+	menu_box.add_child(gate)
 	menu_box.add_child(button("VOLTAR",show_pause))
 	layout()
 
@@ -2376,9 +2530,12 @@ func _process(delta: float) -> void:
 	if not in_purity and player_cell_x>=World.SNOW_START_X:
 		if not snow_announced:
 			snow_announced=true
-			status.text="❄ BIOMA NEVADO · Há relatos de um Urso Polar Ancião nestas ruínas."
+			status.text="BIOMA NEVADO DESCOBERTO · O frio daqui exige preparação."
 			message_time=6
-		ensure_polar_bear()
+		if quest_state(QUEST_SNOW)=="in_progress":
+			snow_reached=true
+			ensure_polar_bear()
+			update_quest_markers()
 	spawn_timer+=delta
 	if spawn_timer>9:
 		spawn_timer=0
@@ -2404,6 +2561,7 @@ func _process(delta: float) -> void:
 		var hardness=float(Items.HARDNESS.get(world.get_cell(target),1.0))
 		var pct=clampi(int(progress/maxf(0.01,hardness)*100.0),0,99)
 		status.text="⛏ MINERANDO  %d%%  %s" % [pct,"▰".repeat(pct/20)+"▱".repeat(5-pct/20)]
+	update_quest_markers()
 	queue_redraw()
 
 func spawn_village_hub() -> void:
@@ -2434,10 +2592,11 @@ func spawn_mel() -> void:
 func maybe_start_mel_quest() -> void:
 	if multiplayer_active:
 		return
-	if not active or mel_tamed or mel_quest_started or not is_instance_valid(mel):
+	if not active or mel_tamed or not is_instance_valid(mel):
 		return
-	mel_quest_started=true
-	show_mel_dialogue()
+	if quest_state(QUEST_MEL)=="not_started":
+		accept_quest(QUEST_MEL)
+		show_mel_dialogue()
 
 func npc_face_texture(path: String, role: String="") -> Texture2D:
 	if not ResourceLoader.exists(path):
@@ -2453,6 +2612,8 @@ func show_mel_dialogue() -> void:
 		status.text="Mel está com você · +2 de dano contra mobs"
 		message_time=3
 		return
+	if quest_state(QUEST_MEL)=="not_started":
+		accept_quest(QUEST_MEL)
 	clear_menu("","mel_dialogue")
 	var mobile=get_viewport_rect().size.x<=760
 	var card=PanelContainer.new()
@@ -2490,15 +2651,8 @@ func show_mel_dialogue() -> void:
 	content.add_child(speech)
 
 	if bones>=3 or player.creative:
-		var tame=button("DAR 3 OSSOS E DOMESTICAR MEL",func():
-			if not player.creative:
-				player.inventory[23]=maxi(0,int(player.inventory.get(23,0))-3)
-			mel_tamed=true
-			if is_instance_valid(mel):
-				mel.set_tamed(true)
-			status.text="Mel foi domesticada! +2 de dano contra mobs."
-			message_time=5
-			refresh_hud()
+		var tame=button("ENTREGAR 3 OSSOS · CONCLUIR MISSÃO",func():
+			complete_quest(QUEST_MEL)
 			resume()
 		)
 		tame.custom_minimum_size=Vector2(0,48)
@@ -2555,15 +2709,46 @@ func show_shop() -> void:
 	if not active:
 		return
 	clear_menu("LOJA DO MERCADOR","shop")
-	var intro=label("Troque recursos encontrados no mundo. Nada aqui é gratuito.",14)
+	var intro=label("Troque recursos encontrados no mundo. O mercador também ajuda a manter a vila abastecida.",14)
 	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	intro.add_theme_color_override("font_color",Color("cbb9d4"))
 	menu_box.add_child(intro)
+
+	var state=quest_state(QUEST_MERCHANT)
+	if not quest_unlocked(QUEST_MERCHANT):
+		var locked=label("MISSÃO BLOQUEADA · Ajude Borin antes de assumir o pedido do mercador.",12)
+		locked.add_theme_color_override("font_color",Color("9f91a7"))
+		menu_box.add_child(locked)
+	elif state=="not_started":
+		var mission=label("MISSÃO · SUPRIMENTOS DA VILA\nLeve 12 madeiras e 6 carvões.\nRecompensa: Waystone + 3 carnes.",12)
+		mission.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		mission.add_theme_color_override("font_color",Color("e3bd78"))
+		menu_box.add_child(mission)
+		menu_box.add_child(button("ACEITAR MISSÃO",func():
+			accept_quest(QUEST_MERCHANT)
+			show_shop()
+		))
+	elif state=="in_progress":
+		var progress_label=label("SUPRIMENTOS DA VILA · "+quest_progress_text(QUEST_MERCHANT),12)
+		progress_label.add_theme_color_override("font_color",Color("e3bd78"))
+		menu_box.add_child(progress_label)
+		var deliver=button("ENTREGAR SUPRIMENTOS",func():
+			complete_quest(QUEST_MERCHANT)
+			show_shop()
+		)
+		deliver.disabled=not quest_ready(QUEST_MERCHANT)
+		menu_box.add_child(deliver)
+	else:
+		var done=label("MISSÃO CONCLUÍDA · O mercador agora confia em você.",12)
+		done.add_theme_color_override("font_color",Color("9fe7b2"))
+		menu_box.add_child(done)
+
 	menu_box.add_child(trade_button("Waystone",{3:8,14:1},24,1))
 	menu_box.add_child(trade_button("Carne x3",{6:5},10,3))
 	menu_box.add_child(trade_button("Osso x2",{6:6},23,2))
 	menu_box.add_child(trade_button("Diamante",{7:12},14,1))
 	menu_box.add_child(button("VOLTAR PARA A CASA",resume))
+	update_quest_markers()
 	layout()
 
 
@@ -2636,7 +2821,7 @@ func interact_nearby() -> bool:
 			show_shop()
 			return true
 		return false
-	if is_instance_valid(mel) and mel.can_interact():
+	if is_instance_valid(mel) and not mel_tamed and mel.can_interact():
 		mel.interact()
 		return true
 	var near_mel=find_near_mel()
@@ -2761,17 +2946,27 @@ func show_npc_dialogue(npc) -> void:
 	content.add_child(speech)
 
 	if npc.role=="ferreiro":
-		if not borin_quest_done:
-			var quest=label("PEDIDO DE BORIN · Entregue 6 ferros\nRecompensa: Espada de ferro + 1 diamante",12)
+		var borin_state=quest_state(QUEST_BORIN)
+		if borin_state=="not_started":
+			var quest=label("MISSÃO · REFORÇANDO A FORJA\nColete 10 pedras e 5 ferros.\nRecompensa: Espada de ferro + 1 diamante.",12)
 			quest.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 			quest.add_theme_color_override("font_color",Color("e3bd78"))
 			content.add_child(quest)
-			var give=button("ENTREGAR 6 FERROS  (%d/6)" % mini(6,int(player.inventory.get(7,0))),func(): complete_borin_quest(npc))
-			give.disabled=not player.creative and int(player.inventory.get(7,0))<6
+			content.add_child(button("ACEITAR MISSÃO",func():
+				accept_quest(QUEST_BORIN)
+				show_npc_dialogue(npc)
+			))
+		elif borin_state=="in_progress":
+			var quest=label("REFORÇANDO A FORJA · "+quest_progress_text(QUEST_BORIN),12)
+			quest.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+			quest.add_theme_color_override("font_color",Color("e3bd78"))
+			content.add_child(quest)
+			var give=button("ENTREGAR MATERIAIS",func(): complete_borin_quest(npc))
+			give.disabled=not quest_ready(QUEST_BORIN)
 			give.custom_minimum_size=Vector2(0,48)
 			content.add_child(give)
 		else:
-			var done=label("✓ Pedido concluído. Borin agora confia em você.",12)
+			var done=label("MISSÃO CONCLUÍDA · A forja foi reforçada.",12)
 			done.add_theme_color_override("font_color",Color("9fe7b2"))
 			content.add_child(done)
 		var craft_button=button("ABRIR BANCADA",func():
@@ -2781,19 +2976,56 @@ func show_npc_dialogue(npc) -> void:
 		craft_button.custom_minimum_size=Vector2(0,48)
 		content.add_child(craft_button)
 	elif npc.role=="monge":
-		if not monk_quest_done:
-			var quest=label("PROVA DA NOITE · Derrote 5 criaturas noturnas\nRecompensa: +20 de vida máxima + 2 diamantes",12)
+		var monk_state=quest_state(QUEST_MONK)
+		if not quest_unlocked(QUEST_MONK):
+			var locked=label("O Monge ainda não oferece a Prova da Noite. Ajude a vila e o mercador primeiro.",12)
+			locked.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+			locked.add_theme_color_override("font_color",Color("9f91a7"))
+			content.add_child(locked)
+		elif monk_state=="not_started":
+			var quest=label("MISSÃO · PROVA DA NOITE\nDerrote 7 criaturas hostis durante a noite, longe da vila.\nRecompensa: +20 vida máxima + 2 diamantes.",12)
 			quest.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 			quest.add_theme_color_override("font_color",Color("e3bd78"))
 			content.add_child(quest)
-			var claim=button("RECEBER BÊNÇÃO  (%d/5)" % mini(5,night_kills),func(): complete_monk_quest(npc))
-			claim.disabled=not player.creative and night_kills<5
+			content.add_child(button("ACEITAR PROVA",func():
+				accept_quest(QUEST_MONK)
+				show_npc_dialogue(npc)
+			))
+		elif monk_state=="in_progress":
+			var quest=label("PROVA DA NOITE · "+quest_progress_text(QUEST_MONK),12)
+			quest.add_theme_color_override("font_color",Color("e3bd78"))
+			content.add_child(quest)
+			var claim=button("RECEBER BÊNÇÃO",func(): complete_monk_quest(npc))
+			claim.disabled=not quest_ready(QUEST_MONK)
 			claim.custom_minimum_size=Vector2(0,48)
 			content.add_child(claim)
 		else:
-			var blessed=label("✓ Prova concluída. Sua vida máxima foi ampliada.",12)
+			var blessed=label("PROVA DA NOITE CONCLUÍDA · Sua vida máxima foi ampliada.",12)
 			blessed.add_theme_color_override("font_color",Color("9fe7b2"))
 			content.add_child(blessed)
+
+			var snow_state=quest_state(QUEST_SNOW)
+			if snow_state=="not_started":
+				var snow_quest=label("NOVA MISSÃO · URSO DO NORTE\nAtravesse as terras até o bioma de neve e derrote o Urso Polar Ancião.\nRecompensa: Relíquia Vital + 2 diamantes e acesso ao desafio final.",12)
+				snow_quest.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+				snow_quest.add_theme_color_override("font_color",Color("b9dff3"))
+				content.add_child(snow_quest)
+				content.add_child(button("ACEITAR URSO DO NORTE",func():
+					accept_quest(QUEST_SNOW)
+					show_npc_dialogue(npc)
+				))
+			elif snow_state=="in_progress":
+				var snow_progress=label("URSO DO NORTE · "+quest_progress_text(QUEST_SNOW),12)
+				snow_progress.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+				snow_progress.add_theme_color_override("font_color",Color("b9dff3"))
+				content.add_child(snow_progress)
+				var snow_claim=button("ENTREGAR PROVA DO URSO",func(): complete_quest(QUEST_SNOW,npc))
+				snow_claim.disabled=not quest_ready(QUEST_SNOW)
+				content.add_child(snow_claim)
+			else:
+				var snow_done=label("URSO DO NORTE CONCLUÍDA · O caminho para o Guardião está liberado.",12)
+				snow_done.add_theme_color_override("font_color",Color("9fe7b2"))
+				content.add_child(snow_done)
 	var close=button("CONTINUAR",resume)
 	close.custom_minimum_size=Vector2(0,46)
 	content.add_child(close)
@@ -2808,42 +3040,57 @@ func has_polar_bear() -> bool:
 	return false
 
 func ensure_polar_bear() -> void:
-	if polar_bear_defeated or not is_instance_valid(world) or has_polar_bear():
+	if polar_bear_defeated or quest_state(QUEST_SNOW)!="in_progress" or not is_instance_valid(world) or has_polar_bear():
 		return
 	var spawn=world.snow_spawn_cell()
 	var bear=Mob.new()
 	bear.kind="polar_bear"
 	bear.player=player
+	bear.difficulty_level=maxi(2,difficulty)
 	bear.position=Vector2(spawn.x*32+16,spawn.y*32-2)
 	bear.killed.connect(func():
 		polar_bear_defeated=true
-		player.inventory[14]=int(player.inventory.get(14,0))+2
-		player.inventory[24]=int(player.inventory.get(24,0))+1
-		status.text="Urso Polar Ancião derrotado! Recompensa: 2 diamantes + Waystone."
+		if not player.creative:
+			player.inventory[14]=int(player.inventory.get(14,0))+1
+			player.inventory[24]=int(player.inventory.get(24,0))+1
+		status.text="Urso Polar Ancião derrotado · +1 diamante + Waystone. Volte ao Monge."
 		message_time=6
 		refresh_hud()
+		update_quest_markers()
+		save_world()
 	)
 	enemies.add_child(bear)
 
 
 func spawn_mob() -> void:
-	var cell=clampi(int(player.position.x/32)+(18 if randf()>.5 else -18),2,317)
+	if not is_instance_valid(player) or not is_instance_valid(world):
+		return
+	var player_cell=clampi(int(player.position.x/32),0,World.WIDTH-1)
+	# Vila/spawn é uma zona segura: hostis só podem aparecer depois de o jogador
+	# realmente deixar o povoado.
+	if player_cell<=World.VILLAGE_MAX_X+10:
+		return
+	var cell=clampi(player_cell+(18 if randf()>.5 else -18),World.VILLAGE_MAX_X+11,317)
+	if world.is_village_protected(Vector2i(cell,world.surfaces[cell])):
+		return
 	var mob=Mob.new()
 	var roll=randf()
-	mob.kind="undead_knight" if roll>.88 else "corrupted_skeleton" if roll>.62 else "dark_slime" if roll>.38 else "skeleton" if roll>.16 else "wolf"
+	# Only the dedicated pixel-art sheets are used for natural spawns. The old
+	# atlas skeleton/wolf looked like pasted PNGs next to the newer art.
+	mob.kind="undead_knight" if roll>.76 else "corrupted_skeleton" if roll>.38 else "dark_slime"
 	mob.player=player
-	mob.damage=[0,4,7,11][difficulty]
+	mob.difficulty_level=difficulty
 	mob.position=Vector2(cell*32,world.surfaces[cell]*32-2)
 	mob.killed.connect(func():
 		var death_pos=mob.position
 		spawn_ground_drop(10,1,death_pos+Vector2(-10,-8))
 		spawn_ground_drop(23,1,death_pos+Vector2(10,-8))
-		if not monk_quest_done:
+		var night_now=clock<.22 or clock>.78
+		var death_cell=int(death_pos.x/32)
+		if quest_state(QUEST_MONK)=="in_progress" and night_now and death_cell>World.VILLAGE_MAX_X+8:
 			night_kills+=1
-		if not mel_tamed:
-			status.text="Criatura derrotada · carne e osso caíram no chão · Prova do Monge: %d/5" % mini(5,night_kills)
-		elif not monk_quest_done:
-			status.text="Criatura derrotada · drops no chão · Prova do Monge: %d/5" % mini(5,night_kills)
+			status.text="PROVA DA NOITE · %d/7 criaturas" % mini(7,night_kills)
+			update_quest_markers()
 		else:
 			status.text="Criatura derrotada · recolha os drops no chão."
 		message_time=2.5
@@ -2859,7 +3106,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops()}
+	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -2907,6 +3154,21 @@ func load_world() -> void:
 	monk_quest_done=bool(data.get("monk_quest_done",false))
 	night_kills=int(data.get("night_kills",0))
 	polar_bear_defeated=bool(data.get("polar_bear_defeated",false))
+	var saved_quests=data.get("quest_states",{})
+	if saved_quests is Dictionary and not saved_quests.is_empty():
+		for quest_id in [QUEST_MEL,QUEST_BORIN,QUEST_MERCHANT,QUEST_MONK,QUEST_SNOW]:
+			var loaded_state=str(saved_quests.get(quest_id,"not_started"))
+			quest_states[quest_id]=loaded_state if loaded_state in ["not_started","in_progress","completed"] else "not_started"
+	else:
+		# Migration for worlds created before BUILD 13.8: preserve completed old
+		# objectives and never trap an advanced save behind a newly-added mission.
+		quest_states[QUEST_MEL]="completed" if mel_tamed else ("in_progress" if mel_quest_started else "not_started")
+		quest_states[QUEST_BORIN]="completed" if borin_quest_done else "not_started"
+		quest_states[QUEST_MERCHANT]="completed" if borin_quest_done else "not_started"
+		quest_states[QUEST_MONK]="completed" if monk_quest_done else "not_started"
+		quest_states[QUEST_SNOW]="completed" if polar_bear_defeated and monk_quest_done else "not_started"
+	snow_reached=bool(data.get("snow_reached",polar_bear_defeated))
+	sync_legacy_quest_flags()
 	if data.has("hotbar") and data.hotbar is Array:
 		hotbar.clear()
 		for raw_id in data.hotbar:
@@ -2922,6 +3184,7 @@ func load_world() -> void:
 		player.hp=minf(player.hp,player.max_hp)
 	if is_instance_valid(mel):
 		mel.set_tamed(mel_tamed)
+	update_quest_markers()
 	if bool(data.get("in_purity",false)):
 		if bool(data.get("in_purity_realm",false)) and boss_defeated:
 			enter_purity_realm()
@@ -3026,6 +3289,10 @@ func use_portal() -> void:
 		leave_purity()
 	elif boss_defeated:
 		enter_purity_realm()
+	elif not player.creative and quest_state(QUEST_SNOW)!="completed":
+		status.text="O portal rejeita você · conclua a missão URSO DO NORTE com o Monge."
+		message_time=5
+		return
 	else:
 		enter_purity()
 

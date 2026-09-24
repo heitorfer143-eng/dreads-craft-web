@@ -8,6 +8,8 @@ var dialogue := ["Se quer descer fundo, não economize na picareta.","A bancada 
 var dialogue_index := 0
 var player: CharacterBody2D
 var sprite: Sprite2D
+var quest_marker := ""
+var visual_height := 86.0
 
 func setup(kind: String, display_name: String, lines: Array, target: CharacterBody2D) -> void:
 	role=kind
@@ -30,11 +32,20 @@ func _ready() -> void:
 	var sprite_path="res://assets/npcs/monk_generated.png" if role=="monge" else "res://assets/npcs/blacksmith_generated.png"
 	sprite.texture=load(sprite_path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale=Vector2(1.12,1.12)
-	sprite.position=Vector2(0,-56)
+	visual_height=94.0 if role=="monge" else 86.0
+	if sprite.texture!=null:
+		var tex_size=sprite.texture.get_size()
+		var fit=visual_height/maxf(1.0,tex_size.y)
+		sprite.scale=Vector2(fit,fit)
+	sprite.position=Vector2(0,-visual_height*0.5)
 	sprite.z_index=5
 	add_child(sprite)
+	z_index=6
 	set_process(true)
+
+func set_quest_marker(value:String) -> void:
+	quest_marker=value if value in ["!","?"] else ""
+	queue_redraw()
 
 func can_interact() -> bool:
 	return is_instance_valid(player) and global_position.distance_to(player.global_position)<120.0
@@ -53,10 +64,20 @@ func next_line() -> String:
 func _process(_delta: float) -> void:
 	queue_redraw()
 
+func draw_ellipse_shadow(center:Vector2,radius:Vector2,color:Color) -> void:
+	var points=PackedVector2Array()
+	for i in range(20):
+		var angle=TAU*float(i)/20.0
+		points.append(center+Vector2(cos(angle)*radius.x,sin(angle)*radius.y))
+	draw_colored_polygon(points,color)
+
 func _draw() -> void:
-	if not can_interact():
+	# Grounding shadow + normalized feet position removes the "pasted PNG" look.
+	draw_ellipse_shadow(Vector2(0,-2),Vector2(21,6),Color(0,0,0,.30))
+	if quest_marker=="":
 		return
-	var y=-160.0
-	draw_circle(Vector2(0,y),16,Color("18121fe8"))
-	draw_arc(Vector2(0,y),16,0,TAU,24,Color("e5b66f"),2)
-	draw_string(ThemeDB.fallback_font,Vector2(-8,y+6),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("ffe7a3"))
+	var y=-visual_height-22.0
+	var marker_color=Color("e5b66f") if quest_marker=="!" else Color("9fe7b2")
+	draw_circle(Vector2(0,y),15,Color("18121ff0"))
+	draw_arc(Vector2(0,y),15,0,TAU,24,marker_color,2)
+	draw_string(ThemeDB.fallback_font,Vector2(-5,y+6),quest_marker,HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("fff1df"))

@@ -9,6 +9,8 @@ var home_position:=Vector2.ZERO
 var wander_dir:=1.0
 var wander_timer:=0.0
 var anim_time:=0.0
+var base_scale:=0.46
+var quest_marker:=""
 
 func setup(target: CharacterBody2D, is_tamed: bool=false) -> void:
 	player=target
@@ -27,8 +29,10 @@ func _ready() -> void:
 	sprite=Sprite2D.new()
 	sprite.texture=load("res://assets/npcs/mel_generated.png")
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale=Vector2(0.95,0.95)
-	sprite.position=Vector2(0,-20)
+	if sprite.texture!=null:
+		base_scale=50.0/maxf(1.0,sprite.texture.get_size().y)
+	sprite.scale=Vector2(base_scale,base_scale)
+	sprite.position=Vector2(0,-21)
 	add_child(sprite)
 	home_position=global_position
 	wander_timer=randf_range(1.4,3.2)
@@ -43,13 +47,19 @@ func interact() -> void:
 
 func set_tamed(value: bool) -> void:
 	tamed=value
+	if tamed:
+		quest_marker=""
+	queue_redraw()
+
+func set_quest_marker(value:String) -> void:
+	quest_marker="" if tamed else (value if value in ["!","?"] else "")
+	queue_redraw()
 
 func _physics_process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
 	anim_time+=delta
 	wander_timer-=delta
-
 	if tamed:
 		var target=player.position+Vector2(-player.face*72,0)
 		var distance=global_position.distance_to(target)
@@ -60,7 +70,6 @@ func _physics_process(delta: float) -> void:
 			global_position.y=move_toward(global_position.y,player.position.y,110.0*delta)
 			sprite.flip_h=player.position.x<global_position.x
 	else:
-		# Before being tamed, Mel explores a small safe area near the village.
 		if wander_timer<=0:
 			wander_timer=randf_range(1.2,3.0)
 			wander_dir=-wander_dir if randf()<0.7 else wander_dir
@@ -72,16 +81,26 @@ func _physics_process(delta: float) -> void:
 			wander_dir=-1.0
 		global_position.x=clampf(global_position.x+wander_dir*42.0*delta,min_x,max_x)
 		sprite.flip_h=wander_dir<0
-
 	var moving=tamed and global_position.distance_to(player.position)>70.0 or not tamed
-	sprite.position=Vector2(0,-20+sin(anim_time*(8.0 if moving else 3.0))*1.5)
-	sprite.scale=Vector2(0.46,0.46)
+	sprite.position=Vector2(0,-21+sin(anim_time*(8.0 if moving else 3.0))*1.0)
+	sprite.scale=Vector2(base_scale,base_scale)
 
 func _process(_delta: float) -> void:
 	queue_redraw()
 
+func draw_ellipse_shadow(center:Vector2,radius:Vector2,color:Color) -> void:
+	var points=PackedVector2Array()
+	for i in range(18):
+		var angle=TAU*float(i)/18.0
+		points.append(center+Vector2(cos(angle)*radius.x,sin(angle)*radius.y))
+	draw_colored_polygon(points,color)
+
 func _draw() -> void:
-	if can_interact() and not tamed:
-		draw_circle(Vector2(0,-64),13,Color("17111ee8"))
-		draw_arc(Vector2(0,-64),13,0,TAU,20,Color("e5b66f"),2)
-		draw_string(ThemeDB.fallback_font,Vector2(-5,-58),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,17,Color("ffe7a3"))
+	draw_ellipse_shadow(Vector2(0,-2),Vector2(19,5),Color(0,0,0,.25))
+	if quest_marker=="":
+		return
+	var y=-68.0
+	var marker_color=Color("e5b66f") if quest_marker=="!" else Color("9fe7b2")
+	draw_circle(Vector2(0,y),13,Color("17111ef0"))
+	draw_arc(Vector2(0,y),13,0,TAU,20,marker_color,2)
+	draw_string(ThemeDB.fallback_font,Vector2(-4,y+5),quest_marker,HORIZONTAL_ALIGNMENT_LEFT,-1,16,Color("fff1df"))

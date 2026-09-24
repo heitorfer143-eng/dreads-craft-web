@@ -19,6 +19,16 @@ func run() -> void:
 	await physics_frame
 	await physics_frame
 	check(scene.world.cells.size()==96,"World height")
+	check(scene.quest_states.size()>=5,"Five quest states exist")
+	var tree_cell=Vector2i(-1,-1)
+	for y in range(scene.world.cells.size()):
+		for x in range(scene.world.cells[y].size()):
+			if int(scene.world.cells[y][x])==4:
+				tree_cell=Vector2i(x,y)
+				break
+		if tree_cell.x>=0:
+			break
+	check(tree_cell.x>=0 and not scene.world.is_solid(tree_cell),"Tree trunks are pass-through but remain world cells")
 	check(scene.player.sprite.sprite_frames.has_animation("walk"),"Player animations")
 	var items=load("res://scripts/items.gd")
 	var inventory={4:1}
@@ -61,11 +71,26 @@ func run() -> void:
 	scene.resume()
 	scene.spawn_mob()
 	await physics_frame
-	check(scene.enemies.get_child_count()==1,"Mob spawns")
+	check(scene.enemies.get_child_count()==0,"Village safe zone blocks hostile spawn")
+	scene.player.position=Vector2(100*32,scene.world.surfaces[100]*32-2)
+	scene.spawn_mob()
+	await physics_frame
+	check(scene.enemies.get_child_count()==1,"Mob spawns outside safe zone")
 	var mob=scene.enemies.get_child(0)
 	var food_before=scene.player.inventory.get(10,0)
-	mob.hit(200)
+	mob.hit(999)
 	check(scene.player.inventory.get(10,0)==food_before+1,"Mob reward")
+	# A tamed Mel must never consume the generic USE action before a Waystone.
+	scene.quest_states[scene.QUEST_MEL]="completed"
+	scene.sync_legacy_quest_flags()
+	scene.mel.set_tamed(true)
+	scene.player.position=Vector2(105*32,scene.world.surfaces[105]*32-2)
+	scene.mel.position=scene.player.position+Vector2(16,0)
+	scene.player.inventory[24]=1
+	scene.selected=24
+	scene.use_selected()
+	var safe_center=Vector2(34*32+16,35*32-2)
+	check(scene.player.position.distance_to(safe_center)<2,"Waystone works while Mel is tamed")
 	# Save roundtrip uses the dedicated DreadsCraftTests data directory.
 	check(scene.save_world(),"Save write")
 	var saved_x=scene.player.position.x

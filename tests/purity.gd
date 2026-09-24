@@ -41,6 +41,7 @@ func run() -> void:
 	check(game.player.inventory[16]==0 and not game.world.is_solid(game.target),"Portal consumed and traversable")
 	var original=JSON.stringify(game.world.cells)
 	var original_position=game.player.position
+	game.quest_states[game.QUEST_SNOW]="completed"
 	game.use_portal()
 	check(game.in_purity and game.modal and not game.boss.awakened,"Portal begins dialogue before fight")
 	check(is_instance_valid(game.boss.body_sprite) and game.boss.body_sprite.texture!=null,"Boss v2 art loaded")

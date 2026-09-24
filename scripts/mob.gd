@@ -6,6 +6,7 @@ var player: CharacterBody2D
 var kind = "skeleton"
 var hp = 48.0
 var damage = 6.0
+var difficulty_level=1
 var attack_timer = 0.0
 var death_timer = -1.0
 var sprite: AnimatedSprite2D
@@ -34,6 +35,7 @@ func _ready() -> void:
 	add_child(sprite)
 	if kind=="wolf":
 		hp=32
+		damage=6
 	elif kind=="corrupted_skeleton":
 		hp=58
 		damage=8
@@ -44,10 +46,17 @@ func _ready() -> void:
 		hp=110
 		damage=12
 	elif kind=="polar_bear":
-		hp=220
-		damage=16
+		hp=300
+		damage=20
+	var index=clampi(difficulty_level,0,3)
+	var hp_mult=[0.85,1.0,1.28,1.58][index]
+	var damage_mult=[0.75,1.0,1.22,1.48][index]
+	hp*=hp_mult
+	damage*=damage_mult
+	queue_redraw()
 
 func _physics_process(delta: float) -> void:
+	queue_redraw()
 	if death_timer>=0:
 		death_timer-=delta
 		if death_timer<=0:
@@ -92,3 +101,18 @@ func hit(amount: float, force: float=240.0) -> void:
 		death_timer=.45
 		sprite.play("death")
 		killed.emit()
+
+func _draw() -> void:
+	var radius=Vector2(28,7)
+	if kind=="dark_slime":
+		radius=Vector2(24,6)
+	elif kind=="polar_bear":
+		radius=Vector2(42,8)
+	draw_ellipse_shadow(Vector2(0,-2),radius,Color(0,0,0,.24))
+
+func draw_ellipse_shadow(center:Vector2,radius:Vector2,color:Color) -> void:
+	var points=PackedVector2Array()
+	for i in range(20):
+		var angle=TAU*float(i)/20.0
+		points.append(center+Vector2(cos(angle)*radius.x,sin(angle)*radius.y))
+	draw_colored_polygon(points,color)
