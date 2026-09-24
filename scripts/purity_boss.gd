@@ -19,7 +19,9 @@ func set_expression(value: String) -> void:
 	queue_redraw()
 
 func hit(amount: float) -> void:
-	if not awakened or hp<=0:
+	# Attacks are already blocked by the dialogue modal; do not let a state desync
+	# make the boss permanently invulnerable.
+	if hp<=0:
 		return
 	hp=maxf(0,hp-amount)
 	flash=.15
