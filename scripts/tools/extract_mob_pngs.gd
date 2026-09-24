@@ -21,7 +21,7 @@ const FRAMES := {
 }
 
 func _initialize() -> void:
-	var source=Image.load_from_file(SOURCE)
+	var source=Image.load_from_file(ProjectSettings.globalize_path(SOURCE))
 	if source==null or source.is_empty():
 		push_error("Could not load mob source sheet: "+SOURCE)
 		quit(1)
@@ -47,7 +47,7 @@ func _initialize() -> void:
 				canvas.blit_rect(crop,Rect2i(Vector2i.ZERO,region.size),target)
 				var suffix="_%d" % i if rects.size()>1 else ""
 				var out_path="%s/%s_%s%s.png" % [OUT_DIR,kind,action,suffix]
-				var err=canvas.save_png(out_path)
+				var err=canvas.save_png(ProjectSettings.globalize_path(out_path))
 				if err!=OK:
 					push_error("Failed writing "+out_path)
 					quit(1)
