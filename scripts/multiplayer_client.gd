@@ -15,13 +15,17 @@ var local_id:=""
 var host:=false
 var remote_players:Dictionary={}
 var send_timer:=0.0
+var connect_timeout:=0.0
+
+const PRODUCTION_WEBSOCKET_URL="wss://dreads-craft-v13-production.up.railway.app/ws"
 
 func websocket_url() -> String:
 	if OS.has_feature("web"):
 		var protocol=str(JavaScriptBridge.eval("window.location.protocol"))
 		var hostname=str(JavaScriptBridge.eval("window.location.host"))
 		return ("wss://" if protocol=="https:" else "ws://")+hostname+"/ws"
-	return "ws://127.0.0.1:8080/ws"
+	# APK/native must connect to the real server, never localhost on the phone.
+	return PRODUCTION_WEBSOCKET_URL
 
 func create_room(player_name:String,seed:int,world_name:String) -> void:
 	_begin({"type":"create","name":player_name,"seed":seed,"world_name":world_name})
@@ -33,6 +37,7 @@ func _begin(payload:Dictionary) -> void:
 	disconnect_room(false)
 	pending=payload
 	pending_sent=false
+	connect_timeout=10.0
 	socket=WebSocketPeer.new()
 	var err=socket.connect_to_url(websocket_url())
 	if err!=OK:
@@ -64,6 +69,13 @@ func send_block_change(cell:Vector2i,id:int) -> void:
 func _process(delta:float) -> void:
 	socket.poll()
 	var state=socket.get_ready_state()
+	if not pending.is_empty() and not pending_sent and state==WebSocketPeer.STATE_CONNECTING:
+		connect_timeout-=delta
+		if connect_timeout<=0:
+			pending={}
+			socket.close()
+			failed.emit("O servidor multiplayer demorou demais para responder. Tente novamente.")
+			return
 	if state==WebSocketPeer.STATE_OPEN and not pending_sent and not pending.is_empty():
 		send_json(pending)
 		pending_sent=true
