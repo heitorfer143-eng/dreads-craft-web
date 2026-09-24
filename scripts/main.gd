@@ -1641,12 +1641,17 @@ func show_inventory() -> void:
 	if not active:
 		return
 	clear_menu("Inventário","inventory")
-	var subtitle=label("Itens coletados",14)
+	var subtitle=label("Itens coletados · Q também dropa 1 item no PC",14)
 	subtitle.add_theme_color_override("font_color",Color("b8a5c5"))
 	menu_box.add_child(subtitle)
 	for id in Items.NAMES:
 		if id==1 or (not player.creative and player.inventory.get(id,0)<=0):
 			continue
+		var line=HBoxContainer.new()
+		line.add_theme_constant_override("separation",8)
+		line.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		menu_box.add_child(line)
+
 		var amount="LIVRE" if player.creative else str(player.inventory.get(id,0))
 		var row=button("%s    %s" % [Items.NAMES[id],amount],func():
 			selected=id
@@ -1655,12 +1660,21 @@ func show_inventory() -> void:
 				hotbar[empty_slot if empty_slot>=0 else hotbar.size()-1]=id
 			resume()
 		)
+		row.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		if Items.ICONS.has(id):
 			row.icon=item_display_texture(id)
 			row.expand_icon=true
-		row.custom_minimum_size=Vector2(520,54)
-		row.alignment=HORIZONTAL_ALIGNMENT_LEFT
-		menu_box.add_child(row)
+			row.alignment=HORIZONTAL_ALIGNMENT_LEFT
+		line.add_child(row)
+
+		var drop_button=button("DROPAR 1",func():
+			selected=id
+			drop_selected_item(1)
+			show_inventory()
+		)
+		drop_button.custom_minimum_size=Vector2(126,54)
+		drop_button.disabled=player.creative or int(player.inventory.get(id,0))<=0 or in_purity
+		line.add_child(drop_button)
 	menu_box.add_child(button("FECHAR",resume))
 
 func near_table() -> bool:
