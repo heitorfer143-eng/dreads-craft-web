@@ -15,8 +15,10 @@ const GeneratedAssets = preload("res://scripts/generated_assets.gd")
 const GeneratedIntro = preload("res://scripts/generated_intro.gd")
 const MultiplayerClient = preload("res://scripts/multiplayer_client.gd")
 const DroppedItem = preload("res://scripts/dropped_item.gd")
+const SoulProjectile = preload("res://scripts/soul_projectile.gd")
 
 var in_purity=false
+var in_purity_realm=false
 var overworld: Node2D
 var return_position=Vector2.ZERO
 var boss: Node2D
@@ -1382,6 +1384,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 		overworld.queue_free()
 	overworld=null
 	in_purity=false
+	in_purity_realm=false
 	sky.purity=false
 	boss_defeated=false
 	boss=null
@@ -2130,7 +2133,7 @@ func update_target() -> void:
 func place_block() -> bool:
 	if in_purity or target.x<0 or world.get_cell(target)!=0 or selected not in [2,3,4,5,6,7,8,9,14,15,16]:
 		return false
-	if world.is_village_protected(target) and not player.creative:
+	if not in_purity and world.is_village_protected(target) and not player.creative:
 		status.text="A vila é uma zona protegida: não é possível construir aqui."
 		message_time=2.5
 		return false
@@ -2305,7 +2308,7 @@ func _process(delta: float) -> void:
 	if target!=last_target:
 		progress=0
 		last_target=target
-	if not in_purity and mining_held and target.x>=0 and world.get_cell(target)!=0:
+	if (not in_purity or in_purity_realm) and mining_held and target.x>=0 and world.get_cell(target)!=0:
 		var id=world.get_cell(target)
 		if world.is_village_protected(target) and not player.creative:
 			progress=0
@@ -2317,14 +2320,19 @@ func _process(delta: float) -> void:
 			message_time=1
 		else:
 			progress+=delta*Items.mining_speed(player.inventory)
-		if (player.creative or not world.is_village_protected(target)) and (player.creative or progress>=Items.HARDNESS.get(id,1.0)):
+		if (player.creative or in_purity_realm or not world.is_village_protected(target)) and (player.creative or progress>=Items.HARDNESS.get(id,1.0)):
 			world.set_cell(target,0)
 			if multiplayer_active and is_instance_valid(online):
 				online.send_block_change(target,0)
 			if is_instance_valid(game_audio): game_audio.mine()
 			var drop=2 if id==1 else id
-			var drop_position=Vector2(target.x*32+16,target.y*32+8)
-			spawn_ground_drop(drop,1,drop_position)
+			if in_purity_realm:
+				player.inventory[drop]=int(player.inventory.get(drop,0))+1
+				status.text="+1 "+Items.NAMES.get(drop,"item")
+				message_time=1.5
+			else:
+				var drop_position=Vector2(target.x*32+16,target.y*32+8)
+				spawn_ground_drop(drop,1,drop_position)
 			progress=0
 			if is_instance_valid(device_controls) and device_controls.mobile and mining_held:
 				target=Vector2i(-1,-1)
@@ -2824,11 +2832,14 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops()}
+	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops()}
 	if in_purity:
-		data["arena_position"]=[player.position.x,player.position.y]
-		data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
-		data["intro_complete"]=is_instance_valid(boss) and boss.awakened
+		if in_purity_realm:
+			data["purity_position"]=[player.position.x,player.position.y]
+		else:
+			data["arena_position"]=[player.position.x,player.position.y]
+			data["boss_hp"]=boss.hp if is_instance_valid(boss) else 0
+			data["intro_complete"]=is_instance_valid(boss) and boss.awakened
 	var error=Saves.write(data)
 	if error!=OK:
 		status.text="Não foi possível salvar o mundo. Código %d" % error
@@ -2845,6 +2856,7 @@ func load_world() -> void:
 	world.cells=data.cells
 	world.surfaces.assign(data.surfaces)
 	world.repair_village_zone()
+	world.remove_ore(25)
 	world.ensure_ore_minimums()
 	world.rebuild_collision()
 	player.position=Vector2(data.position[0],data.position[1])
@@ -2884,11 +2896,16 @@ func load_world() -> void:
 	if is_instance_valid(mel):
 		mel.set_tamed(mel_tamed)
 	if bool(data.get("in_purity",false)):
-		enter_purity(bool(data.get("intro_complete",false)))
-		var arena_position=data.get("arena_position",[320,1118])
-		player.position=Vector2(clampf(float(arena_position[0]),6*32,35*32),clampf(float(arena_position[1]),15*32,35*32-2))
-		if is_instance_valid(boss):
-			boss.hp=clampf(float(data.get("boss_hp",900)),1,900)
+		if bool(data.get("in_purity_realm",false)) and boss_defeated:
+			enter_purity_realm()
+			var purity_position=data.get("purity_position",[12*32,33*32])
+			player.position=Vector2(clampf(float(purity_position[0]),6*32,314*32),clampf(float(purity_position[1]),8*32,94*32))
+		else:
+			enter_purity(bool(data.get("intro_complete",false)))
+			var arena_position=data.get("arena_position",[320,1118])
+			player.position=Vector2(clampf(float(arena_position[0]),6*32,35*32),clampf(float(arena_position[1]),15*32,35*32-2))
+			if is_instance_valid(boss):
+				boss.hp=clampf(float(data.get("boss_hp",900)),1,900)
 	refresh_hud()
 
 func _notification(what: int) -> void:
@@ -2970,6 +2987,8 @@ func use_portal() -> void:
 		return
 	if in_purity:
 		leave_purity()
+	elif boss_defeated:
+		enter_purity_realm()
 	else:
 		enter_purity()
 
@@ -3005,7 +3024,7 @@ func update_purity_hud() -> void:
 	portal_button.position=Vector2((size.x-250)/2,size.y-172)
 	portal_button.size=Vector2(250,40)
 	portal_button.visible=active and not modal and nearby_portal()
-	portal_button.text="VOLTAR AO MUNDO" if in_purity else "ENTRAR NA PUREZA"
+	portal_button.text="VOLTAR AO MUNDO" if in_purity else "ENTRAR NO REINO DA PUREZA" if boss_defeated else "ENFRENTAR O GUARDIÃO"
 
 func set_overworld_entities_visible(value: bool) -> void:
 	for node in [structures,npcs,mel,drops]:
@@ -3061,6 +3080,45 @@ func enter_purity(skip_dialogue: bool=false) -> void:
 			dialogue_index=0
 			show_purity_dialogue()
 	update_purity_hud()
+
+func enter_purity_realm() -> void:
+	if in_purity or not boss_defeated:
+		return
+	ensure_purity_hud()
+	return_position=player.position
+	set_overworld_entities_visible(false)
+	overworld=world
+	remove_child(overworld)
+	world=World.new()
+	add_child(world)
+	world.generate_purity_realm(overworld.world_seed)
+	world.modulate=Color("dbefff")
+	world.camera=player.camera
+	for mob in enemies.get_children():
+		enemies.remove_child(mob)
+		mob.queue_free()
+	var spawn_x=12
+	player.position=Vector2(spawn_x*32,world.surfaces[spawn_x]*32-2)
+	player.velocity=Vector2.ZERO
+	player.max_fall_speed=0
+	player.camera.limit_left=0
+	player.camera.limit_right=World.WIDTH*32
+	player.camera.reset_smoothing()
+	in_purity=true
+	in_purity_realm=true
+	sky.purity=true
+	mining_held=false
+	progress=0
+	status.text="✦ REINO DA PUREZA · Minério das Almas existe apenas nas profundezas deste reino."
+	message_time=6
+	update_purity_hud()
+
+func enter_purity_realm_from_arena() -> void:
+	if not boss_defeated:
+		return
+	leave_purity()
+	call_deferred("enter_purity_realm")
+
 
 func show_purity_dialogue() -> void:
 	var entries=preload("res://scripts/purity_dialogue.gd").ENTRIES
@@ -3137,6 +3195,7 @@ func leave_purity() -> void:
 	player.camera.limit_right=320*32
 	player.camera.reset_smoothing()
 	in_purity=false
+	in_purity_realm=false
 	sky.purity=false
 	resume()
 	update_purity_hud()
@@ -3152,8 +3211,11 @@ func on_boss_defeated() -> void:
 	player.inventory[12]=player.inventory.get(12,0)+1
 	player.hp=player.max_hp
 	clear_menu("A Pureza foi libertada","victory")
-	menu_box.add_child(label("O Guardião caiu. A Relíquia Vital é sua.",18))
-	menu_box.add_child(button("EXPLORAR A ARENA",resume))
+	menu_box.add_child(label("O Guardião caiu. O verdadeiro Reino da Pureza foi desbloqueado.",18))
+	var realm_hint=label("Lá você encontrará o Minério das Almas — ele não existe no mundo normal.",13)
+	realm_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	menu_box.add_child(realm_hint)
+	menu_box.add_child(button("ATRAVESSAR PARA O REINO",enter_purity_realm_from_arena))
 	menu_box.add_child(button("VOLTAR AO MUNDO",leave_purity))
 	boss_panel.hide()
 	save_world()
