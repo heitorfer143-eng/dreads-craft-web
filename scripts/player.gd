@@ -15,6 +15,8 @@ var jump_buffer = 0.0
 var coyote = 0.0
 var sprite: AnimatedSprite2D
 var camera: Camera2D
+var weapon_sprite: Sprite2D
+var weapon_tween: Tween
 var spawn_position = Vector2(400,1000)
 var max_fall_speed = 0.0
 var was_grounded = false
@@ -35,6 +37,13 @@ func _ready() -> void:
 	sprite=Sprites.make("demon" if creative else "normal")
 	sprite.scale=Vector2(0.18,0.18)
 	add_child(sprite)
+	weapon_sprite=Sprite2D.new()
+	weapon_sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+	weapon_sprite.position=Vector2(18,-28)
+	weapon_sprite.scale=Vector2(0.34,0.34)
+	weapon_sprite.z_index=5
+	weapon_sprite.hide()
+	add_child(weapon_sprite)
 	camera=Camera2D.new()
 	camera.position=Vector2(0,-100)
 	camera.position_smoothing_enabled=true
@@ -118,3 +127,22 @@ func respawn() -> void:
 
 func body_rect() -> Rect2:
 	return Rect2(position+Vector2(-11,-44),Vector2(22,44))
+
+
+func play_weapon_attack(texture: Texture2D, duration: float=0.30) -> void:
+	if texture==null or not is_instance_valid(weapon_sprite):
+		return
+	if is_instance_valid(weapon_tween):
+		weapon_tween.kill()
+	weapon_sprite.texture=texture
+	weapon_sprite.show()
+	weapon_sprite.flip_h=face<0
+	weapon_sprite.position=Vector2(18*face,-30)
+	weapon_sprite.rotation=(-1.15 if face>0 else 1.15)
+	weapon_sprite.scale=Vector2(0.36,0.36)
+	weapon_tween=create_tween()
+	weapon_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	weapon_tween.tween_property(weapon_sprite,"rotation",(0.95 if face>0 else -0.95),duration*0.7)
+	weapon_tween.parallel().tween_property(weapon_sprite,"position",Vector2(28*face,-20),duration*0.7)
+	weapon_tween.tween_interval(duration*0.15)
+	weapon_tween.tween_callback(func(): weapon_sprite.hide())
