@@ -13,6 +13,7 @@ const Interior = preload("res://scripts/interior.gd")
 const Mel = preload("res://scripts/mel.gd")
 const GeneratedAssets = preload("res://scripts/generated_assets.gd")
 const GeneratedIntro = preload("res://scripts/generated_intro.gd")
+const SheetAssets = preload("res://scripts/generated_sheet_assets.gd")
 const MultiplayerClient = preload("res://scripts/multiplayer_client.gd")
 
 var in_purity=false
@@ -1607,7 +1608,7 @@ func refresh_hud() -> void:
 		slot.add_theme_stylebox_override("pressed",selected_style)
 
 		if id!=0 and Items.ICONS.has(id):
-			slot.icon=load(Items.ICONS[id])
+			slot.icon=item_display_texture(id)
 			slot.pressed.connect(func():
 				selected=id
 				refresh_hud()
@@ -1651,7 +1652,7 @@ func show_inventory() -> void:
 			resume()
 		)
 		if Items.ICONS.has(id):
-			row.icon=load(Items.ICONS[id])
+			row.icon=item_display_texture(id)
 			row.expand_icon=true
 		row.custom_minimum_size=Vector2(520,54)
 		row.alignment=HORIZONTAL_ALIGNMENT_LEFT
@@ -1690,7 +1691,7 @@ func craft_material_chip(id: int, required: int) -> PanelContainer:
 	row.add_theme_constant_override("separation",4)
 	chip.add_child(row)
 	var icon=TextureRect.new()
-	icon.texture=load(Items.ICONS.get(id,"res://assets/items/dirt.png"))
+	icon.texture=item_display_texture(id)
 	icon.custom_minimum_size=Vector2(28,28)
 	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -1714,7 +1715,7 @@ func craft_recipe_card(recipe: Dictionary, has_table: bool) -> PanelContainer:
 	icon_panel.add_theme_stylebox_override("panel",compact_panel_style(0.68,Color("564665"),5))
 	row.add_child(icon_panel)
 	var icon=TextureRect.new()
-	icon.texture=load(Items.CRAFT_ICONS.get(recipe.id,Items.ICONS.get(recipe.id,"res://assets/items/dirt.png")))
+	icon.texture=item_display_texture(int(recipe.id),true)
 	icon.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.custom_minimum_size=Vector2(70,70)
 	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
@@ -2251,16 +2252,17 @@ func maybe_start_mel_quest() -> void:
 	mel_quest_started=true
 	show_mel_dialogue()
 
-func npc_face_texture(path: String, role: String="") -> Texture2D:
-	if not ResourceLoader.exists(path):
-		return null
-	var source:Texture2D=load(path)
+func npc_face_texture(_path: String, role: String="") -> Texture2D:
 	if role=="mel":
-		return source
-	var atlas=AtlasTexture.new()
-	atlas.atlas=source
-	atlas.region=Rect2(0,0,64,58)
-	return atlas
+		return SheetAssets.mel_portrait()
+	return SheetAssets.portrait(role)
+
+func item_display_texture(id:int, craft:bool=false) -> Texture2D:
+	var generated=SheetAssets.item_icon(id)
+	if generated!=null:
+		return generated
+	var path=Items.CRAFT_ICONS.get(id,Items.ICONS.get(id,"res://assets/items/dirt.png")) if craft else Items.ICONS.get(id,"res://assets/items/dirt.png")
+	return load(path) if ResourceLoader.exists(path) else null
 
 func show_mel_dialogue() -> void:
 	if mel_tamed:
@@ -2281,7 +2283,7 @@ func show_mel_dialogue() -> void:
 	header.add_theme_constant_override("separation",10)
 	content.add_child(header)
 	var portrait=TextureRect.new()
-	portrait.texture=npc_face_texture("res://assets/npcs/mel_generated.png","mel")
+	portrait.texture=SheetAssets.mel_portrait()
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -2360,7 +2362,7 @@ func trade_button(title:String,cost:Dictionary,reward_id:int,reward_count:int) -
 	b.disabled=not can_pay_trade(cost)
 	b.custom_minimum_size=Vector2(0,58)
 	if Items.ICONS.has(reward_id):
-		b.icon=load(Items.ICONS[reward_id])
+		b.icon=item_display_texture(reward_id)
 		b.expand_icon=true
 		b.add_theme_constant_override("icon_max_width",34)
 	return b
@@ -2538,7 +2540,7 @@ func show_npc_dialogue(npc) -> void:
 	current_npc=npc
 	clear_menu("","npc_dialogue")
 	var mobile=get_viewport_rect().size.x<=760
-	var portrait_path="res://assets/npcs/monk_generated.png" if npc.role=="monge" else "res://assets/npcs/blacksmith_generated.png"
+	var portrait_path=""
 	var card=PanelContainer.new()
 	card.add_theme_stylebox_override("panel",compact_panel_style(0.98,Color("8b6e9d"),10))
 	card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -2551,7 +2553,7 @@ func show_npc_dialogue(npc) -> void:
 	header.add_theme_constant_override("separation",10)
 	content.add_child(header)
 	var portrait=TextureRect.new()
-	portrait.texture=npc_face_texture(portrait_path,npc.role)
+	portrait.texture=SheetAssets.portrait(npc.role)
 	portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
