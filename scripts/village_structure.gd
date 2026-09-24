@@ -1,7 +1,5 @@
 extends Node2D
 
-const SheetAssets=preload("res://scripts/generated_sheet_assets.gd")
-
 var kind="blacksmith"
 var display_name="Ferreiro"
 var texture_path=""
@@ -18,7 +16,7 @@ func configure(p_kind:String,p_name:String,p_texture:String,p_player:CharacterBo
 
 func _ready() -> void:
 	sprite=Sprite2D.new()
-	sprite.texture=SheetAssets.structure(kind)
+	sprite.texture=load("res://assets/structures/village_house_generated.png")
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	var desired_width=390.0 if kind=="blacksmith" else 410.0 if kind=="market" else 370.0
 	var tex_size=sprite.texture.get_size()
