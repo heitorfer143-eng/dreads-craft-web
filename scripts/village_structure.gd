@@ -18,8 +18,12 @@ func _ready() -> void:
 	sprite=Sprite2D.new()
 	sprite.texture=load(texture_path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale=Vector2(1.55,1.55)
-	sprite.position=Vector2(0,-102)
+	var desired_width=330.0 if kind=="blacksmith" else 350.0 if kind=="market" else 320.0
+	var tex_size=sprite.texture.get_size()
+	var factor=desired_width/maxf(1.0,tex_size.x)
+	sprite.scale=Vector2(factor,factor)
+	# Bottom-align the sprite to the terrain so houses never float.
+	sprite.position=Vector2(0,-tex_size.y*factor*0.5)
 	add_child(sprite)
 	z_index=1
 	set_process(true)
