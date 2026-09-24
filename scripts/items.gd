@@ -55,7 +55,8 @@ const TILE_TEXTURES = {
 	9: "res://assets/tiles/table.png",
 	14: "res://assets/tiles/tile_14.svg",
 	15: "res://assets/tiles/tile_15.svg",
-	16: "res://assets/items/portal_new_world.svg"
+	16: "res://assets/items/portal_new_world.svg",
+	25: "res://assets/tiles/soul_ore.svg"
 }
 const RECIPES = [
 	{"name": "Tábuas x4", "cost": {4: 1}, "id": 8, "count": 4, "table": false},
