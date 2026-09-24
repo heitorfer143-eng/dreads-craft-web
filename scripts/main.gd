@@ -14,6 +14,7 @@ const Mel = preload("res://scripts/mel.gd")
 const GeneratedAssets = preload("res://scripts/generated_assets.gd")
 const GeneratedIntro = preload("res://scripts/generated_intro.gd")
 const MultiplayerClient = preload("res://scripts/multiplayer_client.gd")
+const DroppedItem = preload("res://scripts/dropped_item.gd")
 
 var in_purity=false
 var overworld: Node2D
@@ -31,6 +32,7 @@ var player: CharacterBody2D
 var enemies: Node2D
 var npcs: Node2D
 var structures: Node2D
+var drops: Node2D
 var interior: Node2D
 var in_structure := ""
 var structure_return_position := Vector2.ZERO
@@ -128,7 +130,7 @@ func _ready() -> void:
 	get_tree().auto_accept_quit=false
 
 func configure_input() -> void:
-	var bindings={"left":[KEY_A,KEY_LEFT],"right":[KEY_D,KEY_RIGHT],"jump":[KEY_SPACE,KEY_W,KEY_UP],"down":[KEY_S,KEY_SHIFT,KEY_DOWN],"inventory":[KEY_E],"craft":[KEY_C],"attack":[KEY_F],"pause":[KEY_ESCAPE]}
+	var bindings={"left":[KEY_A,KEY_LEFT],"right":[KEY_D,KEY_RIGHT],"jump":[KEY_SPACE,KEY_W,KEY_UP],"down":[KEY_S,KEY_SHIFT,KEY_DOWN],"inventory":[KEY_E],"craft":[KEY_C],"attack":[KEY_F],"drop":[KEY_Q],"pause":[KEY_ESCAPE]}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -1368,7 +1370,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	snow_announced=false
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
-	for node in [world,player,enemies,npcs,structures,interior,selection,mel]:
+	for node in [world,player,enemies,npcs,structures,drops,interior,selection,mel]:
 		if is_instance_valid(node):
 			remove_child(node)
 			node.queue_free()
@@ -1399,6 +1401,9 @@ func start_world(creative: bool, seed_value: int) -> void:
 	structures=Node2D.new()
 	structures.name="VillageStructures"
 	add_child(structures)
+	drops=Node2D.new()
+	drops.name="GroundDrops"
+	add_child(drops)
 	spawn_village_hub()
 	spawn_world_npcs()
 	spawn_mel()
@@ -1901,6 +1906,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("attack"):
 		attack()
+	if event.is_action_pressed("drop"):
+		drop_selected_item(1)
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode==KEY_R:
 			use_selected()
@@ -2099,6 +2108,54 @@ func place_block() -> bool:
 		player.inventory[selected]-=1
 	refresh_hud()
 	return true
+
+func spawn_ground_drop(item_id:int,count:int,world_position:Vector2,remaining:float=300.0) -> void:
+	if not is_instance_valid(drops) or not is_instance_valid(player) or item_id<=0 or count<=0:
+		return
+	var pickup=DroppedItem.new()
+	pickup.setup(item_id,count,player,remaining)
+	pickup.position=world_position
+	drops.add_child(pickup)
+
+func drop_selected_item(amount:int=1) -> void:
+	if not active or modal or player.creative or in_purity or selected<=0:
+		return
+	var owned=int(player.inventory.get(selected,0))
+	if owned<=0:
+		return
+	var qty=mini(maxi(1,amount),owned)
+	player.inventory[selected]=owned-qty
+	var drop_pos=player.position+Vector2(player.face*30,-18)
+	spawn_ground_drop(selected,qty,drop_pos)
+	status.text="Dropou %dx %s · fica no chão por 5 minutos" % [qty,Items.NAMES.get(selected,"item")]
+	message_time=2.5
+	refresh_hud()
+
+func on_ground_item_picked(item_id:int,count:int) -> void:
+	status.text="+%d %s" % [count,Items.NAMES.get(item_id,"item")]
+	message_time=1.2
+	refresh_hud()
+
+func serialize_ground_drops() -> Array:
+	var result:Array=[]
+	if not is_instance_valid(drops):
+		return result
+	for node in drops.get_children():
+		if node.has_method("serialize"):
+			result.append(node.serialize())
+	return result
+
+func restore_ground_drops(saved:Array) -> void:
+	if not is_instance_valid(drops):
+		return
+	for entry in saved:
+		if not entry is Dictionary:
+			continue
+		var pos=entry.get("position",[0,0])
+		if not pos is Array or pos.size()<2:
+			continue
+		spawn_ground_drop(int(entry.get("id",0)),int(entry.get("count",1)),Vector2(float(pos[0]),float(pos[1])),float(entry.get("remaining",300.0)))
+
 
 func play_weapon_swing() -> void:
 	if not (Items.SWORD_DAMAGE.has(selected) or Items.PICK_TIERS.has(selected)):
