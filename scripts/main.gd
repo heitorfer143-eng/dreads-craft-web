@@ -2236,8 +2236,10 @@ func attack() -> void:
 	if mel_tamed:
 		base_damage+=2.0
 	var aerial_critical=not player.creative and not player.is_on_floor() and player.velocity.y>70
-	var critical=aerial_critical or randf()<0.18
-	var final_damage=roundf(base_damage*(1.75 if critical else 1.0))
+	var crit_chance=Items.crit_chance(selected) if has_weapon else 0.05
+	var crit_multiplier=Items.crit_multiplier(selected) if has_weapon else 1.50
+	var critical=aerial_critical or randf()<crit_chance
+	var final_damage=roundf(base_damage*(crit_multiplier if critical else 1.0))
 	var landed=false
 	var shown_damage=0
 
