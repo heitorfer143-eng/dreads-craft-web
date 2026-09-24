@@ -6,7 +6,7 @@ const WIDTH = 320
 const HEIGHT = 96
 const VILLAGE_MIN_X = 4
 const VILLAGE_MAX_X = 66
-const SNOW_START_X = 230
+const SNOW_START_X = 190
 var cells: Array = []
 var surfaces: Array[int] = []
 var rows: Dictionary = {}
@@ -291,7 +291,9 @@ func is_snow_biome(cell_x: int) -> bool:
 	return cell_x>=SNOW_START_X
 
 func snow_spawn_cell() -> Vector2i:
-	var x=282
+	# Keep the polar-bear encounter deep enough into the biome to feel earned,
+	# while no longer hiding the entire snow region at the extreme edge of the map.
+	var x=250
 	return Vector2i(x,surfaces[x])
 
 
@@ -379,17 +381,26 @@ func _draw() -> void:
 			else:
 				draw_rect(Rect2(pos,Vector2(TILE,TILE)),Items.COLORS.get(id,Color.GRAY))
 			if x>=SNOW_START_X:
-				# Snow biome is rendered as a cold overlay on the same destructible terrain.
-				if id in [1,2]:
+				# Strong, unmistakable snow biome treatment. This is render-only, so old
+				# saves instantly gain the biome without rewriting their terrain data.
+				var deep_snow=x>=SNOW_START_X+22
+				if id==1:
+					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("bcd6e86e" if deep_snow else "afc8df52"),true)
 					if y==surfaces[x]:
-						draw_rect(Rect2(pos,Vector2(TILE,7)),Color("e8f1ffff"),true)
-						draw_rect(Rect2(pos+Vector2(0,7),Vector2(TILE,TILE-7)),Color("9eb4c633"),true)
-					else:
-						draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("8ba7c522"),true)
+						draw_rect(Rect2(pos,Vector2(TILE,10)),Color("f4fbffff"),true)
+						draw_rect(Rect2(pos+Vector2(0,10),Vector2(TILE,4)),Color("c9e4f2dd"),true)
+				elif id==2:
+					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("a9c5dc55" if deep_snow else "92abc544"),true)
+					if y<=surfaces[x]+1:
+						draw_rect(Rect2(pos,Vector2(TILE,5)),Color("e7f4fccc"),true)
 				elif id==3:
-					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("7394bb28"),true)
-				elif id in [4,5]:
-					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("dce8f51f"),true)
+					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("7699c148" if deep_snow else "6f8eaf35"),true)
+				elif id==4:
+					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("dcebf733"),true)
+					draw_rect(Rect2(pos,Vector2(TILE,4)),Color("edf8ffbb"),true)
+				elif id==5:
+					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("dcebf742"),true)
+					draw_rect(Rect2(pos,Vector2(TILE,6)),Color("f3fbffd0"),true)
 			if id==25:
 				# Soul Ore emits a soft white-blue glow while keeping the pixel-art tile readable.
 				draw_circle(pos+Vector2(TILE/2.0,TILE/2.0),18,Color(0.82,0.95,1.0,0.10))

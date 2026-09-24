@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" shape-rendering="crispEdges">
+<rect width="256" height="256" fill="none"/>
+<!-- fractured halo -->
+<path fill="#d8b85c" d="M58 45h44v8H66v22h-8zm96 0h44v30h-8V53h-36z"/>
+<path fill="#6bd4e6" d="M45 78h28v6H45zm138 0h28v6h-28z"/>
+<!-- wings -->
+<path fill="#243146" d="M20 108 72 70l34 28-28 42-48 30zM236 108l-52-38-34 28 28 42 48 30z"/>
+<path fill="#506c83" d="M28 112 72 82l24 18-30 24-34 24zM228 112l-44-30-24 18 30 24 34 24z"/>
+<path fill="#9cb8c9" d="M38 111 72 91l12 11-25 14-18 12zM218 111l-34-20-12 11 25 14 18 12z"/>
+<!-- mantle -->
+<path fill="#29263b" d="M72 112 96 88h64l24 24-12 96H84z"/>
+<path fill="#4a4167" d="M88 120h80l-10 82H98z"/>
+<path fill="#1c1c2a" d="m96 134 32 18 32-18-8 66h-48z"/>
+<!-- shoulders -->
+<path fill="#c9d5dc" d="M72 118h32v34H66l-12-16zm112 0h-32v34h38l12-16z"/>
+<path fill="#7f93a4" d="M62 126h34v10H58zm98 0h34l4 10h-38z"/>
+<!-- neck shadow -->
+<rect x="110" y="102" width="36" height="28" fill="#161824"/>
+<!-- new asymmetric mask -->
+<path fill="#e6edf0" d="M92 54h72l12 22-10 43-38 23-38-23-10-43z"/>
+<path fill="#aab9c4" d="M92 54h36v88l-38-23-10-43z"/>
+<path fill="#f4f5ef" d="M128 54h36l12 22-10 43-38 23z"/>
+<!-- shattered left cheek -->
+<path fill="#273246" d="m86 84 26-18 16 14-12 18 10 16-20 16-16-11z"/>
+<path fill="#6e5a85" d="m92 88 17-11 9 7-8 12 7 12-11 9-10-7z"/>
+<!-- eye sockets -->
+<path fill="#121621" d="m101 91 23 3-8 14-20-4zm31 3 25-5 3 15-20 4z"/>
+<path fill="#5ee5f5" d="m103 96 14 2-4 5-12-2z"/>
+<path fill="#e9bd67" d="m139 98 14-3 1 6-13 3z"/>
+<!-- nose / mouth -->
+<path fill="#6f7f89" d="m126 105 7 14-12 1z"/>
+<path fill="#343944" d="M108 124h42l-8 8h-26z"/>
+<path fill="#1d2028" d="M116 127h26v4h-26z"/>
+<!-- crown/blades -->
+<path fill="#d8b85c" d="m92 58 8-36 11 32zm28-4 8-45 9 45zm27 0 15-34 5 39z"/>
+<path fill="#f0d47d" d="m126 15 2-6 9 45h-5z"/>
+<!-- chest sigil -->
+<path fill="#d8b85c" d="M123 154h10v36h-10zm-14 12h38v10h-38z"/>
+<path fill="#6bd4e6" d="M102 198h52v7h-52z"/>
+<!-- hanging cloth -->
+<path fill="#201d30" d="M101 205h54l-8 38-19-15-19 15z"/>
+</svg>

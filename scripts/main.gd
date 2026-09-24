@@ -238,7 +238,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 13.3 • DROP + ESC FIX"
+	build_badge.text="DREADS CRAFT • BUILD 13.4 • SNOW + WAYSTONE + BOSS V2"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -1501,7 +1501,7 @@ func show_objectives() -> void:
 		["🐶 MEL","Domestique Mel entregando 3 ossos.","CONCLUÍDA" if mel_tamed else "%d / 3 ossos" % int(player.inventory.get(23,0))],
 		["⚒ BORIN","Leve 6 ferros ao ferreiro.","CONCLUÍDA" if borin_quest_done else "%d / 6 ferros" % mini(6,int(player.inventory.get(7,0)))],
 		["☾ PROVA DO MONGE","Derrote 5 criaturas que aparecem à noite.","CONCLUÍDA" if monk_quest_done else "%d / 5 criaturas" % mini(5,night_kills)],
-		["❄ URSO DO NORTE","Explore o bioma nevado e derrote o Urso Polar Ancião.","CONCLUÍDA" if polar_bear_defeated else "Procure além das terras x=230"],
+		["❄ URSO DO NORTE","Explore o bioma nevado e derrote o Urso Polar Ancião.","CONCLUÍDA" if polar_bear_defeated else "Siga para o leste · a neve começa perto de x=190"],
 		["✦ PORTAL DA PUREZA","Fabrique o portal com 9 diamantes + 1 Avarita e enfrente o Guardião.","CONCLUÍDA" if boss_defeated else "Em andamento"]
 	]
 	for task in tasks:
@@ -2981,22 +2981,32 @@ func use_selected() -> void:
 func use_waystone() -> void:
 	if not active or not is_instance_valid(player):
 		return
+	var village_center=Vector2(34*32+16,35*32-2)
+	# Waystone is an emergency return item. It must also work from both the
+	# Guardian arena and the unlocked Purity realm instead of becoming dead weight.
 	if in_purity:
-		status.text="A Waystone não responde na Dimensão da Pureza."
-		message_time=3
+		leave_purity()
+		player.position=village_center
+		player.velocity=Vector2.ZERO
+		player.max_fall_speed=0
+		player.camera.reset_smoothing()
+		status.text="✦ A Waystone rompeu o véu e trouxe você de volta à vila."
+		message_time=5
+		save_world()
 		return
 	if in_structure!="":
 		exit_structure()
-	var village_center=Vector2(34*32+16,35*32-2)
 	if player.position.distance_to(village_center)<520:
 		status.text="Você já está perto da vila."
 		message_time=2.5
 		return
 	player.position=village_center
 	player.velocity=Vector2.ZERO
+	player.max_fall_speed=0
 	player.camera.reset_smoothing()
 	status.text="✦ A Waystone trouxe você de volta à vila."
 	message_time=4
+	save_world()
 
 
 func nearby_portal() -> bool:
@@ -3166,6 +3176,15 @@ func show_purity_dialogue() -> void:
 	realm.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	realm.add_theme_color_override("font_color",Color("b9dff3"))
 	box.add_child(realm)
+	if str(entry.speaker)=="GUARDIÃO DA PUREZA":
+		var guardian_portrait=TextureRect.new()
+		guardian_portrait.texture=load("res://assets/boss/purity_guardian_v2.svg")
+		guardian_portrait.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+		guardian_portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+		guardian_portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		guardian_portrait.custom_minimum_size=Vector2(110,110) if mobile_dialogue else Vector2(138,138)
+		guardian_portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		box.add_child(guardian_portrait)
 	var speaker=label(str(entry.speaker),15 if mobile_dialogue else 18)
 	speaker.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	speaker.add_theme_color_override("font_color",Color("c7a6dd") if str(entry.speaker)=="SPIKE" else Color("f0d99a"))

@@ -43,6 +43,7 @@ func run() -> void:
 	var original_position=game.player.position
 	game.use_portal()
 	check(game.in_purity and game.modal and not game.boss.awakened,"Portal begins dialogue before fight")
+	check(is_instance_valid(game.boss.body_sprite) and game.boss.body_sprite.texture!=null,"Boss v2 art loaded")
 	check(JSON.stringify(game.overworld.cells)==original,"World retained")
 	var hp=game.boss.hp
 	game.boss.hit(100)
@@ -100,6 +101,14 @@ func run() -> void:
 	game.enter_purity()
 	check(not is_instance_valid(game.boss),"Defeated boss does not respawn")
 	game.leave_purity()
+	# Waystone must work inside the unlocked dimension and return safely to the village.
+	game.enter_purity_realm()
+	game.player.inventory[24]=1
+	game.selected=24
+	game.use_waystone()
+	var village_center=Vector2(34*32+16,35*32-2)
+	check(not game.in_purity and game.player.position.distance_to(village_center)<2,"Waystone exits Purity realm to village")
+	check(game.world.is_snow_biome(game.world.SNOW_START_X) and game.world.SNOW_START_X==190,"Snow biome starts at the restored threshold")
 	# Legacy saves remain readable without regenerating existing terrain.
 	var data=saves.read_save()
 	data.version=1

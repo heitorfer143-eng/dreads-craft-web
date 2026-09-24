@@ -13,14 +13,23 @@ var flash=0.0
 var age=0.0
 var attack_index=0
 var expression="cold"
+var body_sprite:Sprite2D
+
+func _ready() -> void:
+	body_sprite=Sprite2D.new()
+	body_sprite.texture=load("res://assets/boss/purity_guardian_v2.svg")
+	body_sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+	body_sprite.position=Vector2(0,-86)
+	body_sprite.scale=Vector2(0.74,0.74)
+	body_sprite.z_index=0
+	add_child(body_sprite)
+	queue_redraw()
 
 func set_expression(value: String) -> void:
 	expression=value
 	queue_redraw()
 
 func hit(amount: float) -> void:
-	# Attacks are already blocked by the dialogue modal; do not let a state desync
-	# make the boss permanently invulnerable.
 	if hp<=0:
 		return
 	hp=maxf(0,hp-amount)
@@ -33,6 +42,9 @@ func hit(amount: float) -> void:
 func _physics_process(delta: float) -> void:
 	age+=delta
 	flash=maxf(0,flash-delta)
+	if is_instance_valid(body_sprite):
+		body_sprite.position.y=-86.0+sin(age*2.8)*2.0
+		body_sprite.modulate=Color("fff4dd") if flash>0 else Color.WHITE
 	queue_redraw()
 	if not awakened or not is_instance_valid(player):
 		return
@@ -64,40 +76,31 @@ func _physics_process(delta: float) -> void:
 		timer=1.0 if enraged else 1.6
 
 func _draw() -> void:
-	var gold=Color("ebd59a")
-	var armor=Color("d9e4ec") if flash==0 else Color.WHITE
-	var pulse=sin(age*3)*3
-	var origin=Vector2(0,-100+pulse)
-	draw_circle(origin,56,Color(.7,.85,1,.08))
-	draw_arc(origin,52,0,TAU,48,gold,3)
-	# Segmented wings, mantle, armored torso and crowned mask.
+	var gold=Color("efcc72")
+	var aura=Color("7bdff0") if expression in ["cold","defiant"] else Color("ff9c5b") if expression=="angered" else Color("ffe28a")
+	var pulse=sin(age*3.0)*3.0
+	var origin=Vector2(0,-92+pulse)
+
+	# Halo + fractured runes frame the new masked portrait/body sprite.
+	draw_circle(origin,69,Color(aura.r,aura.g,aura.b,0.075))
+	draw_arc(origin,63,-2.75,-0.35,40,gold,3)
+	draw_arc(origin,63,0.35,2.75,40,gold,3)
 	for side in [-1,1]:
-		for feather in 4:
-			var x=side*(33+feather*12)
-			var top=-107+feather*10+pulse
-			draw_colored_polygon(PackedVector2Array([Vector2(side*20,-85),Vector2(x,top-20),Vector2(x+side*12,top+34),Vector2(side*24,-42)]),Color("b2c5db").darkened(feather*.09))
-	draw_colored_polygon(PackedVector2Array([Vector2(-25,-84),Vector2(25,-84),Vector2(39,-6),Vector2(0,-17),Vector2(-39,-6)]),Color("454c75"))
-	draw_rect(Rect2(-24,-85,48,46),armor)
-	draw_colored_polygon(PackedVector2Array([Vector2(-23,-85),Vector2(0,-67),Vector2(23,-85),Vector2(0,-96)]),gold)
-	for side in [-1,1]:
-		draw_rect(Rect2(side*20-8,-42,16,40),armor.darkened(.18))
-		draw_circle(Vector2(side*32,-76),15,armor)
-		draw_line(Vector2(side*32,-70),Vector2(side*40,-37),gold,12)
-	draw_colored_polygon(PackedVector2Array([Vector2(-18,-115),Vector2(18,-115),Vector2(16,-91),Vector2(0,-82),Vector2(-16,-91)]),armor)
-	var eye_color=Color("58d8ec")
+		draw_line(Vector2(side*55,-133),Vector2(side*72,-151),aura,4)
+		draw_line(Vector2(side*58,-119),Vector2(side*82,-120),Color(aura.r,aura.g,aura.b,.55),3)
+
+	# Expression lighting changes enough that dialogue portraits and battle feel alive.
 	if expression=="angered":
-		eye_color=Color("ff9f52")
+		draw_line(Vector2(-18,-128),Vector2(-3,-124),Color("ff9f52"),4)
+		draw_line(Vector2(3,-124),Vector2(18,-128),Color("ff9f52"),4)
 	elif expression=="wrath":
-		eye_color=Color("fff0a8")
-	elif expression=="defiant":
-		eye_color=Color("d0e8ff")
-	var eye_slant=2 if expression in ["angered","wrath"] else 0
-	draw_line(Vector2(-11,-102-eye_slant),Vector2(-3,-100+eye_slant),eye_color,3)
-	draw_line(Vector2(3,-100+eye_slant),Vector2(11,-102-eye_slant),eye_color,3)
-	if expression=="wrath":
-		draw_arc(origin,64,0,TAU,48,Color(1,.86,.45,.45),4)
-	for x in [-14,0,14]:
-		draw_colored_polygon(PackedVector2Array([Vector2(x-5,-114),Vector2(x,-137),Vector2(x+5,-114)]),gold)
+		draw_arc(origin,78,0,TAU,56,Color(1.0,.86,.45,.55),5)
+		draw_circle(Vector2(0,-126),8,Color(1.0,.92,.55,.20))
+	else:
+		draw_line(Vector2(-17,-126),Vector2(-4,-126),Color("79e9ff"),3)
+		draw_line(Vector2(4,-126),Vector2(17,-126),Color("d8b8ff"),3)
+
+	# Attack telegraphs retain the original gameplay timings/hitboxes.
 	if state in ["slam","impact_slam"]:
 		var alpha=.3 if state=="slam" else .85
 		draw_rect(Rect2(facing*85-105,-9,210,9),Color(1,.7,.25,alpha))
