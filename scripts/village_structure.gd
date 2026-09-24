@@ -16,9 +16,9 @@ func configure(p_kind:String,p_name:String,p_texture:String,p_player:CharacterBo
 
 func _ready() -> void:
 	sprite=Sprite2D.new()
-	sprite.texture=load("res://assets/structures/village_house_generated.png")
+	sprite.texture=load(texture_path)
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	var desired_width=390.0 if kind=="blacksmith" else 410.0 if kind=="market" else 370.0
+	var desired_width=270.0 if kind=="blacksmith" else 285.0 if kind=="market" else 255.0
 	var tex_size=sprite.texture.get_size()
 	var factor=desired_width/maxf(1.0,tex_size.x)
 	sprite.scale=Vector2(factor,factor)
@@ -51,7 +51,7 @@ func _draw() -> void:
 	if not is_near():
 		return
 	var font=ThemeDB.fallback_font
-	var box=Rect2(-88,-250,176,36)
+	var box=Rect2(-92,-205,184,34)
 	draw_rect(box,Color("0c0913e8"),true)
 	draw_rect(box,Color("a9825d"),false,2)
-	draw_string(font,Vector2(-82,-226),"FALAR / ENTRAR · "+display_name,HORIZONTAL_ALIGNMENT_CENTER,164,11,Color("f3dfc3"))
+	draw_string(font,Vector2(-86,-182),"FALAR / ENTRAR · "+display_name,HORIZONTAL_ALIGNMENT_CENTER,172,10,Color("f3dfc3"))
