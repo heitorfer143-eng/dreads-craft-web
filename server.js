@@ -22,6 +22,10 @@ function headers(res, code=200, type="text/plain; charset=utf-8") {
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Embedder-Policy": "require-corp",
     "Cross-Origin-Resource-Policy": "same-origin",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
     "Pragma":"no-cache", "Expires":"0",
     "X-Content-Type-Options":"nosniff",
@@ -51,7 +55,7 @@ const serverHttp = http.createServer((req,res)=>{
   });
 });
 
-const wss = new WebSocketServer({ server: serverHttp, path: "/ws" });
+const wss = new WebSocketServer({ server: serverHttp, path: "/ws", maxPayload: 16384 });
 
 function code() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
