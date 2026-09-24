@@ -2182,6 +2182,24 @@ func play_weapon_swing() -> void:
 	tween.tween_property(weapon,"modulate:a",0.0,0.07)
 	tween.tween_callback(weapon.queue_free)
 
+func show_damage_popup(world_position: Vector2, amount: float, critical: bool=false) -> void:
+	var pop=Label.new()
+	pop.text=("CRÍTICO! " if critical else "")+"-%d" % int(round(amount))
+	pop.add_theme_font_size_override("font_size",22 if critical else 17)
+	pop.add_theme_color_override("font_color",Color("fff29b") if critical else Color("ffffff"))
+	pop.add_theme_color_override("font_shadow_color",Color(0,0,0,0.92))
+	pop.add_theme_constant_override("shadow_offset_x",2)
+	pop.add_theme_constant_override("shadow_offset_y",2)
+	pop.position=world_position+Vector2(-42,-92)
+	pop.z_index=100
+	add_child(pop)
+	var tween=create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(pop,"position:y",pop.position.y-42,0.55)
+	tween.tween_property(pop,"modulate:a",0.0,0.55)
+	tween.set_parallel(false)
+	tween.tween_callback(pop.queue_free)
+
 func attack() -> void:
 	if player.attack_time>0:
 		return
@@ -2190,28 +2208,37 @@ func attack() -> void:
 		game_audio.hit()
 	player.face=1 if (player.position+touch_aim if device_controls.mobile else get_global_mouse_position()).x>=player.position.x else -1
 	play_weapon_swing()
-	var critical=not player.creative and not player.is_on_floor() and player.velocity.y>70
+
+	var has_weapon=Items.SWORD_DAMAGE.has(selected) and (player.creative or int(player.inventory.get(selected,0))>0)
+	var base_damage=float(Items.SWORD_DAMAGE.get(selected,6) if has_weapon else 6)
+	if mel_tamed:
+		base_damage+=2.0
+	var aerial_critical=not player.creative and not player.is_on_floor() and player.velocity.y>70
+	var critical=aerial_critical or randf()<0.18
+	var final_damage=roundf(base_damage*(1.75 if critical else 1.0))
 	var landed=false
 	var shown_damage=0
+
 	for mob in enemies.get_children():
 		if not is_instance_valid(mob) or not mob.has_method("hit"):
 			continue
 		var difference=mob.position-player.position
-		if absf(difference.x)<92 and absf(difference.y)<72 and (absf(difference.x)<8 or signf(difference.x)==player.face):
-			var base_damage=Items.SWORD_DAMAGE.get(selected,8) if player.inventory.get(selected,0)>0 or player.creative else 8
-			var damage=float(base_damage+(2 if mel_tamed else 0))
-			if critical:
-				damage=roundf(damage*1.5)
-			if is_instance_valid(boss) and mob==boss:
-				# The Purity boss accepts only the damage argument; normal mobs also receive knockback.
-				mob.hit(damage)
+		var is_guardian=is_instance_valid(boss) and mob==boss
+		var reach_x=145.0 if is_guardian else 100.0
+		var reach_y=150.0 if is_guardian else 82.0
+		if absf(difference.x)<=reach_x and absf(difference.y)<=reach_y and (absf(difference.x)<24 or signf(difference.x)==player.face):
+			if is_guardian:
+				mob.hit(final_damage)
 			else:
-				mob.hit(damage,300.0)
+				mob.hit(final_damage,340.0 if critical else 285.0)
+			show_damage_popup(mob.global_position+(Vector2(0,-42) if is_guardian else Vector2.ZERO),final_damage,critical)
 			landed=true
-			shown_damage=maxi(shown_damage,int(damage))
+			shown_damage=maxi(shown_damage,int(final_damage))
+
 	if landed:
 		status.text=("CRÍTICO!  %d DE DANO" if critical else "%d DE DANO") % shown_damage
-		message_time=1.1
+		message_time=1.2
+		update_purity_hud()
 
 func eat() -> void:
 	if player.inventory.get(10,0)>0:
@@ -2298,7 +2325,7 @@ func _process(delta: float) -> void:
 		if not in_purity and difficulty>0 and (clock<.22 or clock>.78) and enemies.get_child_count()<8:
 			spawn_mob()
 	auto_save+=delta
-	if auto_save>=20:
+	if auto_save>=10:
 		auto_save=0
 		if not multiplayer_active:
 			save_world()
@@ -2833,8 +2860,11 @@ func _notification(what: int) -> void:
 	if what==NOTIFICATION_WM_CLOSE_REQUEST:
 		if not active or save_world():
 			get_tree().quit()
-	if what==NOTIFICATION_APPLICATION_FOCUS_OUT and active and not modal:
-		show_pause()
+	if what==NOTIFICATION_APPLICATION_FOCUS_OUT and active:
+		if not multiplayer_active:
+			save_world()
+		if not modal:
+			show_pause()
 
 func meter_style(color: Color) -> StyleBoxFlat:
 	var style=StyleBoxFlat.new()
