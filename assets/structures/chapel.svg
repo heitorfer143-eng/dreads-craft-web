@@ -1,19 +1,48 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="320" height="224" viewBox="0 0 320 224" shape-rendering="crispEdges">
 <rect width="320" height="224" fill="none"/>
-<!-- tower / roof -->
-<path fill="#171822" d="M48 102 160 18 272 102v112H48z"/><path fill="#494653" d="M62 104 160 38 258 104v110H62z"/>
-<path fill="#2d2b35" d="M42 102h236v18H42z"/><path fill="#65606c" d="M72 98 160 50l88 48H72z"/>
-<!-- stone courses -->
-<path fill="#3b3945" d="M62 132h196v8H62zm0 42h196v8H62z"/>
-<path fill="#292833" d="M94 120h8v94h-8zm116 0h8v94h-8z"/>
+<!-- deep shadow -->
+<path fill="#111219" d="M36 108 160 16l124 92v108H36z"/>
+<!-- roof -->
+<path fill="#232633" d="M42 104 160 24l118 80v20H42z"/>
+<path fill="#454a5b" d="M58 100 160 38l102 62v12H58z"/>
+<path fill="#60677b" d="M74 91 160 47l86 44v8H74z"/>
+<rect x="40" y="110" width="240" height="12" fill="#171923"/>
+<!-- stone facade -->
+<rect x="52" y="122" width="216" height="94" fill="#4c4c58"/>
+<path fill="#62626e" d="M56 126h208v18H56zm0 38h208v18H56zm0 34h208v18H56z"/>
+<path fill="#353641" d="M74 122h10v94H74zm162 0h10v94h-10z"/>
+<!-- central tower -->
+<rect x="120" y="92" width="80" height="124" fill="#3a3b47"/>
+<rect x="130" y="102" width="60" height="114" fill="#555765"/>
+<path fill="#6b6e7f" d="M134 108h52v16h-52zm0 44h52v14h-52z"/>
+<!-- rose window -->
+<circle cx="160" cy="124" r="25" fill="#171823"/>
+<circle cx="160" cy="124" r="19" fill="#6a5784"/>
+<path fill="#d1aa58" d="M156 105h8v38h-8zm-15 15h38v8h-38z"/>
+<path fill="#8a6ca3" d="M146 110h8v9h-8zm20 0h8v9h-8zm-20 19h8v9h-8zm20 0h8v9h-8z"/>
 <!-- gothic door -->
-<path fill="#16151d" d="M128 142h64v72h-64v-48q0-24-32-24z"/><rect x="140" y="158" width="40" height="56" fill="#62483b"/><rect x="168" y="184" width="7" height="7" fill="#d8b55d"/>
-<!-- stained windows -->
-<path fill="#171724" d="M78 136h42v50H78zM200 136h42v50h-42z"/><path fill="#71558a" d="M86 144h26v34H86zm122 0h26v34h-26z"/>
-<path fill="#c59f58" d="M97 144h4v34h-4zm122 0h4v34h-4z"/>
-<!-- integrated cross -->
-<path fill="#d4ae5c" d="M156 64h8v34h-8zm-14 12h36v8h-36z"/>
-<!-- side buttresses / lamps -->
-<path fill="#373541" d="M52 164h18v50H44zm198 0h18l8 50h-26z"/><rect x="72" y="194" width="8" height="20" fill="#46372c"/><rect x="240" y="194" width="8" height="20" fill="#46372c"/>
-<rect x="28" y="210" width="264" height="8" fill="#24212a"/>
+<path fill="#15161d" d="M132 164h56v52h-56v-28q0-24-28-24z"/>
+<path fill="#61483f" d="M140 172h40v44h-40v-22q0-18-20-22z"/>
+<path fill="#7a5c4d" d="M146 180h28v36h-28z"/>
+<rect x="168" y="194" width="6" height="6" fill="#e0b75d"/>
+<!-- side stained windows -->
+<path fill="#161722" d="M88 145h28v48H88zm116 0h28v48h-28z"/>
+<path fill="#6d5792" d="M94 152h16v34H94zm116 0h16v34h-16z"/>
+<path fill="#caa95c" d="M100 152h4v34h-4zm116 0h4v34h-4z"/>
+<!-- buttresses -->
+<path fill="#31333e" d="M46 154h22v62H34l12-22zm206 0h22l12 40v22h-34z"/>
+<path fill="#535664" d="M50 160h12v52H42zm208 0h12l8 52h-20z"/>
+<!-- cross integrated in roof -->
+<path fill="#d7b45b" d="M155 49h10v38h-10zm-16 12h42v10h-42z"/>
+<path fill="#f0d27c" d="M159 49h3v38h-3zm-20 16h42v3h-42z"/>
+<!-- lanterns -->
+<rect x="96" y="194" width="7" height="20" fill="#29231f"/>
+<rect x="217" y="194" width="7" height="20" fill="#29231f"/>
+<rect x="90" y="184" width="19" height="15" fill="#3d3329"/>
+<rect x="211" y="184" width="19" height="15" fill="#3d3329"/>
+<rect x="95" y="188" width="9" height="7" fill="#e8b95d"/>
+<rect x="216" y="188" width="9" height="7" fill="#e8b95d"/>
+<!-- foundation -->
+<rect x="38" y="212" width="244" height="8" fill="#15161d"/>
+<rect x="58" y="208" width="204" height="5" fill="#777784"/>
 </svg>

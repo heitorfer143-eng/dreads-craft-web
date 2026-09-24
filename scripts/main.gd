@@ -238,7 +238,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 13.4 • SNOW + WAYSTONE + BOSS V2"
+	build_badge.text="DREADS CRAFT • BUILD 13.5 • VILLAGE ART FIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))

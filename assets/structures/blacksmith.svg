@@ -1,17 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="320" height="224" viewBox="0 0 320 224" shape-rendering="crispEdges">
 <rect width="320" height="224" fill="none"/>
-<!-- chimney + roof -->
-<rect x="228" y="30" width="34" height="66" fill="#2b2020"/><rect x="224" y="26" width="42" height="12" fill="#171419"/>
-<path fill="#18141a" d="M14 94 160 10 306 94v26H14z"/><path fill="#4a2d24" d="M28 91 160 26 292 91v22H28z"/>
-<path fill="#6b4530" d="M42 82h236v8H42zm24-18h188v7H66zm30-18h128v7H96z"/>
-<!-- timber frame -->
-<rect x="32" y="104" width="256" height="110" fill="#442a24"/><rect x="44" y="112" width="232" height="102" fill="#6b432e"/>
-<path fill="#2b1c1c" d="M44 112h14v102H44zm218 0h14v102h-14zM152 112h14v102h-14zM44 158h232v12H44z"/>
-<!-- door + windows -->
-<rect x="168" y="136" width="62" height="78" fill="#1b1519"/><rect x="178" y="146" width="42" height="68" fill="#5d3a2d"/><rect x="208" y="179" width="7" height="7" fill="#d8a356"/>
-<rect x="70" y="132" width="56" height="44" fill="#181822"/><rect x="78" y="140" width="40" height="28" fill="#d4833b"/><path fill="#f2ad4f" d="M96 140h4v28h-4zm-18 12h40v4H78z"/>
-<!-- forge awning -->
-<rect x="18" y="176" width="122" height="38" fill="#2d1c1b"/><rect x="28" y="184" width="96" height="22" fill="#4d2c22"/><path fill="#e36f2e" d="M42 190h64v10H42z"/><path fill="#ff9c3c" d="M54 188h38v14H54z"/>
-<!-- foundation / props -->
-<rect x="28" y="210" width="264" height="8" fill="#24212a"/><rect x="240" y="180" width="34" height="34" fill="#503426"/><path fill="#2a2120" d="M236 188h42v6h-42zm0 20h42v6h-42z"/>
+<!-- chimney -->
+<rect x="222" y="22" width="34" height="74" fill="#1a171b"/>
+<rect x="228" y="30" width="22" height="66" fill="#49352f"/>
+<rect x="218" y="18" width="42" height="12" fill="#111116"/>
+<rect x="224" y="24" width="30" height="7" fill="#6b4b3c"/>
+<!-- steep slate roof -->
+<path fill="#12131a" d="M16 92 112 24h96l96 68v20H16z"/>
+<path fill="#2a2b35" d="M28 90 118 34h84l90 56v16H28z"/>
+<path fill="#3b3d49" d="M43 82h234v10H43zm18-15h198v7H61zm22-14h154v7H83z"/>
+<path fill="#171820" d="M35 96h250v12H35z"/>
+<!-- stone-and-timber body -->
+<rect x="28" y="106" width="264" height="108" fill="#211b1d"/>
+<rect x="38" y="116" width="244" height="98" fill="#50423e"/>
+<path fill="#6b5a50" d="M42 120h236v18H42zm0 42h236v18H42zm0 40h236v12H42z"/>
+<path fill="#2a2022" d="M40 116h14v98H40zm226 0h14v98h-14zM148 116h14v98h-14z"/>
+<path fill="#3a2a27" d="M54 138h94v10H54zm108 32h104v10H162z"/>
+<!-- forge window -->
+<rect x="58" y="134" width="74" height="54" fill="#151419"/>
+<rect x="66" y="142" width="58" height="38" fill="#5a2a24"/>
+<rect x="72" y="148" width="46" height="26" fill="#c1532d"/>
+<path fill="#ffb352" d="M84 170 94 150l8 12 8-15 8 27H78z"/>
+<rect x="58" y="188" width="74" height="8" fill="#2a2022"/>
+<!-- door -->
+<rect x="176" y="136" width="54" height="78" fill="#141419"/>
+<rect x="184" y="146" width="38" height="68" fill="#5a4036"/>
+<path fill="#725246" d="M190 154h26v52h-26z"/>
+<rect x="210" y="180" width="6" height="6" fill="#e1b55c"/>
+<!-- blacksmith sign -->
+<rect x="236" y="128" width="8" height="42" fill="#2a2220"/>
+<rect x="228" y="126" width="54" height="34" fill="#1c191d"/>
+<rect x="234" y="132" width="42" height="22" fill="#57483f"/>
+<path fill="#c7c9cb" d="M244 137h19l7 6-7 6h-19l-6-6z"/>
+<!-- timber braces -->
+<path fill="#291f20" d="M42 118h12l44 40H84zM278 118h-12l-42 38h14z"/>
+<!-- props -->
+<rect x="244" y="182" width="36" height="32" fill="#5a3b2d"/>
+<path fill="#8b6040" d="M248 186h28v8h-28zm0 14h28v8h-28z"/>
+<rect x="22" y="196" width="28" height="18" fill="#3f2b26"/>
+<path fill="#a8abad" d="M28 192h18v6H28z"/>
+<!-- foundation -->
+<rect x="24" y="212" width="272" height="8" fill="#15161d"/>
+<rect x="42" y="208" width="236" height="5" fill="#69646a"/>
 </svg>
