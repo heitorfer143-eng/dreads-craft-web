@@ -2150,7 +2150,7 @@ func spawn_ground_drop(item_id:int,count:int,world_position:Vector2,remaining:fl
 	drops.add_child(pickup)
 
 func drop_selected_item(amount:int=1) -> void:
-	if not active or (modal and pause_kind!="inventory") or player.creative or in_purity or selected<=0:
+	if not active or (modal and pause_kind!="inventory") or player.creative or in_purity or in_structure!="" or selected<=0:
 		return
 	var owned=int(player.inventory.get(selected,0))
 	if owned<=0:
@@ -2994,6 +2994,8 @@ func set_overworld_entities_visible(value: bool) -> void:
 	for node in [structures,npcs,mel,drops]:
 		if is_instance_valid(node):
 			node.visible=value
+			if node==drops:
+				node.process_mode=Node.PROCESS_MODE_INHERIT if value else Node.PROCESS_MODE_DISABLED
 
 func enter_purity(skip_dialogue: bool=false) -> void:
 	if in_purity:
