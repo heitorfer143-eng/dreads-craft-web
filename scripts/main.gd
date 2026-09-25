@@ -132,6 +132,7 @@ var chat_panel: Panel
 var chat_log: RichTextLabel
 var chat_input: LineEdit
 var chat_button: Button
+var chat_close_button: Button
 var chat_messages:Array=[]
 var chest_inventories:Dictionary={}
 const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16,28]
@@ -409,7 +410,7 @@ func build_ui() -> void:
 	chat_button.add_theme_stylebox_override("normal",button_style(Color("100c18ee"),Color("5e4a68")))
 	chat_button.add_theme_stylebox_override("hover",button_style(Color("241a31ff"),Color("a174c3")))
 	chat_button.add_theme_stylebox_override("pressed",button_style(Color("332244ff"),Color("d09bea")))
-	chat_button.pressed.connect(open_multiplayer_chat)
+	chat_button.pressed.connect(toggle_multiplayer_chat)
 	chat_button.hide()
 	action_box.add_child(chat_button)
 	mode_frame=Panel.new()
@@ -456,12 +457,22 @@ func build_ui() -> void:
 	chat_log.add_theme_font_size_override("normal_font_size",12)
 	chat_log.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	chat_panel.add_child(chat_log)
+	chat_close_button=Button.new()
+	chat_close_button.text="×"
+	chat_close_button.focus_mode=Control.FOCUS_NONE
+	chat_close_button.position=Vector2(342,6)
+	chat_close_button.size=Vector2(30,26)
+	chat_close_button.tooltip_text="Fechar chat"
+	chat_close_button.add_theme_font_size_override("font_size",18)
+	chat_close_button.pressed.connect(close_multiplayer_chat)
+	chat_panel.add_child(chat_close_button)
 	chat_input=LineEdit.new()
 	chat_input.position=Vector2(9,132)
 	chat_input.size=Vector2(362,34)
 	chat_input.placeholder_text="Mensagem... (T para abrir)"
 	chat_input.max_length=120
 	chat_input.text_submitted.connect(submit_multiplayer_chat)
+	chat_input.gui_input.connect(on_chat_input_event)
 	chat_input.focus_exited.connect(func():
 		if is_instance_valid(player):
 			player.input_locked=false
@@ -553,6 +564,8 @@ func layout() -> void:
 		if is_instance_valid(chat_input):
 			chat_input.position=Vector2(9.0,112.0 if mobile_layout else 132.0)
 			chat_input.size=Vector2(chat_panel.size.x-18.0,34.0)
+		if is_instance_valid(chat_close_button):
+			chat_close_button.position=Vector2(chat_panel.size.x-38.0,6.0)
 	if is_instance_valid(hotbar_back):
 		# Mobile hotbar is deliberately larger than desktop: 9 x 64px slots plus a
 		# compact frame. It remains centered between the movement and action clusters.
@@ -1209,8 +1222,9 @@ func start_multiplayer_session(seed_value:int, online_world_name:String, is_host
 	if is_instance_valid(chat_log):
 		chat_log.text=""
 	if is_instance_valid(chat_panel):
-		chat_panel.show()
+		chat_panel.hide()
 	if is_instance_valid(chat_button):
+		chat_button.text="CHAT"
 		chat_button.show()
 	status.text="ONLINE · SALA "+online.room_code
 	message_time=5
@@ -1226,9 +1240,32 @@ func open_multiplayer_chat() -> void:
 	if not multiplayer_active or not active or not is_instance_valid(chat_input):
 		return
 	chat_panel.show()
+	if is_instance_valid(chat_button):
+		chat_button.text="CHAT"
 	chat_input.grab_focus()
 	if is_instance_valid(player):
 		player.input_locked=true
+
+func close_multiplayer_chat() -> void:
+	if is_instance_valid(chat_input):
+		chat_input.release_focus()
+	if is_instance_valid(chat_panel):
+		chat_panel.hide()
+	if is_instance_valid(player):
+		player.input_locked=false
+
+func toggle_multiplayer_chat() -> void:
+	if not multiplayer_active:
+		return
+	if is_instance_valid(chat_panel) and chat_panel.visible:
+		close_multiplayer_chat()
+	else:
+		open_multiplayer_chat()
+
+func on_chat_input_event(event:InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode==KEY_ESCAPE:
+		close_multiplayer_chat()
+		get_viewport().set_input_as_handled()
 
 func submit_multiplayer_chat(raw:String) -> void:
 	if not multiplayer_active or not is_instance_valid(online):
@@ -1237,9 +1274,7 @@ func submit_multiplayer_chat(raw:String) -> void:
 	chat_input.clear()
 	if text!="":
 		online.send_chat(text)
-	chat_input.release_focus()
-	if is_instance_valid(player):
-		player.input_locked=false
+	close_multiplayer_chat()
 
 func append_multiplayer_chat(sender:String,text:String) -> void:
 	if not is_instance_valid(chat_log):
@@ -1252,8 +1287,8 @@ func append_multiplayer_chat(sender:String,text:String) -> void:
 	while chat_messages.size()>8:
 		chat_messages.pop_front()
 	chat_log.text="\n".join(chat_messages)
-	if multiplayer_active:
-		chat_panel.show()
+	if multiplayer_active and is_instance_valid(chat_button) and (not is_instance_valid(chat_panel) or not chat_panel.visible):
+		chat_button.text="CHAT •"
 
 func on_online_chat(sender:String,text:String) -> void:
 	append_multiplayer_chat(sender,text)
@@ -2500,7 +2535,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouse and event.device==InputEvent.DEVICE_ID_EMULATION:
 		return
 	if active and multiplayer_active and event.is_action_pressed("chat"):
-		open_multiplayer_chat()
+		toggle_multiplayer_chat()
 		get_viewport().set_input_as_handled()
 		return
 	if is_instance_valid(chat_input) and chat_input.has_focus():
