@@ -95,10 +95,13 @@ var night_kills := 0
 var polar_bear_defeated := false
 var snow_announced := false
 var snow_reached := false
+var abyss_slime_kills := 0
+var abyss_warden_kills := 0
 var quest_states: Dictionary = {}
 const QUEST_MEL := "mel_bones"
 const QUEST_BORIN := "borin_supplies"
 const QUEST_MERCHANT := "merchant_supplies"
+const QUEST_ABYSS := "abyss_hunt"
 const QUEST_MONK := "monk_hunt"
 const QUEST_SNOW := "snow_hunt"
 var online: Node
@@ -245,7 +248,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 13.8 • QUESTS + TREE PASS + NPC FIX"
+	build_badge.text="DREADS CRAFT • BUILD 13.9 • MOB REMODEL + QUEST + LOBBY FIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -848,7 +851,7 @@ func show_main() -> void:
 	var menu_label=label("ESCOLHA SEU CAMINHO",13)
 	menu_label.add_theme_color_override("font_color",Color("c9a6dc"))
 	right.add_child(menu_label)
-	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/items/portal_new_world.svg",show_creation,true)
+	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/ui/new_world_icon.svg",show_creation,true)
 	right.add_child(new_button)
 	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer))
 	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2))
@@ -1472,10 +1475,13 @@ func reset_quest_progress() -> void:
 		QUEST_MEL:"not_started",
 		QUEST_BORIN:"not_started",
 		QUEST_MERCHANT:"not_started",
+		QUEST_ABYSS:"not_started",
 		QUEST_MONK:"not_started",
 		QUEST_SNOW:"not_started"
 	}
 	snow_reached=false
+	abyss_slime_kills=0
+	abyss_warden_kills=0
 
 func quest_state(id:String) -> String:
 	return str(quest_states.get(id,"not_started"))
@@ -1486,8 +1492,10 @@ func quest_unlocked(id:String) -> bool:
 			return true
 		QUEST_MERCHANT:
 			return quest_state(QUEST_BORIN)=="completed"
-		QUEST_MONK:
+		QUEST_ABYSS:
 			return quest_state(QUEST_MERCHANT)=="completed"
+		QUEST_MONK:
+			return quest_state(QUEST_ABYSS)=="completed"
 		QUEST_SNOW:
 			return quest_state(QUEST_MONK)=="completed"
 	return false
@@ -1502,6 +1510,8 @@ func quest_ready(id:String) -> bool:
 			return player.creative or (int(player.inventory.get(3,0))>=10 and int(player.inventory.get(7,0))>=5)
 		QUEST_MERCHANT:
 			return player.creative or (int(player.inventory.get(4,0))>=12 and int(player.inventory.get(6,0))>=6)
+		QUEST_ABYSS:
+			return player.creative or (abyss_slime_kills>=4 and abyss_warden_kills>=2)
 		QUEST_MONK:
 			return player.creative or night_kills>=7
 		QUEST_SNOW:
@@ -1516,6 +1526,8 @@ func quest_progress_text(id:String) -> String:
 			return "Pedra %d/10  ·  Ferro %d/5" % [mini(10,int(player.inventory.get(3,0))),mini(5,int(player.inventory.get(7,0)))]
 		QUEST_MERCHANT:
 			return "Madeira %d/12  ·  Carvão %d/6" % [mini(12,int(player.inventory.get(4,0))),mini(6,int(player.inventory.get(6,0)))]
+		QUEST_ABYSS:
+			return "Slimes sombrios %d/4  ·  Guardiões espectrais %d/2" % [mini(4,abyss_slime_kills),mini(2,abyss_warden_kills)]
 		QUEST_MONK:
 			return "%d / 7 criaturas noturnas" % mini(7,night_kills)
 		QUEST_SNOW:
@@ -1533,7 +1545,7 @@ func quest_status_text(id:String) -> String:
 
 func completed_quest_count() -> int:
 	var amount=0
-	for id in [QUEST_MEL,QUEST_BORIN,QUEST_MERCHANT,QUEST_MONK,QUEST_SNOW]:
+	for id in [QUEST_MEL,QUEST_BORIN,QUEST_MERCHANT,QUEST_ABYSS,QUEST_MONK,QUEST_SNOW]:
 		if quest_state(id)=="completed":
 			amount+=1
 	return amount
@@ -1585,6 +1597,10 @@ func complete_quest(id:String,npc=null) -> void:
 			player.inventory[24]=int(player.inventory.get(24,0))+1
 			player.inventory[10]=int(player.inventory.get(10,0))+3
 			status.text="MISSÃO CONCLUÍDA · Waystone + 3 carnes."
+		QUEST_ABYSS:
+			player.inventory[14]=int(player.inventory.get(14,0))+2
+			player.inventory[10]=int(player.inventory.get(10,0))+4
+			status.text="MISSÃO CONCLUÍDA · 2 diamantes + 4 carnes. A Prova da Noite foi liberada."
 		QUEST_MONK:
 			player.max_hp=maxf(player.max_hp,120.0)
 			player.hp=player.max_hp
@@ -1628,7 +1644,7 @@ func update_quest_markers() -> void:
 				continue
 			var marker=""
 			if str(npc.role)=="ferreiro":
-				marker=marker_for_quest(QUEST_BORIN)
+				marker=marker_for_quest(QUEST_BORIN) if quest_state(QUEST_BORIN)!="completed" else marker_for_quest(QUEST_ABYSS)
 			elif str(npc.role)=="monge":
 				marker=marker_for_quest(QUEST_MONK) if quest_state(QUEST_MONK)!="completed" else marker_for_quest(QUEST_SNOW)
 			npc.set_quest_marker(marker)
@@ -1647,6 +1663,7 @@ func show_objectives() -> void:
 		[QUEST_MEL,"MEL · UMA COMPANHEIRA","Entregue 3 ossos para conquistar a confiança de Mel."],
 		[QUEST_BORIN,"BORIN · REFORÇANDO A FORJA","Entregue 10 pedras e 5 ferros ao ferreiro."],
 		[QUEST_MERCHANT,"MERCADOR · SUPRIMENTOS DA VILA","Leve 12 madeiras e 6 carvões para reabastecer a loja."],
+		[QUEST_ABYSS,"BORIN · PESTE DO ABISMO","Derrote 4 Slimes Sombrios e 2 Guardiões Espectrais fora da vila."],
 		[QUEST_MONK,"MONGE · PROVA DA NOITE","Derrote 7 criaturas hostis durante a noite, longe da vila."],
 		[QUEST_SNOW,"MONGE · URSO DO NORTE","Explore o bioma de neve e derrote o Urso Polar Ancião."]
 	]
@@ -2569,7 +2586,7 @@ func spawn_village_hub() -> void:
 		return
 	var defs=[
 		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/blacksmith.png"},
-		{"x":34,"kind":"market","name":"Casa do Mercador","texture":"res://assets/structures/market.svg"},
+		{"x":34,"kind":"market","name":"Casa do Mercador","texture":"res://assets/structures/market.png"},
 		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/chapel.png"}
 	]
 	for data in defs:
@@ -2969,6 +2986,29 @@ func show_npc_dialogue(npc) -> void:
 			var done=label("MISSÃO CONCLUÍDA · A forja foi reforçada.",12)
 			done.add_theme_color_override("font_color",Color("9fe7b2"))
 			content.add_child(done)
+			if quest_unlocked(QUEST_ABYSS):
+				var abyss_state=quest_state(QUEST_ABYSS)
+				if abyss_state=="not_started":
+					var abyss_quest=label("NOVA MISSÃO · PESTE DO ABISMO\nBorin viu criaturas novas além da vila. Derrote 4 Slimes Sombrios e 2 Guardiões Espectrais.\nRecompensa: 2 diamantes + 4 carnes.",12)
+					abyss_quest.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+					abyss_quest.add_theme_color_override("font_color",Color("b892ee"))
+					content.add_child(abyss_quest)
+					content.add_child(button("ACEITAR PESTE DO ABISMO",func():
+						accept_quest(QUEST_ABYSS)
+						show_npc_dialogue(npc)
+					))
+				elif abyss_state=="in_progress":
+					var abyss_progress=label("PESTE DO ABISMO · "+quest_progress_text(QUEST_ABYSS),12)
+					abyss_progress.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+					abyss_progress.add_theme_color_override("font_color",Color("b892ee"))
+					content.add_child(abyss_progress)
+					var abyss_claim=button("ENTREGAR RELATÓRIO DA CAÇADA",func(): complete_quest(QUEST_ABYSS,npc))
+					abyss_claim.disabled=not quest_ready(QUEST_ABYSS)
+					content.add_child(abyss_claim)
+				else:
+					var abyss_done=label("PESTE DO ABISMO CONCLUÍDA · As estradas estão menos perigosas.",12)
+					abyss_done.add_theme_color_override("font_color",Color("9fe7b2"))
+					content.add_child(abyss_done)
 		var craft_button=button("ABRIR BANCADA",func():
 			craft_override=true
 			show_craft()
@@ -3087,6 +3127,14 @@ func spawn_mob() -> void:
 		spawn_ground_drop(23,1,death_pos+Vector2(10,-8))
 		var night_now=clock<.22 or clock>.78
 		var death_cell=int(death_pos.x/32)
+		if quest_state(QUEST_ABYSS)=="in_progress" and death_cell>World.VILLAGE_MAX_X+8:
+			if str(mob.kind)=="dark_slime":
+				abyss_slime_kills=mini(4,abyss_slime_kills+1)
+			elif str(mob.kind)=="undead_knight":
+				abyss_warden_kills=mini(2,abyss_warden_kills+1)
+			status.text="PESTE DO ABISMO · "+quest_progress_text(QUEST_ABYSS)
+			message_time=3
+			update_quest_markers()
 		if quest_state(QUEST_MONK)=="in_progress" and night_now and death_cell>World.VILLAGE_MAX_X+8:
 			night_kills+=1
 			status.text="PROVA DA NOITE · %d/7 criaturas" % mini(7,night_kills)
@@ -3106,7 +3154,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":3,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached}
+	var data={"version":6,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -3156,18 +3204,23 @@ func load_world() -> void:
 	polar_bear_defeated=bool(data.get("polar_bear_defeated",false))
 	var saved_quests=data.get("quest_states",{})
 	if saved_quests is Dictionary and not saved_quests.is_empty():
-		for quest_id in [QUEST_MEL,QUEST_BORIN,QUEST_MERCHANT,QUEST_MONK,QUEST_SNOW]:
+		for quest_id in [QUEST_MEL,QUEST_BORIN,QUEST_MERCHANT,QUEST_ABYSS,QUEST_MONK,QUEST_SNOW]:
 			var loaded_state=str(saved_quests.get(quest_id,"not_started"))
 			quest_states[quest_id]=loaded_state if loaded_state in ["not_started","in_progress","completed"] else "not_started"
+		if not saved_quests.has(QUEST_ABYSS) and (quest_state(QUEST_MONK)!="not_started" or quest_state(QUEST_SNOW)!="not_started"):
+			quest_states[QUEST_ABYSS]="completed"
 	else:
 		# Migration for worlds created before BUILD 13.8: preserve completed old
 		# objectives and never trap an advanced save behind a newly-added mission.
 		quest_states[QUEST_MEL]="completed" if mel_tamed else ("in_progress" if mel_quest_started else "not_started")
 		quest_states[QUEST_BORIN]="completed" if borin_quest_done else "not_started"
 		quest_states[QUEST_MERCHANT]="completed" if borin_quest_done else "not_started"
+		quest_states[QUEST_ABYSS]="completed" if monk_quest_done or polar_bear_defeated else "not_started"
 		quest_states[QUEST_MONK]="completed" if monk_quest_done else "not_started"
 		quest_states[QUEST_SNOW]="completed" if polar_bear_defeated and monk_quest_done else "not_started"
 	snow_reached=bool(data.get("snow_reached",polar_bear_defeated))
+	abyss_slime_kills=int(data.get("abyss_slime_kills",0))
+	abyss_warden_kills=int(data.get("abyss_warden_kills",0))
 	sync_legacy_quest_flags()
 	if data.has("hotbar") and data.hotbar is Array:
 		hotbar.clear()

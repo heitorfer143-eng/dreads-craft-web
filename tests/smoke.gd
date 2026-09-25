@@ -19,7 +19,9 @@ func run() -> void:
 	await physics_frame
 	await physics_frame
 	check(scene.world.cells.size()==96,"World height")
-	check(scene.quest_states.size()>=5,"Five quest states exist")
+	check(scene.quest_states.size()>=6,"Six quest states exist")
+	check(scene.quest_states.has(scene.QUEST_ABYSS),"Abyss hunt quest exists")
+	check(ResourceLoader.exists("res://assets/ui/new_world_icon.svg"),"Lobby new-world icon exists")
 	var tree_cell=Vector2i(-1,-1)
 	for y in range(scene.world.cells.size()):
 		for x in range(scene.world.cells[y].size()):
@@ -30,6 +32,19 @@ func run() -> void:
 			break
 	check(tree_cell.x>=0 and not scene.world.is_solid(tree_cell),"Tree trunks are pass-through but remain world cells")
 	check(scene.player.sprite.sprite_frames.has_animation("walk"),"Player animations")
+	check(scene.mel.base_scale<0.5,"Mel uses compact in-world scale")
+	var market_found=false
+	for building in scene.structures.get_children():
+		if str(building.kind)=="market":
+			market_found=true
+			check(str(building.texture_path).ends_with("market.png"),"Market uses generated PNG")
+	check(market_found,"Market structure spawned")
+	var sprite_factory=load("res://scripts/sprites.gd")
+	var new_slime=sprite_factory.make("dark_slime")
+	var new_warden=sprite_factory.make("undead_knight")
+	check(new_slime.sprite_frames.has_animation("death") and new_warden.sprite_frames.has_animation("attack"),"Remodeled mob sheets load")
+	new_slime.free()
+	new_warden.free()
 	var items=load("res://scripts/items.gd")
 	var inventory={4:1}
 	check(items.craft(inventory,items.RECIPES[0],false,false),"Manual planks")

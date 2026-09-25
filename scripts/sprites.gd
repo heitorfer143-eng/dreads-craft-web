@@ -22,8 +22,8 @@ const PLAYER_FILES = {
 # idle, walk1, walk2, attack, hurt, death.
 const GENERATED_MOBS = {
 	"corrupted_skeleton": "res://assets/sprites/mobs/corrupted_skeleton_sheet.png",
-	"dark_slime": "res://assets/sprites/mobs/dark_slime_sheet.png",
-	"undead_knight": "res://assets/sprites/mobs/undead_knight_sheet.png",
+	"dark_slime": "res://assets/sprites/mobs/dark_slime_v2_sheet.png",
+	"undead_knight": "res://assets/sprites/mobs/spectral_warden_sheet.png",
 	"polar_bear": "res://assets/sprites/mobs/polar_bear_sheet.png"
 }
 const GENERATED_ACTIONS = {
@@ -103,14 +103,14 @@ static func make(kind: String) -> AnimatedSprite2D:
 		_add_generated_mob_frames(frames,kind)
 		match kind:
 			"dark_slime":
-				sprite.scale=Vector2(0.90,0.90)
-				sprite.position.y=-31
+				sprite.scale=Vector2(0.78,0.78)
+				sprite.position.y=-24
 			"corrupted_skeleton":
 				sprite.scale=Vector2(0.95,0.95)
 				sprite.position.y=-43
 			"undead_knight":
-				sprite.scale=Vector2(1.06,1.06)
-				sprite.position.y=-47
+				sprite.scale=Vector2(0.88,0.88)
+				sprite.position.y=-36
 			"polar_bear":
 				sprite.scale=Vector2(1.28,1.28)
 				sprite.position.y=-43

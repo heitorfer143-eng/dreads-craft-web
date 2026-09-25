@@ -30,9 +30,9 @@ func _ready() -> void:
 	sprite.texture=load("res://assets/npcs/mel_generated.png")
 	sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	if sprite.texture!=null:
-		base_scale=50.0/maxf(1.0,sprite.texture.get_size().y)
+		base_scale=34.0/maxf(1.0,sprite.texture.get_size().y)
 	sprite.scale=Vector2(base_scale,base_scale)
-	sprite.position=Vector2(0,-21)
+	sprite.position=Vector2(0,-17)
 	add_child(sprite)
 	home_position=global_position
 	wander_timer=randf_range(1.4,3.2)
@@ -82,7 +82,7 @@ func _physics_process(delta: float) -> void:
 		global_position.x=clampf(global_position.x+wander_dir*42.0*delta,min_x,max_x)
 		sprite.flip_h=wander_dir<0
 	var moving=tamed and global_position.distance_to(player.position)>70.0 or not tamed
-	sprite.position=Vector2(0,-21+sin(anim_time*(8.0 if moving else 3.0))*1.0)
+	sprite.position=Vector2(0,-17+sin(anim_time*(8.0 if moving else 3.0))*1.0)
 	sprite.scale=Vector2(base_scale,base_scale)
 
 func _process(_delta: float) -> void:
@@ -96,7 +96,7 @@ func draw_ellipse_shadow(center:Vector2,radius:Vector2,color:Color) -> void:
 	draw_colored_polygon(points,color)
 
 func _draw() -> void:
-	draw_ellipse_shadow(Vector2(0,-2),Vector2(19,5),Color(0,0,0,.25))
+	draw_ellipse_shadow(Vector2(0,-2),Vector2(14,4),Color(0,0,0,.22))
 	if quest_marker=="":
 		return
 	var y=-68.0

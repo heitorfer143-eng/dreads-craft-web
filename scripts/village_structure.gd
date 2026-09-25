@@ -40,7 +40,7 @@ func door_position() -> Vector2:
 	if kind=="blacksmith":
 		offset=Vector2(72,-20)
 	elif kind=="market":
-		offset=Vector2(-70,-20)
+		offset=Vector2(-38,-20)
 	return global_position+offset
 
 func is_near() -> bool:
