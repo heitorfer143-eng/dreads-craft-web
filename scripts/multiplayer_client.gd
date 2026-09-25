@@ -66,6 +66,19 @@ func send_block_change(cell:Vector2i,id:int) -> void:
 	if active:
 		send_json({"type":"block","x":cell.x,"y":cell.y,"id":id})
 
+func send_chat(text:String) -> void:
+	var clean=text.strip_edges().left(120)
+	if active and clean!="":
+		send_json({"type":"chat","text":clean})
+
+func send_drop_spawn(item_id:int,count:int,pos:Vector2) -> void:
+	if active and item_id>0 and count>0:
+		send_json({"type":"drop_spawn","item_id":item_id,"count":count,"x":pos.x,"y":pos.y})
+
+func send_drop_pickup(drop_id:String) -> void:
+	if active and drop_id!="":
+		send_json({"type":"drop_pickup","drop_id":drop_id})
+
 func _process(delta:float) -> void:
 	socket.poll()
 	var state=socket.get_ready_state()
@@ -130,6 +143,8 @@ func _handle(data:Dictionary) -> void:
 		if is_instance_valid(game) and is_instance_valid(game.world):
 			for block in data.get("blocks",[]):
 				game.apply_online_block(Vector2i(int(block.get("x",0)),int(block.get("y",0))),int(block.get("id",0)))
+			for drop_data in data.get("drops",[]):
+				game.apply_online_drop(drop_data)
 		room_ready.emit(room_code,int(data.get("seed",0)),str(data.get("world_name","Reino Online")),host)
 		return
 	if type=="join":
@@ -151,6 +166,18 @@ func _handle(data:Dictionary) -> void:
 	elif type=="block":
 		if is_instance_valid(game):
 			game.apply_online_block(Vector2i(int(data.get("x",0)),int(data.get("y",0))),int(data.get("id",0)))
+	elif type=="drop_spawn":
+		if is_instance_valid(game):
+			game.apply_online_drop(data.get("drop",{}))
+	elif type=="drop_remove":
+		if is_instance_valid(game):
+			game.remove_online_drop(str(data.get("drop_id","")))
+	elif type=="drop_pickup":
+		if is_instance_valid(game):
+			game.resolve_online_drop_pickup(str(data.get("drop_id","")),str(data.get("by","")),int(data.get("item_id",0)),int(data.get("count",1)))
+	elif type=="chat":
+		if is_instance_valid(game):
+			game.on_online_chat(str(data.get("name","Jogador")),str(data.get("text","")))
 
 func _spawn_remote(data:Dictionary) -> void:
 	if not is_instance_valid(game):

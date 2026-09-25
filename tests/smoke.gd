@@ -113,6 +113,14 @@ func run() -> void:
 	check(scene.world.get_cell(scene.target)==2,"Target changed")
 	check(scene.player.inventory[2]==count-1,"Placement consumed item")
 	check(not scene.place_block(),"Cannot place on solid target")
+	scene.player.inventory[3]=2
+	scene.selected=3
+	scene.target=Vector2i(16,33)
+	scene.world.set_cell(scene.target,0)
+	check(scene.place_block(),"Stone block can be placed")
+	check(scene.world.get_cell(Vector2i(16,33))==3,"Placed stone uses stone tile id")
+	check(scene.has_method("apply_online_drop") and scene.has_method("resolve_online_drop_pickup"),"Multiplayer shared drop handlers exist")
+	check(is_instance_valid(scene.chat_panel) and is_instance_valid(scene.chat_input),"Multiplayer chat UI exists")
 	scene.show_inventory()
 	check(scene.modal,"Inventory opens")
 	scene.show_craft()

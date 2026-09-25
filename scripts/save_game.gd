@@ -17,11 +17,9 @@ static func _abs(path: String) -> String:
 	return ProjectSettings.globalize_path(path)
 
 static func list_worlds() -> Array:
-	var result=[]
-	if FileAccess.file_exists(INDEX_PATH):
-		var parsed=JSON.parse_string(FileAccess.get_file_as_string(INDEX_PATH))
-		if parsed is Array:
-			result=parsed
+	# Always use the validated index reader so a damaged primary index can recover
+	# from the automatic .bak/.tmp copies instead of making all worlds look missing.
+	var result=_read_index()
 	if result.is_empty() and FileAccess.file_exists(PATH):
 		var legacy=read_path(PATH)
 		if not legacy.is_empty():
@@ -32,7 +30,7 @@ static func list_worlds() -> Array:
 	return result
 
 static func _read_index() -> Array:
-	for path in [INDEX_PATH,INDEX_PATH+".bak"]:
+	for path in [INDEX_PATH,INDEX_PATH+".bak",INDEX_PATH+".tmp"]:
 		if not FileAccess.file_exists(path):
 			continue
 		var parsed=JSON.parse_string(FileAccess.get_file_as_string(path))

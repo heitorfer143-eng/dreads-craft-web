@@ -97,11 +97,11 @@ wss.on("connection",(ws)=>{
       leave(ws);
       const roomCode=code();
       const seed=Number.isFinite(Number(msg.seed)) ? Math.trunc(Number(msg.seed)) : Date.now();
-      const room={code:roomCode,seed,world_name:String(msg.world_name||"Reino Online").slice(0,32),players:new Map(),blocks:new Map()};
+      const room={code:roomCode,seed,world_name:String(msg.world_name||"Reino Online").slice(0,32),players:new Map(),blocks:new Map(),drops:new Map()};
       rooms.set(roomCode,room);
       const p={id:id(),name:String(msg.name||"Jogador").slice(0,16),ws,state:{x:400,y:1000,face:1,anim:"idle",zone:"world"}};
       room.players.set(p.id,p); ws.room=roomCode; ws.pid=p.id;
-      send(ws,{type:"room",room:roomCode,id:p.id,seed:room.seed,world_name:room.world_name,host:true,players:[],blocks:[]});
+      send(ws,{type:"room",room:roomCode,id:p.id,seed:room.seed,world_name:room.world_name,host:true,players:[],blocks:[],drops:[]});
       return;
     }
 
@@ -114,7 +114,9 @@ wss.on("connection",(ws)=>{
       const others=[...room.players.values()].map(publicPlayer);
       room.players.set(p.id,p); ws.room=roomCode; ws.pid=p.id;
       const blocks=[...room.blocks.entries()].map(([key,value])=>{const [x,y]=key.split(",").map(Number);return {x,y,id:value};});
-      send(ws,{type:"room",room:roomCode,id:p.id,seed:room.seed,world_name:room.world_name,host:false,players:others,blocks});
+      const now=Date.now();
+      const drops=[...room.drops.values()].filter(d=>d.expires>now);
+      send(ws,{type:"room",room:roomCode,id:p.id,seed:room.seed,world_name:room.world_name,host:false,players:others,blocks,drops});
       broadcast(room,{type:"join",player:publicPlayer(p)},ws);
       return;
     }
@@ -134,6 +136,31 @@ wss.on("connection",(ws)=>{
       if(x<0||x>=320||y<0||y>=95||block<0||block>64) return;
       room.blocks.set(x+","+y,block);
       broadcast(room,{type:"block",x,y,id:block,by:p.id},ws);
+    } else if(msg.type==="drop_spawn"){
+      const itemId=Math.trunc(Number(msg.item_id)), count=Math.trunc(Number(msg.count));
+      const x=Number(msg.x), y=Number(msg.y);
+      if(!Number.isFinite(x)||!Number.isFinite(y)||itemId<=0||itemId>64||count<=0||count>999) return;
+      if(Math.hypot(x-p.state.x,y-p.state.y)>180) return;
+      const dropId=id();
+      const drop={id:dropId,item_id:itemId,count,x,y,zone:p.state.zone||"world",expires:Date.now()+300000};
+      room.drops.set(dropId,drop);
+      broadcast(room,{type:"drop_spawn",drop});
+      setTimeout(()=>{
+        if(!rooms.has(room.code)) return;
+        const live=rooms.get(room.code);
+        if(live.drops && live.drops.has(dropId)){
+          live.drops.delete(dropId);
+          broadcast(live,{type:"drop_remove",drop_id:dropId});
+        }
+      },300500);
+    } else if(msg.type==="drop_pickup"){
+      const dropId=String(msg.drop_id||"");
+      const drop=room.drops.get(dropId);
+      if(!drop) return;
+      if(drop.zone!==(p.state.zone||"world")) return;
+      if(Math.hypot(drop.x-p.state.x,drop.y-p.state.y)>96) return;
+      room.drops.delete(dropId);
+      broadcast(room,{type:"drop_pickup",drop_id:dropId,by:p.id,item_id:drop.item_id,count:drop.count});
     } else if(msg.type==="chat"){
       const text=String(msg.text||"").trim().slice(0,120);
       if(text) broadcast(room,{type:"chat",id:p.id,name:p.name,text});

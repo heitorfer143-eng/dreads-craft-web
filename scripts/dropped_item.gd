@@ -10,12 +10,17 @@ var pickup_delay:float=0.65
 var age:float=0.0
 var sprite:Sprite2D
 var amount_label:Label
+var network_id:String=""
+var networked:=false
+var pickup_requested:=false
 
-func setup(p_item_id:int,p_count:int,p_player:CharacterBody2D,p_lifetime:float=300.0) -> void:
+func setup(p_item_id:int,p_count:int,p_player:CharacterBody2D,p_lifetime:float=300.0,p_network_id:String="",p_networked:bool=false) -> void:
 	item_id=p_item_id
 	count=maxi(1,p_count)
 	player=p_player
 	lifetime=clampf(p_lifetime,0.1,300.0)
+	network_id=p_network_id
+	networked=p_networked
 
 func _ready() -> void:
 	collision_layer=0
@@ -76,8 +81,14 @@ func _physics_process(delta:float) -> void:
 		sprite.position.y=-12.0+sin(age*5.0)*2.0
 
 	if pickup_delay<=0 and is_instance_valid(player) and global_position.distance_to(player.global_position)<46.0:
+		var game=get_parent().get_parent() if get_parent()!=null and get_parent().get_parent()!=null else null
+		if networked and network_id!="":
+			if not pickup_requested and game!=null and game.has_method("request_online_drop_pickup"):
+				pickup_requested=true
+				pickup_delay=0.75
+				game.request_online_drop_pickup(network_id)
+			return
 		player.inventory[item_id]=int(player.inventory.get(item_id,0))+count
-		var game=get_parent().get_parent() if get_parent()!=null else null
 		if game!=null and game.has_method("on_ground_item_picked"):
 			game.on_ground_item_picked(item_id,count)
 		queue_free()

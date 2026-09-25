@@ -128,6 +128,12 @@ var multiplayer_host := false
 var online_player_name := "Spike"
 var online_world_name := "Reino Online"
 var online_room_code_entry := ""
+var chat_panel: Panel
+var chat_log: RichTextLabel
+var chat_input: LineEdit
+var chat_button: Button
+var chat_messages:Array=[]
+const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16]
 const LOBBY_TIPS = [
 	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
 	"A noite é mais perigosa: prepare abrigo, espada e comida antes do escurecer.",
@@ -163,7 +169,7 @@ func _ready() -> void:
 	get_tree().auto_accept_quit=false
 
 func configure_input() -> void:
-	var bindings={"left":[KEY_A,KEY_LEFT],"right":[KEY_D,KEY_RIGHT],"jump":[KEY_SPACE,KEY_W,KEY_UP],"down":[KEY_S,KEY_SHIFT,KEY_DOWN],"inventory":[KEY_E],"craft":[KEY_C],"attack":[KEY_F],"drop":[KEY_Q],"pause":[KEY_ESCAPE]}
+	var bindings={"left":[KEY_A,KEY_LEFT],"right":[KEY_D,KEY_RIGHT],"jump":[KEY_SPACE,KEY_W,KEY_UP],"down":[KEY_S,KEY_SHIFT,KEY_DOWN],"inventory":[KEY_E],"craft":[KEY_C],"attack":[KEY_F],"drop":[KEY_Q],"pause":[KEY_ESCAPE],"chat":[KEY_T]}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -394,6 +400,17 @@ func build_ui() -> void:
 	action_box.add_child(icon_button("res://assets/items/table.png","Criação",show_craft))
 	action_box.add_child(icon_button("res://assets/items/menu.png","Menu",show_pause))
 	action_box.add_child(icon_button("res://assets/items/fullscreen.png","Tela cheia",toggle_fullscreen))
+	chat_button=Button.new()
+	chat_button.text="CHAT"
+	chat_button.focus_mode=Control.FOCUS_NONE
+	chat_button.custom_minimum_size=Vector2(58,40)
+	chat_button.add_theme_font_size_override("font_size",10)
+	chat_button.add_theme_stylebox_override("normal",button_style(Color("100c18ee"),Color("5e4a68")))
+	chat_button.add_theme_stylebox_override("hover",button_style(Color("241a31ff"),Color("a174c3")))
+	chat_button.add_theme_stylebox_override("pressed",button_style(Color("332244ff"),Color("d09bea")))
+	chat_button.pressed.connect(open_multiplayer_chat)
+	chat_button.hide()
+	action_box.add_child(chat_button)
 	mode_frame=Panel.new()
 	mode_frame.size=Vector2(132,32)
 	mode_frame.add_theme_stylebox_override("panel",panel_style(0.88,Color("725f78")))
@@ -422,6 +439,33 @@ func build_ui() -> void:
 	status=label("",11)
 	status.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	ui.add_child(status)
+
+	chat_panel=Panel.new()
+	chat_panel.name="MultiplayerChat"
+	chat_panel.size=Vector2(380,176)
+	chat_panel.add_theme_stylebox_override("panel",compact_panel_style(0.92,Color("765786"),8))
+	chat_panel.hide()
+	ui.add_child(chat_panel)
+	chat_log=RichTextLabel.new()
+	chat_log.position=Vector2(9,8)
+	chat_log.size=Vector2(362,116)
+	chat_log.bbcode_enabled=false
+	chat_log.scroll_active=true
+	chat_log.scroll_following=true
+	chat_log.add_theme_font_size_override("normal_font_size",12)
+	chat_log.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	chat_panel.add_child(chat_log)
+	chat_input=LineEdit.new()
+	chat_input.position=Vector2(9,132)
+	chat_input.size=Vector2(362,34)
+	chat_input.placeholder_text="Mensagem... (T para abrir)"
+	chat_input.max_length=120
+	chat_input.text_submitted.connect(submit_multiplayer_chat)
+	chat_input.focus_exited.connect(func():
+		if is_instance_valid(player):
+			player.input_locked=false
+	)
+	chat_panel.add_child(chat_input)
 
 	menu=PanelContainer.new()
 	menu.add_theme_stylebox_override("panel",panel_style(0.975,Color("9a7757")))
@@ -486,7 +530,7 @@ func layout() -> void:
 		# on mobile too; the previous lake build accidentally hid the whole strip.
 		action_box.visible=true
 		action_box.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
-		var actions_width=175.0*action_box.scale.x
+		var actions_width=(235.0 if multiplayer_active else 175.0)*action_box.scale.x
 		action_box.position=Vector2(size.x-actions_width-12.0,8.0 if mobile_layout else 10.0)
 	if is_instance_valid(mode_frame):
 		mode_frame.visible=true
@@ -500,6 +544,14 @@ func layout() -> void:
 		var stat_scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
 		air_frame.scale=stat_scale
 		air_frame.position=Vector2(6,80) if mobile_layout else Vector2(12,104)
+	if is_instance_valid(chat_panel):
+		chat_panel.size=Vector2(minf(380.0,size.x-24.0),156.0 if mobile_layout else 176.0)
+		chat_panel.position=Vector2(12.0,maxf(92.0,size.y-chat_panel.size.y-(106.0 if mobile_layout else 78.0)))
+		if is_instance_valid(chat_log):
+			chat_log.size=Vector2(chat_panel.size.x-18.0,96.0 if mobile_layout else 116.0)
+		if is_instance_valid(chat_input):
+			chat_input.position=Vector2(9.0,112.0 if mobile_layout else 132.0)
+			chat_input.size=Vector2(chat_panel.size.x-18.0,34.0)
 	if is_instance_valid(hotbar_back):
 		# Mobile hotbar is deliberately larger than desktop: 9 x 64px slots plus a
 		# compact frame. It remains centered between the movement and action clusters.
@@ -772,6 +824,12 @@ func animate_lobby(delta: float) -> void:
 
 func show_main() -> void:
 	active=false
+	if is_instance_valid(chat_panel):
+		chat_panel.hide()
+	if is_instance_valid(chat_button):
+		chat_button.hide()
+	if is_instance_valid(player):
+		player.input_locked=false
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
 		portal_button.hide()
@@ -1146,17 +1204,68 @@ func start_multiplayer_session(seed_value:int, online_world_name:String, is_host
 	world_name=online_world_name
 	difficulty=1
 	start_world(false,seed_value)
+	chat_messages.clear()
+	if is_instance_valid(chat_log):
+		chat_log.text=""
+	if is_instance_valid(chat_panel):
+		chat_panel.show()
+	if is_instance_valid(chat_button):
+		chat_button.show()
 	status.text="ONLINE · SALA "+online.room_code
 	message_time=5
+	layout()
 
 func on_multiplayer_room_ready(code:String,_seed:int,_online_world_name:String,_host:bool) -> void:
 	if active:
 		status.text="ONLINE · SALA "+code+" · compartilhe esse código"
 		message_time=8
+		append_multiplayer_chat("SISTEMA","Sala "+code+" conectada.")
+
+func open_multiplayer_chat() -> void:
+	if not multiplayer_active or not active or not is_instance_valid(chat_input):
+		return
+	chat_panel.show()
+	chat_input.grab_focus()
+	if is_instance_valid(player):
+		player.input_locked=true
+
+func submit_multiplayer_chat(raw:String) -> void:
+	if not multiplayer_active or not is_instance_valid(online):
+		return
+	var text=raw.strip_edges()
+	chat_input.clear()
+	if text!="":
+		online.send_chat(text)
+	chat_input.release_focus()
+	if is_instance_valid(player):
+		player.input_locked=false
+
+func append_multiplayer_chat(sender:String,text:String) -> void:
+	if not is_instance_valid(chat_log):
+		return
+	var clean_sender=sender.strip_edges().left(16)
+	var clean_text=text.strip_edges().left(120)
+	if clean_text=="":
+		return
+	chat_messages.append(("%s: %s" % [clean_sender,clean_text]) if clean_sender!="" else clean_text)
+	while chat_messages.size()>8:
+		chat_messages.pop_front()
+	chat_log.text="\n".join(chat_messages)
+	if multiplayer_active:
+		chat_panel.show()
+
+func on_online_chat(sender:String,text:String) -> void:
+	append_multiplayer_chat(sender,text)
 
 func on_multiplayer_failed(message:String) -> void:
 	if active:
 		multiplayer_active=false
+		if is_instance_valid(chat_panel):
+			chat_panel.hide()
+		if is_instance_valid(chat_button):
+			chat_button.hide()
+		if is_instance_valid(player):
+			player.input_locked=false
 		status.text=message
 		message_time=6
 	else:
@@ -1185,6 +1294,12 @@ func apply_online_block(cell:Vector2i,id:int) -> void:
 
 func on_multiplayer_disconnected() -> void:
 	multiplayer_active=false
+	if is_instance_valid(chat_panel):
+		chat_panel.hide()
+	if is_instance_valid(chat_button):
+		chat_button.hide()
+	if is_instance_valid(player):
+		player.input_locked=false
 	if active:
 		status.text="Conexão multiplayer encerrada."
 		message_time=5
@@ -2264,6 +2379,12 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouse and event.device==InputEvent.DEVICE_ID_EMULATION:
 		return
+	if active and multiplayer_active and event.is_action_pressed("chat"):
+		open_multiplayer_chat()
+		get_viewport().set_input_as_handled()
+		return
+	if is_instance_valid(chat_input) and chat_input.has_focus():
+		return
 	if not active or modal:
 		return
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
@@ -2457,7 +2578,7 @@ func update_target() -> void:
 	target=cell
 
 func place_block() -> bool:
-	if in_purity or target.x<0 or world.get_cell(target)!=0 or selected not in [2,3,4,5,6,7,8,9,14,15,16]:
+	if in_purity or target.x<0 or world.get_cell(target)!=0 or selected not in PLACEABLE_BLOCKS:
 		return false
 	if not in_purity and world.is_village_protected(target) and not player.creative:
 		status.text="A vila é uma zona protegida: não é possível construir aqui."
@@ -2476,13 +2597,46 @@ func place_block() -> bool:
 	refresh_hud()
 	return true
 
-func spawn_ground_drop(item_id:int,count:int,world_position:Vector2,remaining:float=300.0) -> void:
+func spawn_ground_drop(item_id:int,count:int,world_position:Vector2,remaining:float=300.0,network_id:String="",networked:bool=false) -> void:
 	if not is_instance_valid(drops) or not is_instance_valid(player) or item_id<=0 or count<=0:
 		return
 	var pickup=DroppedItem.new()
-	pickup.setup(item_id,count,player,remaining)
+	pickup.setup(item_id,count,player,remaining,network_id,networked)
 	pickup.position=world_position
 	drops.add_child(pickup)
+
+func apply_online_drop(data:Dictionary) -> void:
+	if not multiplayer_active or not is_instance_valid(drops):
+		return
+	var drop_id=str(data.get("id",""))
+	var item_id=int(data.get("item_id",0))
+	var count=int(data.get("count",1))
+	if drop_id=="" or item_id<=0 or count<=0:
+		return
+	for node in drops.get_children():
+		if str(node.get("network_id"))==drop_id:
+			return
+	var pos=Vector2(float(data.get("x",0.0)),float(data.get("y",0.0)))
+	spawn_ground_drop(item_id,count,pos,300.0,drop_id,true)
+
+func remove_online_drop(drop_id:String) -> void:
+	if not is_instance_valid(drops):
+		return
+	for node in drops.get_children():
+		if str(node.get("network_id"))==drop_id:
+			node.queue_free()
+			return
+
+func request_online_drop_pickup(drop_id:String) -> void:
+	if multiplayer_active and is_instance_valid(online) and drop_id!="":
+		online.send_drop_pickup(drop_id)
+
+func resolve_online_drop_pickup(drop_id:String,by_id:String,item_id:int,count:int) -> void:
+	remove_online_drop(drop_id)
+	if not multiplayer_active or not is_instance_valid(online) or by_id!=online.local_id:
+		return
+	player.inventory[item_id]=int(player.inventory.get(item_id,0))+maxi(1,count)
+	on_ground_item_picked(item_id,maxi(1,count))
 
 func current_death_scope() -> String:
 	if in_lake_temple:
@@ -2544,7 +2698,10 @@ func drop_selected_item(amount:int=1) -> void:
 	var qty=mini(maxi(1,amount),owned)
 	player.inventory[selected]=owned-qty
 	var drop_pos=player.position+Vector2(player.face*30,-18)
-	spawn_ground_drop(selected,qty,drop_pos)
+	if multiplayer_active and is_instance_valid(online):
+		online.send_drop_spawn(selected,qty,drop_pos)
+	else:
+		spawn_ground_drop(selected,qty,drop_pos)
 	status.text="Dropou %dx %s · fica no chão por 5 minutos" % [qty,Items.NAMES.get(selected,"item")]
 	message_time=2.5
 	refresh_hud()
@@ -2757,7 +2914,10 @@ func _process(delta: float) -> void:
 				message_time=1.5
 			else:
 				var drop_position=Vector2(target.x*32+16,target.y*32+8)
-				spawn_ground_drop(drop,1,drop_position)
+				if multiplayer_active and is_instance_valid(online):
+					online.send_drop_spawn(drop,1,drop_position)
+				else:
+					spawn_ground_drop(drop,1,drop_position)
 			progress=0
 			if is_instance_valid(device_controls) and device_controls.mobile and mining_held:
 				target=Vector2i(-1,-1)
@@ -3666,6 +3826,35 @@ func meter_style(color: Color) -> StyleBoxFlat:
 	style.set_corner_radius_all(2)
 	return style
 
+func resolve_place_target() -> void:
+	if not is_instance_valid(world) or not is_instance_valid(player) or target.x<0:
+		return
+	if world.get_cell(target)==0:
+		return
+	if world.get_cell(target)==16:
+		return
+	var pointer=player.position+touch_aim if is_instance_valid(device_controls) and device_controls.mobile else get_global_mouse_position()
+	var origin=player.position-Vector2(0,24)
+	var source=target
+	var best=Vector2i(-1,-1)
+	var best_score=999999.0
+	for offset in [Vector2i.UP,Vector2i.DOWN,Vector2i.LEFT,Vector2i.RIGHT]:
+		var cell=source+offset
+		if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95 or world.get_cell(cell)!=0:
+			continue
+		var area=Rect2(Vector2(cell)*32,Vector2(32,32))
+		if player.body_rect().intersects(area):
+			continue
+		var center=Vector2(cell*32+Vector2i(16,16))
+		if origin.distance_to(center)>170.0:
+			continue
+		var score=center.distance_to(pointer)
+		if score<best_score:
+			best_score=score
+			best=cell
+	if best.x>=0:
+		target=best
+
 func use_selected() -> void:
 	if in_lake_temple:
 		if interact_nearby():
@@ -3694,10 +3883,13 @@ func use_selected() -> void:
 	if selected==24:
 		use_waystone()
 		return
-	if is_instance_valid(device_controls) and device_controls.mobile:
-		set_touch_place_target()
+	if selected in PLACEABLE_BLOCKS:
+		if is_instance_valid(device_controls) and device_controls.mobile:
+			set_touch_place_target()
+		else:
+			resolve_place_target()
 	if not place_block():
-		if selected not in [2,3,4,5,6,7,8,9,14,15,16]:
+		if selected not in PLACEABLE_BLOCKS:
 			status.text="Selecione um bloco na hotbar para colocar."
 		else:
 			status.text="Aponte para um espaço vazio ao lado de um bloco."

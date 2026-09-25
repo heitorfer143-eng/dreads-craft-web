@@ -26,6 +26,7 @@ var max_air := 18.0
 var air := 18.0
 var drown_tick := 0.0
 var current_form := "spike"
+var input_locked := false
 
 const SAFE_FALL_SPEED = 650.0
 const FALL_DAMAGE_DIVISOR = 12.0
@@ -63,23 +64,24 @@ func _physics_process(delta: float) -> void:
 	attack_time=maxf(0,attack_time-delta)
 	hurt_time=maxf(0,hurt_time-delta)
 	_update_breath(delta)
-	var direction=Input.get_axis("left","right")
+	var controls_enabled=not input_locked
+	var direction=Input.get_axis("left","right") if controls_enabled else 0.0
 	velocity.x=direction*(155.0 if in_water and not creative else 220.0)
 	if direction!=0:
 		face=int(sign(direction))
 
 	var grounded_before=is_on_floor()
 	if creative:
-		velocity.y=Input.get_axis("jump","down")*240
+		velocity.y=Input.get_axis("jump","down")*240 if controls_enabled else 0.0
 		max_fall_speed=0.0
 	elif in_water:
 		max_fall_speed=0.0
 		coyote=0.0
 		jump_buffer=0.0
 		velocity.y=minf(210.0,velocity.y+360.0*delta)
-		if Input.is_action_pressed("jump"):
+		if controls_enabled and Input.is_action_pressed("jump"):
 			velocity.y=move_toward(velocity.y,-185.0,720.0*delta)
-		elif Input.is_action_pressed("down"):
+		elif controls_enabled and Input.is_action_pressed("down"):
 			velocity.y=move_toward(velocity.y,185.0,620.0*delta)
 		else:
 			velocity.y=move_toward(velocity.y,38.0,220.0*delta)
@@ -89,7 +91,7 @@ func _physics_process(delta: float) -> void:
 		if not grounded_before and velocity.y>0:
 			max_fall_speed=maxf(max_fall_speed,velocity.y)
 		coyote=0.12 if grounded_before else maxf(0,coyote-delta)
-		jump_buffer=0.14 if Input.is_action_just_pressed("jump") else maxf(0,jump_buffer-delta)
+		jump_buffer=0.14 if controls_enabled and Input.is_action_just_pressed("jump") else maxf(0,jump_buffer-delta)
 		if jump_buffer>0 and coyote>0:
 			velocity.y=-545
 			jump_buffer=0
