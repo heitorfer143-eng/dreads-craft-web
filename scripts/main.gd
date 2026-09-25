@@ -16,6 +16,7 @@ const GeneratedIntro = preload("res://scripts/generated_intro.gd")
 const MultiplayerClient = preload("res://scripts/multiplayer_client.gd")
 const DroppedItem = preload("res://scripts/dropped_item.gd")
 const SoulProjectile = preload("res://scripts/soul_projectile.gd")
+const LakeBoss = preload("res://scripts/lake_boss.gd")
 
 var in_purity=false
 var in_purity_realm=false
@@ -28,6 +29,9 @@ var boss_panel: VBoxContainer
 var boss_bar: ProgressBar
 var boss_title: Label
 var portal_button: Button
+var lake_boss: Node2D
+var lake_boss_defeated := false
+var lake_announced := false
 
 var world: Node2D
 var player: CharacterBody2D
@@ -248,7 +252,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.1 • INTERIOR BLACKSCREEN HOTFIX"
+	build_badge.text="DREADS CRAFT • BUILD 14.2 • LAGO SOMBRIO + LEVIATÃ"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -1408,6 +1412,9 @@ func start_world(creative: bool, seed_value: int) -> void:
 	sky.purity=false
 	boss_defeated=false
 	boss=null
+	lake_boss=null
+	lake_boss_defeated=false
+	lake_announced=false
 	mel_tamed=false
 	mel_quest_started=false
 	borin_quest_done=false
@@ -2448,11 +2455,13 @@ func attack() -> void:
 		if not is_instance_valid(mob) or not mob.has_method("hit"):
 			continue
 		var difference=mob.position-player.position
-		var is_guardian=is_instance_valid(boss) and mob==boss
-		var reach_x=145.0 if is_guardian else 100.0
-		var reach_y=150.0 if is_guardian else 82.0
+			var is_guardian=is_instance_valid(boss) and mob==boss
+		var is_lake_guardian=is_instance_valid(lake_boss) and mob==lake_boss
+		var is_large_boss=is_guardian or is_lake_guardian
+		var reach_x=185.0 if is_lake_guardian else 145.0 if is_guardian else 100.0
+		var reach_y=215.0 if is_lake_guardian else 150.0 if is_guardian else 82.0
 		if absf(difference.x)<=reach_x and absf(difference.y)<=reach_y and (absf(difference.x)<24 or signf(difference.x)==player.face):
-			if is_guardian:
+			if is_large_boss:
 				mob.hit(final_damage)
 			else:
 				mob.hit(final_damage,340.0 if critical else 285.0)
@@ -2544,6 +2553,12 @@ func _process(delta: float) -> void:
 		day+=1
 	sky.clock=clock
 	var player_cell_x=int(player.position.x/32.0)
+	if not in_purity and world.is_lake_zone(player_cell_x):
+		if not lake_announced:
+			lake_announced=true
+			status.text="LAGO SOMBRIO DESCOBERTO · algo enorme se move sob a água..."
+			message_time=5
+		ensure_lake_boss()
 	if not in_purity and player_cell_x>=World.SNOW_START_X:
 		if not snow_announced:
 			snow_announced=true
@@ -3112,9 +3127,11 @@ func spawn_mob() -> void:
 	var player_cell=clampi(int(player.position.x/32),0,World.WIDTH-1)
 	# Vila/spawn é uma zona segura: hostis só podem aparecer depois de o jogador
 	# realmente deixar o povoado.
-	if player_cell<=World.VILLAGE_MAX_X+10:
+	if player_cell<=World.VILLAGE_MAX_X+10 or world.is_lake_zone(player_cell):
 		return
 	var cell=clampi(player_cell+(18 if randf()>.5 else -18),World.VILLAGE_MAX_X+11,317)
+	if world.is_lake_zone(cell):
+		return
 	if world.is_village_protected(Vector2i(cell,world.surfaces[cell])):
 		return
 	var mob=Mob.new()
@@ -3149,6 +3166,30 @@ func spawn_mob() -> void:
 	)
 	enemies.add_child(mob)
 
+func ensure_lake_boss() -> void:
+	if lake_boss_defeated or in_purity or in_structure!="" or not is_instance_valid(world) or not is_instance_valid(player):
+		return
+	if is_instance_valid(lake_boss):
+		return
+	lake_boss=LakeBoss.new()
+	lake_boss.player=player
+	var center=World.LAKE_CENTER_X
+	lake_boss.position=Vector2(center*32+16,world.surfaces[center]*32)
+	enemies.add_child(lake_boss)
+	lake_boss.defeated.connect(on_lake_boss_defeated)
+
+func on_lake_boss_defeated() -> void:
+	lake_boss_defeated=true
+	lake_boss=null
+	player.inventory[14]=int(player.inventory.get(14,0))+2
+	player.inventory[10]=int(player.inventory.get(10,0))+5
+	player.hp=minf(player.max_hp,player.hp+35.0)
+	status.text="LEVIATÃ DO LAGO SOMBRIO DERROTADO · +2 diamantes · +5 carnes"
+	message_time=7
+	refresh_hud()
+	update_purity_hud()
+	save_world()
+
 func save_world() -> bool:
 	if not active:
 		return false
@@ -3158,7 +3199,7 @@ func save_world() -> bool:
 		saved_position=return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":6,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills}
+	var data={"version":6,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -3182,6 +3223,7 @@ func load_world() -> void:
 	world.cells=data.cells
 	world.surfaces.assign(data.surfaces)
 	world.repair_village_zone()
+	world.repair_lake_zone()
 	world.remove_ore(25)
 	world.ensure_ore_minimums()
 	world.rebuild_collision()
@@ -3206,6 +3248,7 @@ func load_world() -> void:
 	monk_quest_done=bool(data.get("monk_quest_done",false))
 	night_kills=int(data.get("night_kills",0))
 	polar_bear_defeated=bool(data.get("polar_bear_defeated",false))
+	lake_boss_defeated=bool(data.get("lake_boss_defeated",false))
 	var saved_quests=data.get("quest_states",{})
 	if saved_quests is Dictionary and not saved_quests.is_empty():
 		for quest_id in [QUEST_MEL,QUEST_BORIN,QUEST_MERCHANT,QUEST_ABYSS,QUEST_MONK,QUEST_SNOW]:
@@ -3241,6 +3284,10 @@ func load_world() -> void:
 		player.hp=minf(player.hp,player.max_hp)
 	if is_instance_valid(mel):
 		mel.set_tamed(mel_tamed)
+	if not lake_boss_defeated and world.is_lake_zone(int(player.position.x/32.0)):
+		ensure_lake_boss()
+		if is_instance_valid(lake_boss) and float(data.get("lake_boss_hp",-1.0))>0:
+			lake_boss.hp=clampf(float(data.get("lake_boss_hp",lake_boss.max_hp)),1.0,lake_boss.max_hp)
 	update_quest_markers()
 	if bool(data.get("in_purity",false)):
 		if bool(data.get("in_purity_realm",false)) and boss_defeated:
@@ -3378,10 +3425,17 @@ func update_purity_hud() -> void:
 	ensure_purity_hud()
 	var size=get_viewport_rect().size
 	boss_panel.position=Vector2((size.x-380)/2,88)
-	boss_panel.visible=active and in_purity and is_instance_valid(boss) and not modal
-	if is_instance_valid(boss):
+	var show_purity=active and in_purity and is_instance_valid(boss) and not modal
+	var show_lake=active and not in_purity and is_instance_valid(lake_boss) and not modal and is_instance_valid(world) and world.is_lake_zone(int(player.position.x/32.0))
+	boss_panel.visible=show_purity or show_lake
+	if show_purity:
+		boss_bar.max_value=boss.max_hp
 		boss_bar.value=boss.hp
 		boss_title.text="GUARDIÃO DA PUREZA  %d / %d" % [ceili(boss.hp),int(boss.max_hp)]
+	elif show_lake:
+		boss_bar.max_value=lake_boss.max_hp
+		boss_bar.value=lake_boss.hp
+		boss_title.text="LEVIATÃ DO LAGO SOMBRIO  %d / %d" % [ceili(lake_boss.hp),int(lake_boss.max_hp)]
 	portal_button.position=Vector2((size.x-250)/2,size.y-172)
 	portal_button.size=Vector2(250,40)
 	portal_button.visible=active and not modal and nearby_portal()
@@ -3419,6 +3473,7 @@ func enter_purity(skip_dialogue: bool=false) -> void:
 	for mob in enemies.get_children():
 		enemies.remove_child(mob)
 		mob.queue_free()
+	lake_boss=null
 	player.position=Vector2(10*32,35*32-2)
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0

@@ -25,6 +25,8 @@ func run() -> void:
 	check(ResourceLoader.exists("res://assets/interiors/blacksmith.png"),"Remodeled blacksmith interior exists")
 	check(ResourceLoader.exists("res://assets/interiors/market.png"),"Remodeled market interior exists")
 	check(ResourceLoader.exists("res://assets/interiors/chapel.png"),"Remodeled chapel interior file exists")
+	check(ResourceLoader.exists("res://assets/boss/lake_leviathan.svg"),"Lake Leviathan art exists")
+	check(ResourceLoader.exists("res://scripts/lake_boss.gd"),"Lake Leviathan script exists")
 	check(load("res://assets/interiors/blacksmith.png")!=null,"Blacksmith PNG imports correctly")
 	check(load("res://assets/interiors/market.png")!=null,"Market PNG imports correctly")
 	check(load("res://assets/interiors/chapel.png")!=null,"Chapel PNG imports correctly")

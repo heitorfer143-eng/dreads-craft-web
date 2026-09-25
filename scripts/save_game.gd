@@ -154,6 +154,10 @@ static func read_path(save_path: String) -> Dictionary:
 		parsed["abyss_slime_kills"]=0
 	if not parsed.has("abyss_warden_kills"):
 		parsed["abyss_warden_kills"]=0
+	if not parsed.has("lake_boss_defeated"):
+		parsed["lake_boss_defeated"]=false
+	if not parsed.has("lake_boss_hp"):
+		parsed["lake_boss_hp"]=-1.0
 	parsed["version"]=SAVE_VERSION
 	var cells=parsed.get("cells",[])
 	if not cells is Array or cells.size()!=96:

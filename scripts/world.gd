@@ -7,6 +7,10 @@ const HEIGHT = 96
 const VILLAGE_MIN_X = 4
 const VILLAGE_MAX_X = 66
 const SNOW_START_X = 190
+const LAKE_START_X = 112
+const LAKE_END_X = 170
+const LAKE_CENTER_X = 141
+const LAKE_WATER_Y = 35
 var cells: Array = []
 var surfaces: Array[int] = []
 var rows: Dictionary = {}
@@ -36,6 +40,10 @@ func generate(seed_value: int) -> void:
 		var height = 35 + int(noise.get_noise_1d(x) * (6 if x < 100 else 13))
 		if x < 70:
 			height = 35
+		elif not purity_realm and x>=LAKE_START_X and x<=LAKE_END_X:
+			var edge_distance=mini(x-LAKE_START_X,LAKE_END_X-x)
+			var basin_depth=clampi(int(edge_distance/4.0),0,5)
+			height=LAKE_WATER_Y+basin_depth
 		elif not purity_realm and x>=SNOW_START_X:
 			height = 37 + int(noise.get_noise_1d(x*1.35)*6)
 		surfaces.append(height)
@@ -49,6 +57,8 @@ func generate(seed_value: int) -> void:
 					cells[y][x] = 0
 	# Trees are a separate pass: later terrain columns cannot overwrite foliage.
 	for x in range(72,WIDTH-5,11):
+		if is_lake_zone(x):
+			continue
 		var blocked_by_village=false
 		for village_x in [18,34,50]:
 			if abs(x-village_x)<=8:
@@ -101,6 +111,23 @@ func generate_structures() -> void:
 				for y in range(maxi(0,ground-8),ground):
 					if cells[y][x] in [3,4,5,8,9]:
 						cells[y][x]=0
+
+func repair_lake_zone() -> void:
+	# Upgrade existing saves with the Lake of Shadows without touching deep caves.
+	for x in range(LAKE_START_X,LAKE_END_X+1):
+		if x<0 or x>=surfaces.size():
+			continue
+		var edge_distance=mini(x-LAKE_START_X,LAKE_END_X-x)
+		var basin_depth=clampi(int(edge_distance/4.0),0,5)
+		var ground=LAKE_WATER_Y+basin_depth
+		surfaces[x]=ground
+		for y in range(maxi(0,LAKE_WATER_Y-6),ground):
+			cells[y][x]=0
+		cells[ground][x]=1
+		for y in range(ground+1,mini(ground+4,HEIGHT)):
+			cells[y][x]=2
+	rebuild_collision()
+	queue_redraw()
 
 func repair_village_zone() -> void:
 	# Upgrade old saves to the new village layout too: flat ground and no trees/blocks over houses.
@@ -287,6 +314,9 @@ func is_village_protected(cell: Vector2i) -> bool:
 	# but cannot mine or place blocks over/under its houses.
 	return cell.x>=VILLAGE_MIN_X and cell.x<=VILLAGE_MAX_X
 
+func is_lake_zone(cell_x: int) -> bool:
+	return cell_x>=LAKE_START_X and cell_x<=LAKE_END_X
+
 func is_snow_biome(cell_x: int) -> bool:
 	return cell_x>=SNOW_START_X
 
@@ -364,6 +394,9 @@ func _draw() -> void:
 	var right = mini(WIDTH,int((center.x+extent.x)/TILE)+1)
 	var top = maxi(0,int((center.y-extent.y)/TILE))
 	var bottom = mini(HEIGHT,int((center.y+extent.y)/TILE)+1)
+	# The Lake of Shadows is drawn behind terrain so the player can wade through it.
+	if not purity_realm:
+		draw_lake(left,right)
 	# Village buildings are image assets spawned by main.gd; no procedural houses are drawn here.
 	for y in range(top,bottom):
 		for x in range(left,right):
@@ -420,6 +453,36 @@ func _draw() -> void:
 	if not purity_realm:
 		draw_surface_decor(left,right)
 
+
+func draw_lake(left:int,right:int) -> void:
+	var visible_left=maxi(left,LAKE_START_X-2)
+	var visible_right=mini(right,LAKE_END_X+3)
+	if visible_right<=visible_left:
+		return
+	var x0=float(visible_left*TILE)
+	var x1=float(visible_right*TILE)
+	var water_top=float(LAKE_WATER_Y*TILE)
+	var max_depth=float((LAKE_WATER_Y+6)*TILE-water_top)
+	draw_rect(Rect2(x0,water_top,x1-x0,max_depth),Color("172846c8"))
+	draw_rect(Rect2(x0,water_top,x1-x0,5),Color("6685b8d9"))
+	draw_rect(Rect2(x0,water_top+6,x1-x0,2),Color("8765b866"))
+	for x in range(visible_left,visible_right):
+		var wave_seed=(x*31+world_seed)%17
+		if wave_seed in [0,3,7]:
+			var wx=float(x*TILE+5)
+			var wy=water_top+10.0+float((x*7+world_seed)%22)
+			draw_line(Vector2(wx,wy),Vector2(wx+18,wy),Color("9bb6dd66"),2)
+	# Dark reeds, broken stakes and purple glints make the basin read as a boss arena.
+	for x in [LAKE_START_X+4,LAKE_START_X+10,LAKE_END_X-11,LAKE_END_X-5]:
+		if x>=visible_left and x<visible_right:
+			var px=float(x*TILE+16)
+			draw_line(Vector2(px,water_top+20),Vector2(px-3,water_top-22),Color("182019"),4)
+			draw_line(Vector2(px+5,water_top+18),Vector2(px+10,water_top-15),Color("263028"),3)
+	for x in [LAKE_CENTER_X-12,LAKE_CENTER_X+13]:
+		if x>=visible_left and x<visible_right:
+			var px=float(x*TILE+16)
+			draw_line(Vector2(px,water_top+44),Vector2(px,water_top-12),Color("29243d"),6)
+			draw_line(Vector2(px,water_top-10),Vector2(px+10,water_top-25),Color("493b66"),3)
 
 func draw_surface_decor(left:int,right:int) -> void:
 	if purity_realm or surfaces.is_empty():
