@@ -248,7 +248,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.0.1 • INTERIOR HOTFIX"
+	build_badge.text="DREADS CRAFT • BUILD 14.1 • INTERIOR BLACKSCREEN HOTFIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -2878,7 +2878,7 @@ func enter_structure(kind: String, display_name: String) -> void:
 	sky.hide()
 	interior=Interior.new()
 	interior.configure(kind,display_name)
-	interior.z_index=-10
+	interior.z_index=0
 	add_child(interior)
 	player.z_index=20
 	player.show()

@@ -5,7 +5,8 @@ COPY . .
 # Build dedicated PNG mob frames from the original sprite sheet, then import them.
 RUN mkdir -p assets/mobs/generated && \
     godot --headless --script scripts/tools/extract_mob_pngs.gd && \
-    godot --headless --editor --quit
+    godot --headless --editor --quit && \
+    godot --headless --script tests/smoke.gd
 
 # Web build
 RUN mkdir -p build/web && godot --headless --export-release "Web" build/web/index.html

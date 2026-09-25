@@ -25,6 +25,9 @@ func run() -> void:
 	check(ResourceLoader.exists("res://assets/interiors/blacksmith.png"),"Remodeled blacksmith interior exists")
 	check(ResourceLoader.exists("res://assets/interiors/market.png"),"Remodeled market interior exists")
 	check(ResourceLoader.exists("res://assets/interiors/chapel.png"),"Remodeled chapel interior file exists")
+	check(load("res://assets/interiors/blacksmith.png")!=null,"Blacksmith PNG imports correctly")
+	check(load("res://assets/interiors/market.png")!=null,"Market PNG imports correctly")
+	check(load("res://assets/interiors/chapel.png")!=null,"Chapel PNG imports correctly")
 	var interior_class=load("res://scripts/interior.gd")
 	for interior_kind in ["blacksmith","market","chapel"]:
 		var room=interior_class.new()
