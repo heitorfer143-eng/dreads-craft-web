@@ -16,10 +16,10 @@ const PLAYER_FILES = {
 		"hurt": ["res://assets/sprites/demon_hurt_0.png"]
 	},
 	"fox": {
-		"idle": ["res://assets/player/forms/fox_idle.svg"],
-		"walk": ["res://assets/player/forms/fox_walk_0.svg","res://assets/player/forms/fox_walk_1.svg"],
+		"idle": ["res://assets/player/forms/fox_idle.svg","res://assets/player/forms/fox_idle_blink.svg"],
+		"walk": ["res://assets/player/forms/fox_walk_0.svg","res://assets/player/forms/fox_walk_1.svg","res://assets/player/forms/fox_walk_2.svg"],
 		"jump": ["res://assets/player/forms/fox_jump.svg"],
-		"attack": ["res://assets/player/forms/fox_attack.svg"],
+		"attack": ["res://assets/player/forms/fox_attack.svg","res://assets/player/forms/fox_attack_1.svg"],
 		"hurt": ["res://assets/player/forms/fox_hurt.svg"]
 	}
 }
@@ -63,7 +63,15 @@ const ATLAS_FRAMES = {
 static func _add_player_frames(frames: SpriteFrames, kind: String) -> void:
 	for action in PLAYER_FILES[kind]:
 		frames.add_animation(action)
-		frames.set_animation_speed(action,8.0 if action=="walk" else 10.0)
+		var action_speed=8.0 if action=="walk" else 10.0
+		if kind=="fox":
+			match action:
+				"idle": action_speed=2.2
+				"walk": action_speed=9.5
+				"attack": action_speed=12.0
+				"hurt": action_speed=8.0
+				"jump": action_speed=8.0
+		frames.set_animation_speed(action,action_speed)
 		frames.set_animation_loop(action,action in ["idle","walk","jump"])
 		for path in PLAYER_FILES[kind][action]:
 			frames.add_frame(action,load(path) as Texture2D)

@@ -55,6 +55,14 @@ func run() -> void:
 			break
 	check(tree_cell.x>=0 and not scene.world.is_solid(tree_cell),"Tree trunks are pass-through but remain world cells")
 	check(scene.player.sprite.sprite_frames.has_animation("walk"),"Player animations")
+	# Fox transformation keeps the existing player state machine, but now has authored multi-frame motion.
+	scene.player.set_form("fox")
+	check(scene.player.sprite.sprite_frames.has_animation("idle"),"Fox idle animation exists")
+	check(scene.player.sprite.sprite_frames.get_frame_count("idle")>=2,"Fox idle has multiple frames")
+	check(scene.player.sprite.sprite_frames.get_frame_count("walk")>=3,"Fox walk has three authored frames")
+	check(scene.player.sprite.sprite_frames.get_frame_count("attack")>=2,"Fox attack has a windup and lunge frame")
+	check(scene.player.sprite.sprite_frames.get_frame_texture("jump",0)!=null,"Fox jump frame loads")
+	scene.player.set_form("spike")
 	check(scene.mel.base_scale<0.7,"Mel uses compact in-world scale")
 	var market_found=false
 	for building in scene.structures.get_children():
