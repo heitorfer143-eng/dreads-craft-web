@@ -7,10 +7,15 @@ const HEIGHT = 96
 const VILLAGE_MIN_X = 4
 const VILLAGE_MAX_X = 66
 const SNOW_START_X = 190
-const LAKE_START_X = 112
-const LAKE_END_X = 170
-const LAKE_CENTER_X = 141
-const LAKE_WATER_Y = 35
+const LAKE_MIN_CENTER_X = 105
+const LAKE_MAX_CENTER_X = 155
+var lake_center_x := 130
+var lake_width := 24
+var lake_depth := 8
+var lake_start_x := 118
+var lake_end_x := 142
+var lake_water_y := 35
+var lake_generated := false
 var cells: Array = []
 var surfaces: Array[int] = []
 var rows: Dictionary = {}
@@ -26,6 +31,7 @@ func _ready() -> void:
 
 func generate(seed_value: int) -> void:
 	world_seed = seed_value
+	configure_lake(seed_value)
 	var noise = FastNoiseLite.new()
 	noise.seed = world_seed
 	noise.frequency = 0.027
@@ -40,10 +46,8 @@ func generate(seed_value: int) -> void:
 		var height = 35 + int(noise.get_noise_1d(x) * (6 if x < 100 else 13))
 		if x < 70:
 			height = 35
-		elif not purity_realm and x>=LAKE_START_X and x<=LAKE_END_X:
-			var edge_distance=mini(x-LAKE_START_X,LAKE_END_X-x)
-			var basin_depth=clampi(int(edge_distance/4.0),0,5)
-			height=LAKE_WATER_Y+basin_depth
+		elif not purity_realm and is_lake_zone(x):
+			height=lake_water_y+lake_floor_depth(x)
 		elif not purity_realm and x>=SNOW_START_X:
 			height = 37 + int(noise.get_noise_1d(x*1.35)*6)
 		surfaces.append(height)
@@ -112,16 +116,41 @@ func generate_structures() -> void:
 					if cells[y][x] in [3,4,5,8,9]:
 						cells[y][x]=0
 
+func configure_lake(seed_value:int) -> void:
+	if purity_realm:
+		return
+	var rng=RandomNumberGenerator.new()
+	rng.seed=seed_value ^ 0x4C414B45
+	lake_center_x=rng.randi_range(LAKE_MIN_CENTER_X,LAKE_MAX_CENTER_X)
+	lake_width=rng.randi_range(20,28)
+	lake_depth=rng.randi_range(7,11)
+	lake_water_y=35+rng.randi_range(-1,1)
+	lake_start_x=clampi(lake_center_x-int(lake_width/2),82,SNOW_START_X-24)
+	lake_end_x=clampi(lake_start_x+lake_width,LAKE_MIN_CENTER_X+10,SNOW_START_X-12)
+	lake_width=lake_end_x-lake_start_x
+	lake_generated=true
+
+func lake_floor_depth(x:int) -> int:
+	if not is_lake_zone(x):
+		return 0
+	var half=maxf(1.0,float(lake_width)/2.0)
+	var normalized=clampf(1.0-absf(float(x-lake_center_x))/half,0.0,1.0)
+	var curve=sin(normalized*PI*0.5)
+	var wobble=float(absi((x*37+world_seed*13)%5)-2)*0.22
+	var depth=clampi(int(round(curve*float(lake_depth)+wobble)),0,lake_depth)
+	if x==lake_center_x:
+		depth=lake_depth
+	return depth
+
 func repair_lake_zone() -> void:
-	# Upgrade existing saves with the Lake of Shadows without touching deep caves.
-	for x in range(LAKE_START_X,LAKE_END_X+1):
+	if not lake_generated:
+		configure_lake(world_seed)
+	for x in range(lake_start_x,lake_end_x+1):
 		if x<0 or x>=surfaces.size():
 			continue
-		var edge_distance=mini(x-LAKE_START_X,LAKE_END_X-x)
-		var basin_depth=clampi(int(edge_distance/4.0),0,5)
-		var ground=LAKE_WATER_Y+basin_depth
+		var ground=lake_water_y+lake_floor_depth(x)
 		surfaces[x]=ground
-		for y in range(maxi(0,LAKE_WATER_Y-6),ground):
+		for y in range(maxi(0,lake_water_y-3),ground):
 			cells[y][x]=0
 		cells[ground][x]=1
 		for y in range(ground+1,mini(ground+4,HEIGHT)):
@@ -315,7 +344,31 @@ func is_village_protected(cell: Vector2i) -> bool:
 	return cell.x>=VILLAGE_MIN_X and cell.x<=VILLAGE_MAX_X
 
 func is_lake_zone(cell_x: int) -> bool:
-	return cell_x>=LAKE_START_X and cell_x<=LAKE_END_X
+	return not purity_realm and cell_x>=lake_start_x and cell_x<=lake_end_x
+
+func lake_temple_position() -> Vector2:
+	var floor_y=surfaces[lake_center_x] if lake_center_x>=0 and lake_center_x<surfaces.size() else lake_water_y+lake_depth
+	return Vector2(lake_center_x*TILE+TILE/2.0,floor_y*TILE-34)
+
+func lake_shore_spawn() -> Vector2:
+	var x=maxi(VILLAGE_MAX_X+8,lake_start_x-3)
+	return Vector2(x*TILE+TILE/2.0,surfaces[x]*TILE-2)
+
+func is_near_lake_temple(pos:Vector2) -> bool:
+	return is_lake_zone(int(pos.x/TILE)) and pos.distance_to(lake_temple_position())<118.0
+
+func is_point_in_lake_water(pos:Vector2) -> bool:
+	if purity_realm:
+		return false
+	var x=int(pos.x/TILE)
+	if not is_lake_zone(x):
+		return false
+	var water_top=float(lake_water_y*TILE)
+	var floor_y=float(surfaces[x]*TILE)
+	return pos.y>=water_top-12.0 and pos.y<=floor_y+8.0
+
+func lake_signature() -> String:
+	return "%d:%d:%d:%d" % [lake_center_x,lake_width,lake_depth,lake_water_y]
 
 func is_snow_biome(cell_x: int) -> bool:
 	return cell_x>=SNOW_START_X
@@ -455,40 +508,49 @@ func _draw() -> void:
 
 
 func draw_lake(left:int,right:int) -> void:
-	var visible_left=maxi(left,LAKE_START_X-2)
-	var visible_right=mini(right,LAKE_END_X+3)
+	var visible_left=maxi(left,lake_start_x-2)
+	var visible_right=mini(right,lake_end_x+3)
 	if visible_right<=visible_left:
 		return
-	var x0=float(visible_left*TILE)
-	var x1=float(visible_right*TILE)
-	var water_top=float(LAKE_WATER_Y*TILE)
-	var max_depth=float((LAKE_WATER_Y+6)*TILE-water_top)
-	draw_rect(Rect2(x0,water_top,x1-x0,max_depth),Color("172846c8"))
-	draw_rect(Rect2(x0,water_top,x1-x0,5),Color("6685b8d9"))
-	draw_rect(Rect2(x0,water_top+6,x1-x0,2),Color("8765b866"))
+	var water_top=float(lake_water_y*TILE)
+	var time=float(Time.get_ticks_msec())/1000.0
 	for x in range(visible_left,visible_right):
-		var wave_seed=(x*31+world_seed)%17
-		if wave_seed in [0,3,7]:
-			var wx=float(x*TILE+5)
-			var wy=water_top+10.0+float((x*7+world_seed)%22)
-			draw_line(Vector2(wx,wy),Vector2(wx+18,wy),Color("9bb6dd66"),2)
-	# Dark reeds, broken stakes and purple glints make the basin read as a boss arena.
-	for x in [LAKE_START_X+4,LAKE_START_X+10,LAKE_END_X-11,LAKE_END_X-5]:
+		if not is_lake_zone(x):
+			continue
+		var px=float(x*TILE)
+		var floor_y=float(surfaces[x]*TILE)
+		var depth=maxf(0.0,floor_y-water_top)
+		if depth<=0:
+			continue
+		draw_rect(Rect2(px,water_top,TILE,depth),Color("172846c8"))
+		draw_rect(Rect2(px,water_top,TILE,4),Color("7b99c9dd"))
+		var wave_y=water_top+6.0+sin(time*2.1+float(x)*0.8)*2.0
+		draw_line(Vector2(px+3,wave_y),Vector2(px+TILE-4,wave_y),Color("9bb6dd77"),2)
+	for x in [lake_start_x+3,lake_start_x+7,lake_end_x-7,lake_end_x-3]:
 		if x>=visible_left and x<visible_right:
 			var px=float(x*TILE+16)
-			draw_line(Vector2(px,water_top+20),Vector2(px-3,water_top-22),Color("182019"),4)
-			draw_line(Vector2(px+5,water_top+18),Vector2(px+10,water_top-15),Color("263028"),3)
-	for x in [LAKE_CENTER_X-12,LAKE_CENTER_X+13]:
-		if x>=visible_left and x<visible_right:
-			var px=float(x*TILE+16)
-			draw_line(Vector2(px,water_top+44),Vector2(px,water_top-12),Color("29243d"),6)
-			draw_line(Vector2(px,water_top-10),Vector2(px+10,water_top-25),Color("493b66"),3)
+			draw_line(Vector2(px,water_top+18),Vector2(px-3,water_top-24),Color("1c271f"),4)
+			draw_line(Vector2(px+5,water_top+16),Vector2(px+10,water_top-13),Color("334037"),3)
+	if lake_center_x>=visible_left and lake_center_x<visible_right:
+		var temple=lake_temple_position()
+		var glow=Color("a05cff")
+		draw_rect(Rect2(temple.x-120,temple.y-88,240,88),Color("28283a"))
+		draw_rect(Rect2(temple.x-145,temple.y-100,38,100),Color("343548"))
+		draw_rect(Rect2(temple.x+107,temple.y-100,38,100),Color("343548"))
+		draw_rect(Rect2(temple.x-152,temple.y-108,304,12),Color("4b3b66"))
+		draw_rect(Rect2(temple.x-48,temple.y-68,96,68),Color("141522"))
+		draw_rect(Rect2(temple.x-36,temple.y-56,72,56),Color("0b0d16"))
+		draw_rect(Rect2(temple.x-7,temple.y-48,14,34),glow)
+		draw_polygon(PackedVector2Array([Vector2(temple.x,temple.y-96),Vector2(temple.x-15,temple.y-75),Vector2(temple.x,temple.y-63),Vector2(temple.x+15,temple.y-75)]),PackedColorArray([glow,glow,glow,glow]))
+		draw_string(ThemeDB.fallback_font,Vector2(temple.x-94,temple.y-114),"TEMPLO SUBMERSO",HORIZONTAL_ALIGNMENT_CENTER,188,11,Color("b9a2d9"))
 
 func draw_surface_decor(left:int,right:int) -> void:
 	if purity_realm or surfaces.is_empty():
 		return
 	for x in range(maxi(left,VILLAGE_MAX_X+7),mini(right,WIDTH-1)):
 		if x<0 or x>=surfaces.size():
+			continue
+		if is_lake_zone(x):
 			continue
 		var ground_y=surfaces[x]*TILE
 		# Do not paint decor over generated tree trunks/canopies.

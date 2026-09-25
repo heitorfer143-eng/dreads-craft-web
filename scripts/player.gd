@@ -20,6 +20,7 @@ var weapon_tween: Tween
 var spawn_position = Vector2(400,1000)
 var max_fall_speed = 0.0
 var was_grounded = false
+var in_water := false
 
 const SAFE_FALL_SPEED = 650.0
 const FALL_DAMAGE_DIVISOR = 12.0
@@ -59,7 +60,7 @@ func _physics_process(delta: float) -> void:
 	attack_time=maxf(0,attack_time-delta)
 	hurt_time=maxf(0,hurt_time-delta)
 	var direction=Input.get_axis("left","right")
-	velocity.x=direction*220
+	velocity.x=direction*(155.0 if in_water and not creative else 220.0)
 	if direction!=0:
 		face=int(sign(direction))
 
@@ -67,6 +68,18 @@ func _physics_process(delta: float) -> void:
 	if creative:
 		velocity.y=Input.get_axis("jump","down")*240
 		max_fall_speed=0.0
+	elif in_water:
+		max_fall_speed=0.0
+		coyote=0.0
+		jump_buffer=0.0
+		velocity.y=minf(210.0,velocity.y+360.0*delta)
+		if Input.is_action_pressed("jump"):
+			velocity.y=move_toward(velocity.y,-185.0,720.0*delta)
+		elif Input.is_action_pressed("down"):
+			velocity.y=move_toward(velocity.y,185.0,620.0*delta)
+		else:
+			velocity.y=move_toward(velocity.y,38.0,220.0*delta)
+		food=maxf(0,food-delta*.045)
 	else:
 		velocity.y=minf(900,velocity.y+1500*delta)
 		if not grounded_before and velocity.y>0:
@@ -79,8 +92,8 @@ func _physics_process(delta: float) -> void:
 			coyote=0
 			max_fall_speed=0.0
 		food=maxf(0,food-delta*.035)
-		if food<=0:
-			hp=maxf(1,hp-delta*.2)
+	if not creative and food<=0:
+		hp=maxf(1,hp-delta*.2)
 
 	move_and_slide()
 
@@ -103,8 +116,16 @@ func _physics_process(delta: float) -> void:
 		sprite.play(animation)
 	sprite.modulate=Color(1,.6,.6) if hurt_time>0 else Color.WHITE
 
+func set_water_state(value:bool) -> void:
+	if in_water==value:
+		return
+	in_water=value
+	if in_water:
+		max_fall_speed=0.0
+		velocity.y=minf(velocity.y,140.0)
+
 func _apply_fall_damage(impact_speed: float) -> void:
-	if creative or impact_speed<=SAFE_FALL_SPEED:
+	if creative or in_water or impact_speed<=SAFE_FALL_SPEED:
 		return
 	var amount=clampf((impact_speed-SAFE_FALL_SPEED)/FALL_DAMAGE_DIVISOR,4.0,MAX_FALL_DAMAGE)
 	take_damage(amount)

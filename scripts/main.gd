@@ -16,7 +16,8 @@ const GeneratedIntro = preload("res://scripts/generated_intro.gd")
 const MultiplayerClient = preload("res://scripts/multiplayer_client.gd")
 const DroppedItem = preload("res://scripts/dropped_item.gd")
 const SoulProjectile = preload("res://scripts/soul_projectile.gd")
-const LakeBoss = preload("res://scripts/lake_boss.gd")
+const LakeBoss = preload("res://scripts/lake_leviathan.gd")
+const LakeArena = preload("res://scripts/lake_arena.gd")
 
 var in_purity=false
 var in_purity_realm=false
@@ -32,6 +33,10 @@ var portal_button: Button
 var lake_boss: Node2D
 var lake_boss_defeated := false
 var lake_announced := false
+var lake_discovered := false
+var in_lake_temple := false
+var lake_arena: Node2D
+var lake_return_position := Vector2.ZERO
 
 var world: Node2D
 var player: CharacterBody2D
@@ -252,7 +257,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.2 • LAGO SOMBRIO + LEVIATÃ"
+	build_badge.text="DREADS CRAFT • BUILD 14.2 • ABYSSAL LAKE"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -1415,6 +1420,9 @@ func start_world(creative: bool, seed_value: int) -> void:
 	lake_boss=null
 	lake_boss_defeated=false
 	lake_announced=false
+	lake_discovered=false
+	in_lake_temple=false
+	lake_arena=null
 	mel_tamed=false
 	mel_quest_started=false
 	borin_quest_done=false
@@ -2488,6 +2496,20 @@ func _process(delta: float) -> void:
 	if modal:
 		return
 	update_purity_hud()
+	if in_lake_temple:
+		mining_held=false
+		if is_instance_valid(lake_arena):
+			player.set_water_state(lake_arena.is_in_water(player.position))
+			if message_time<=0 and player.position.distance_to(lake_arena.exit_position)<150:
+				status.text="FALAR / ENTRAR · SAIR DO TEMPLO SUBMERSO"
+		auto_save+=delta
+		if auto_save>=10:
+			auto_save=0
+			if not multiplayer_active:
+				save_world()
+		message_time=maxf(0,message_time-delta)
+		queue_redraw()
+		return
 	if in_structure!="":
 		mining_held=false
 		message_time=maxf(0,message_time-delta)
@@ -2502,11 +2524,15 @@ func _process(delta: float) -> void:
 		refresh_mobile_mining_target()
 	else:
 		update_target()
+	if is_instance_valid(player):
+		player.set_water_state(not in_purity and in_structure=="" and is_instance_valid(world) and world.is_point_in_lake_water(player.position))
 	if not in_purity:
 		var near_mel=find_near_mel()
 		var near_npc=find_near_npc()
 		var near_building=find_near_structure()
-		if near_mel!=null and message_time<=0:
+		if world.is_near_lake_temple(player.position) and message_time<=0:
+			status.text="FALAR / ENTRAR · TEMPLO SUBMERSO DO ABISMO"
+		elif near_mel!=null and message_time<=0:
 			status.text="FALAR / INTERAGIR: Mel quer alguma coisa..."
 		elif near_npc!=null and message_time<=0:
 			status.text="R / FALAR: conversar com "+near_npc.npc_name
@@ -2556,9 +2582,9 @@ func _process(delta: float) -> void:
 	if not in_purity and world.is_lake_zone(player_cell_x):
 		if not lake_announced:
 			lake_announced=true
-			status.text="LAGO SOMBRIO DESCOBERTO · algo enorme se move sob a água..."
+			lake_discovered=true
+			status.text="LAGO ABISSAL DESCOBERTO · há ruínas no ponto mais profundo."
 			message_time=5
-		ensure_lake_boss()
 	if not in_purity and player_cell_x>=World.SNOW_START_X:
 		if not snow_announced:
 			snow_announced=true
@@ -2845,6 +2871,11 @@ func interact_near_npc() -> void:
 func interact_nearby() -> bool:
 	if not active or modal:
 		return false
+	if in_lake_temple:
+		if is_instance_valid(lake_arena) and player.position.distance_to(lake_arena.exit_position)<145:
+			leave_lake_temple()
+			return true
+		return false
 	if in_structure!="":
 		if player.position.distance_to(Vector2(110,600))<135:
 			exit_structure()
@@ -2855,6 +2886,9 @@ func interact_nearby() -> bool:
 		return false
 	if is_instance_valid(mel) and not mel_tamed and mel.can_interact():
 		mel.interact()
+		return true
+	if not in_purity and is_instance_valid(world) and world.is_near_lake_temple(player.position):
+		enter_lake_temple()
 		return true
 	var near_mel=find_near_mel()
 	if near_mel!=null:
@@ -3167,27 +3201,107 @@ func spawn_mob() -> void:
 	enemies.add_child(mob)
 
 func ensure_lake_boss() -> void:
-	if lake_boss_defeated or in_purity or in_structure!="" or not is_instance_valid(world) or not is_instance_valid(player):
+	if lake_boss_defeated or not in_lake_temple or not is_instance_valid(player) or not is_instance_valid(lake_arena):
 		return
 	if is_instance_valid(lake_boss):
 		return
 	lake_boss=LakeBoss.new()
 	lake_boss.player=player
-	var center=World.LAKE_CENTER_X
-	lake_boss.position=Vector2(center*32+16,world.surfaces[center]*32)
+	lake_boss.position=lake_arena.boss_position
 	enemies.add_child(lake_boss)
 	lake_boss.defeated.connect(on_lake_boss_defeated)
+
+func enter_lake_temple(skip_intro:bool=false) -> void:
+	if in_lake_temple or in_purity or in_structure!="" or not is_instance_valid(world):
+		return
+	if not skip_intro and not world.is_near_lake_temple(player.position):
+		return
+	lake_return_position=player.position
+	lake_discovered=true
+	lake_announced=true
+	in_lake_temple=true
+	set_world_collision(false)
+	world.hide()
+	sky.hide()
+	for node in [structures,npcs,mel,drops]:
+		if is_instance_valid(node):
+			node.hide()
+	for mob in enemies.get_children():
+		enemies.remove_child(mob)
+		mob.queue_free()
+	lake_boss=null
+	lake_arena=LakeArena.new()
+	lake_arena.world_seed=world.world_seed
+	add_child(lake_arena)
+	player.z_index=20
+	player.position=lake_arena.spawn_position
+	player.velocity=Vector2.ZERO
+	player.max_fall_speed=0
+	player.set_water_state(lake_arena.is_in_water(player.position))
+	player.camera.limit_left=0
+	player.camera.limit_right=1280
+	player.camera.limit_top=0
+	player.camera.limit_bottom=720
+	player.camera.position=Vector2(0,-120)
+	player.camera.reset_smoothing()
+	mining_held=false
+	progress=0
+	if not lake_boss_defeated:
+		ensure_lake_boss()
+	status.text="TEMPLO SUBMERSO DO ABISMO · o Leviatã desperta nas águas antigas."
+	message_time=5
+	update_purity_hud()
+
+func leave_lake_temple(on_death:bool=false) -> void:
+	if not in_lake_temple:
+		return
+	if is_instance_valid(lake_boss):
+		lake_boss.queue_free()
+	lake_boss=null
+	if is_instance_valid(lake_arena):
+		lake_arena.queue_free()
+	lake_arena=null
+	in_lake_temple=false
+	player.z_index=0
+	world.show()
+	set_world_collision(true)
+	sky.show()
+	for node in [structures,npcs,mel,drops]:
+		if is_instance_valid(node):
+			node.show()
+	player.position=world.lake_shore_spawn() if on_death else lake_return_position
+	player.velocity=Vector2.ZERO
+	player.max_fall_speed=0
+	player.set_water_state(world.is_point_in_lake_water(player.position))
+	player.camera.limit_left=0
+	player.camera.limit_right=World.WIDTH*32
+	player.camera.limit_top=0
+	player.camera.limit_bottom=World.HEIGHT*32
+	player.camera.position=Vector2(0,-100)
+	player.camera.reset_smoothing()
+	status.text="Você voltou ao LAGO ABISSAL."
+	message_time=3
+	update_purity_hud()
 
 func on_lake_boss_defeated() -> void:
 	lake_boss_defeated=true
 	lake_boss=null
-	player.inventory[14]=int(player.inventory.get(14,0))+2
-	player.inventory[10]=int(player.inventory.get(10,0))+5
-	player.hp=minf(player.max_hp,player.hp+35.0)
-	status.text="LEVIATÃ DO LAGO SOMBRIO DERROTADO · +2 diamantes · +5 carnes"
-	message_time=7
+	if int(player.inventory.get(27,0))<=0:
+		player.inventory[27]=1
+	player.inventory[14]=int(player.inventory.get(14,0))+3
+	player.inventory[25]=int(player.inventory.get(25,0))+4
+	player.hp=player.max_hp
+	clear_menu("LEVIATÃ DO LAGO ABISSAL DERROTADO","lake_victory")
+	var victory=label("O coração da criatura ainda pulsa entre as ruínas inundadas.",16)
+	victory.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	menu_box.add_child(victory)
+	menu_box.add_child(label("Recompensa: 1x Coração Abissal · 3 Diamantes · 4 Minérios das Almas",13))
+	menu_box.add_child(button("SAIR DO TEMPLO",func():
+		resume()
+		leave_lake_temple()
+	))
+	boss_panel.hide()
 	refresh_hud()
-	update_purity_hud()
 	save_world()
 
 func save_world() -> bool:
@@ -3197,9 +3311,11 @@ func save_world() -> bool:
 	var saved_position=player.position
 	if in_purity:
 		saved_position=return_position
+	elif in_lake_temple:
+		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":6,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0}
+	var data={"version":7,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -3249,6 +3365,8 @@ func load_world() -> void:
 	night_kills=int(data.get("night_kills",0))
 	polar_bear_defeated=bool(data.get("polar_bear_defeated",false))
 	lake_boss_defeated=bool(data.get("lake_boss_defeated",false))
+	lake_discovered=bool(data.get("lake_discovered",false))
+	lake_announced=lake_discovered
 	var saved_quests=data.get("quest_states",{})
 	if saved_quests is Dictionary and not saved_quests.is_empty():
 		for quest_id in [QUEST_MEL,QUEST_BORIN,QUEST_MERCHANT,QUEST_ABYSS,QUEST_MONK,QUEST_SNOW]:
@@ -3284,11 +3402,12 @@ func load_world() -> void:
 		player.hp=minf(player.hp,player.max_hp)
 	if is_instance_valid(mel):
 		mel.set_tamed(mel_tamed)
-	if not lake_boss_defeated and world.is_lake_zone(int(player.position.x/32.0)):
-		ensure_lake_boss()
+	update_quest_markers()
+	if bool(data.get("in_lake_temple",false)):
+		player.position=world.lake_temple_position()
+		enter_lake_temple(true)
 		if is_instance_valid(lake_boss) and float(data.get("lake_boss_hp",-1.0))>0:
 			lake_boss.hp=clampf(float(data.get("lake_boss_hp",lake_boss.max_hp)),1.0,lake_boss.max_hp)
-	update_quest_markers()
 	if bool(data.get("in_purity",false)):
 		if bool(data.get("in_purity_realm",false)) and boss_defeated:
 			enter_purity_realm()
@@ -3319,6 +3438,16 @@ func meter_style(color: Color) -> StyleBoxFlat:
 	return style
 
 func use_selected() -> void:
+	if in_lake_temple:
+		if interact_nearby():
+			return
+		if selected==10:
+			eat()
+			return
+		if selected==24:
+			use_waystone()
+			return
+		return
 	if in_structure!="":
 		interact_nearby()
 		return
@@ -3349,8 +3478,17 @@ func use_waystone() -> void:
 	if not active or not is_instance_valid(player):
 		return
 	var village_center=Vector2(34*32+16,35*32-2)
-	# Waystone is an emergency return item. It must also work from both the
-	# Guardian arena and the unlocked Purity realm instead of becoming dead weight.
+	# Waystone is an emergency return item. It must work from every special arena.
+	if in_lake_temple:
+		leave_lake_temple()
+		player.position=village_center
+		player.velocity=Vector2.ZERO
+		player.max_fall_speed=0
+		player.set_water_state(false)
+		status.text="✦ A Waystone arrancou você do Templo Submerso e trouxe você à vila."
+		message_time=5
+		save_world()
+		return
 	if in_purity:
 		leave_purity()
 		player.position=village_center
@@ -3426,7 +3564,7 @@ func update_purity_hud() -> void:
 	var size=get_viewport_rect().size
 	boss_panel.position=Vector2((size.x-380)/2,88)
 	var show_purity=active and in_purity and is_instance_valid(boss) and not modal
-	var show_lake=active and not in_purity and is_instance_valid(lake_boss) and not modal and is_instance_valid(world) and world.is_lake_zone(int(player.position.x/32.0))
+	var show_lake=active and in_lake_temple and is_instance_valid(lake_boss) and not modal
 	boss_panel.visible=show_purity or show_lake
 	if show_purity:
 		boss_bar.max_value=boss.max_hp
@@ -3435,7 +3573,7 @@ func update_purity_hud() -> void:
 	elif show_lake:
 		boss_bar.max_value=lake_boss.max_hp
 		boss_bar.value=lake_boss.hp
-		boss_title.text="LEVIATÃ DO LAGO SOMBRIO  %d / %d" % [ceili(lake_boss.hp),int(lake_boss.max_hp)]
+		boss_title.text="LEVIATÃ DO LAGO ABISSAL  %d / %d" % [ceili(lake_boss.hp),int(lake_boss.max_hp)]
 	portal_button.position=Vector2((size.x-250)/2,size.y-172)
 	portal_button.size=Vector2(250,40)
 	portal_button.visible=active and not modal and nearby_portal()
@@ -3449,7 +3587,7 @@ func set_overworld_entities_visible(value: bool) -> void:
 				node.process_mode=Node.PROCESS_MODE_INHERIT if value else Node.PROCESS_MODE_DISABLED
 
 func enter_purity(skip_dialogue: bool=false) -> void:
-	if in_purity:
+	if in_purity or in_lake_temple:
 		return
 	ensure_purity_hud()
 	return_position=player.position
@@ -3476,6 +3614,7 @@ func enter_purity(skip_dialogue: bool=false) -> void:
 	lake_boss=null
 	player.position=Vector2(10*32,35*32-2)
 	player.velocity=Vector2.ZERO
+	player.set_water_state(false)
 	player.max_fall_speed=0
 	player.camera.limit_left=5*32
 	player.camera.limit_right=37*32
@@ -3627,7 +3766,9 @@ func leave_purity() -> void:
 	save_world()
 
 func on_player_died() -> void:
-	if in_purity:
+	if in_lake_temple:
+		call_deferred("leave_lake_temple",true)
+	elif in_purity:
 		call_deferred("leave_purity")
 
 func on_boss_defeated() -> void:

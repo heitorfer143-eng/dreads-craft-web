@@ -19,6 +19,11 @@ func run() -> void:
 	await physics_frame
 	await physics_frame
 	check(scene.world.cells.size()==96,"World height")
+	var lake_sig_a=scene.world.lake_signature()
+	var lake_center_a=scene.world.lake_center_x
+	check(scene.world.is_lake_zone(lake_center_a),"Seeded lake center is inside lake")
+	check(scene.world.lake_depth>=7 and scene.world.lake_depth<=11,"Seeded lake depth range")
+	check(scene.world.lake_width>=20 and scene.world.lake_width<=28,"Seeded lake width range")
 	check(scene.quest_states.size()>=6,"Six quest states exist")
 	check(scene.quest_states.has(scene.QUEST_ABYSS),"Abyss hunt quest exists")
 	check(ResourceLoader.exists("res://assets/ui/new_world_icon.svg"),"Lobby new-world icon exists")
@@ -143,6 +148,16 @@ func run() -> void:
 	var fingerprint=JSON.stringify(scene.world.cells)
 	scene.world.generate(42019)
 	check(JSON.stringify(scene.world.cells)==fingerprint,"Seed determinism")
+	check(scene.world.lake_signature()==lake_sig_a,"Lake geometry is deterministic for same seed")
+	scene.world.generate(42020)
+	check(scene.world.lake_signature()!=lake_sig_a,"Different seed changes lake geometry")
+	scene.world.generate(42019)
+	check(scene.world.is_near_lake_temple(scene.world.lake_temple_position()),"Submerged temple entrance exists")
+	check(not is_instance_valid(scene.lake_boss),"Leviathan never spawns in overworld lake")
+	var lake_boss_class=load("res://scripts/lake_leviathan.gd")
+	var test_boss=lake_boss_class.new()
+	check(test_boss.max_hp==1400,"Abyssal Leviathan has 1400 HP")
+	test_boss.free()
 	var ores={6:0,7:0}
 	var paired=0
 	for y in range(1,95):
