@@ -22,6 +22,9 @@ func run() -> void:
 	check(scene.quest_states.size()>=6,"Six quest states exist")
 	check(scene.quest_states.has(scene.QUEST_ABYSS),"Abyss hunt quest exists")
 	check(ResourceLoader.exists("res://assets/ui/new_world_icon.svg"),"Lobby new-world icon exists")
+	check(ResourceLoader.exists("res://assets/interiors/blacksmith.png"),"Remodeled blacksmith interior exists")
+	check(ResourceLoader.exists("res://assets/interiors/market.png"),"Remodeled market interior exists")
+	check(ResourceLoader.exists("res://assets/interiors/chapel.png"),"Remodeled chapel interior exists")
 	var tree_cell=Vector2i(-1,-1)
 	for y in range(scene.world.cells.size()):
 		for x in range(scene.world.cells[y].size()):
