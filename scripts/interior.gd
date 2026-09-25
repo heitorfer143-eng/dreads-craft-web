@@ -9,30 +9,47 @@ func configure(p_kind:String,p_name:String) -> void:
 	kind=p_kind
 	display_name=p_name
 
+func _load_background_texture() -> Texture2D:
+	var png_path="res://assets/interiors/%s.png" % kind
+	var svg_path="res://assets/interiors/%s.svg" % kind
+	var emergency_path="res://assets/backgrounds/dark_castles_generated.png"
+
+	# A file can exist but still fail Godot import (the previous chapel PNG did).
+	# Never assume ResourceLoader.exists() means load() returned a usable texture.
+	var tex: Texture2D=null
+	if ResourceLoader.exists(png_path):
+		tex=load(png_path) as Texture2D
+	if tex==null and ResourceLoader.exists(svg_path):
+		tex=load(svg_path) as Texture2D
+	if tex==null and ResourceLoader.exists(emergency_path):
+		tex=load(emergency_path) as Texture2D
+	return tex
+
 func _ready() -> void:
-	z_index=-10
+	# Keep the room in the same world canvas as the player, but behind every
+	# interactive object. z_as_relative=false avoids double-negative child Z.
+	z_index=0
 	background=Sprite2D.new()
-	# BUILD 14.0: the visible rooms use the generated/remodeled PNG artwork.
-	# The files are 16:9 pixel-art backgrounds and are scaled with NEAREST so
-	# they remain crisp on Web and Android landscape.
-	var interior_path="res://assets/interiors/%s.png" % kind
-	var fallback_path="res://assets/interiors/%s.svg" % kind
-	if ResourceLoader.exists(interior_path):
-		background.texture=load(interior_path)
-	elif ResourceLoader.exists(fallback_path):
-		background.texture=load(fallback_path)
-	else:
-		background.texture=load("res://assets/backgrounds/dark_castles_generated.png")
+	background.z_as_relative=false
+	background.z_index=-20
+	background.texture=_load_background_texture()
 	background.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	background.position=Vector2(640,360)
-	var ts=background.texture.get_size()
-	background.scale=Vector2(1280.0/maxf(1.0,ts.x),720.0/maxf(1.0,ts.y))
-	background.z_index=-10
-	add_child(background)
 
-	# Invisible collision follows the floor line in the new artwork.
-	# Keeping collisions separate from the image means the art can be swapped
-	# without hiding the player or breaking the exit.
+	if background.texture!=null:
+		var ts=background.texture.get_size()
+		background.scale=Vector2(1280.0/maxf(1.0,ts.x),720.0/maxf(1.0,ts.y))
+		add_child(background)
+	else:
+		# Last-resort visual instead of a black screen if every asset fails.
+		var fallback=Polygon2D.new()
+		fallback.polygon=PackedVector2Array([
+			Vector2(0,0),Vector2(1280,0),Vector2(1280,720),Vector2(0,720)
+		])
+		fallback.color=Color("221a2a")
+		fallback.z_index=-20
+		add_child(fallback)
+
 	var body=StaticBody2D.new()
 	body.collision_layer=1
 
@@ -50,4 +67,5 @@ func _ready() -> void:
 		wall_col.shape=wall_shape
 		wall_col.position=Vector2(x,360)
 		body.add_child(wall_col)
+
 	add_child(body)

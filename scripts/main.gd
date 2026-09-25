@@ -248,7 +248,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.0 • REMODELED INTERIORS"
+	build_badge.text="DREADS CRAFT • BUILD 14.0.1 • INTERIOR HOTFIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -2890,6 +2890,9 @@ func enter_structure(kind: String, display_name: String) -> void:
 	player.camera.limit_right=1280
 	player.camera.limit_top=0
 	player.camera.limit_bottom=720
+	# Frame the 1280x720 interior background exactly while keeping the player
+	# close to the bottom of the screen.
+	player.camera.position=Vector2(0,-210)
 	player.camera.reset_smoothing()
 	status.text="Dentro de "+display_name+" · aproxime-se da porta e use FALAR / ENTRAR para sair"
 	message_time=4
@@ -2920,6 +2923,7 @@ func exit_structure() -> void:
 	player.camera.limit_right=320*32
 	player.camera.limit_top=0
 	player.camera.limit_bottom=96*32
+	player.camera.position=Vector2(0,-100)
 	player.camera.reset_smoothing()
 
 func show_npc_dialogue(npc) -> void:

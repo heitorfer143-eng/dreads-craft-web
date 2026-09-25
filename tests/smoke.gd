@@ -24,7 +24,17 @@ func run() -> void:
 	check(ResourceLoader.exists("res://assets/ui/new_world_icon.svg"),"Lobby new-world icon exists")
 	check(ResourceLoader.exists("res://assets/interiors/blacksmith.png"),"Remodeled blacksmith interior exists")
 	check(ResourceLoader.exists("res://assets/interiors/market.png"),"Remodeled market interior exists")
-	check(ResourceLoader.exists("res://assets/interiors/chapel.png"),"Remodeled chapel interior exists")
+	check(ResourceLoader.exists("res://assets/interiors/chapel.png"),"Remodeled chapel interior file exists")
+	var interior_class=load("res://scripts/interior.gd")
+	for interior_kind in ["blacksmith","market","chapel"]:
+		var room=interior_class.new()
+		room.configure(interior_kind,"Smoke Test")
+		root.add_child(room)
+		await process_frame
+		check(is_instance_valid(room.background),"Interior background node exists: "+interior_kind)
+		check(room.background.texture!=null,"Interior has a usable texture or fallback: "+interior_kind)
+		room.queue_free()
+		await process_frame
 	var tree_cell=Vector2i(-1,-1)
 	for y in range(scene.world.cells.size()):
 		for x in range(scene.world.cells[y].size()):
