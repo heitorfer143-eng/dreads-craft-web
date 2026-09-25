@@ -166,6 +166,8 @@ static func read_path(save_path: String) -> Dictionary:
 		parsed["lake_width"]=-1
 	if not parsed.has("lake_depth"):
 		parsed["lake_depth"]=-1
+	if not parsed.has("lake_water_y"):
+		parsed["lake_water_y"]=-1
 	if not parsed.has("lake_discovered"):
 		parsed["lake_discovered"]=false
 	if not parsed.has("in_lake_temple"):

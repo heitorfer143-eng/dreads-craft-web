@@ -7,8 +7,8 @@ const HEIGHT = 96
 const VILLAGE_MIN_X = 4
 const VILLAGE_MAX_X = 66
 const SNOW_START_X = 190
-const LAKE_MIN_CENTER_X = 105
-const LAKE_MAX_CENTER_X = 155
+const LAKE_MIN_CENTER_X = 120
+const LAKE_MAX_CENTER_X = 150
 var lake_center_x := 130
 var lake_width := 24
 var lake_depth := 8
@@ -43,13 +43,9 @@ func generate(seed_value: int) -> void:
 		row.fill(0)
 		cells.append(row)
 	for x in WIDTH:
-		var height = 35 + int(noise.get_noise_1d(x) * (6 if x < 100 else 13))
-		if x < 70:
-			height = 35
-		elif not purity_realm and is_lake_zone(x):
+		var height=_natural_surface_height(x,noise)
+		if not purity_realm and is_lake_zone(x):
 			height=lake_water_y+lake_floor_depth(x)
-		elif not purity_realm and x>=SNOW_START_X:
-			height = 37 + int(noise.get_noise_1d(x*1.35)*6)
 		surfaces.append(height)
 		for y in range(height, HEIGHT):
 			var id = 1 if y == height else 2 if y < height+4 else 3
@@ -116,19 +112,73 @@ func generate_structures() -> void:
 					if cells[y][x] in [3,4,5,8,9]:
 						cells[y][x]=0
 
+func _natural_surface_height(x:int,noise:FastNoiseLite) -> int:
+	var height=35+int(noise.get_noise_1d(x)*(6 if x<100 else 13))
+	if x<70:
+		height=35
+	elif not purity_realm and x>=SNOW_START_X:
+		height=37+int(noise.get_noise_1d(x*1.35)*6)
+	return clampi(height,22,58)
+
 func configure_lake(seed_value:int) -> void:
 	if purity_realm:
 		return
 	var rng=RandomNumberGenerator.new()
 	rng.seed=seed_value ^ 0x4C414B45
-	lake_center_x=rng.randi_range(LAKE_MIN_CENTER_X,LAKE_MAX_CENTER_X)
+	var noise=FastNoiseLite.new()
+	noise.seed=seed_value
+	noise.frequency=0.027
+
 	lake_width=rng.randi_range(20,28)
 	lake_depth=rng.randi_range(7,11)
-	lake_water_y=35+rng.randi_range(-1,1)
-	lake_start_x=clampi(lake_center_x-int(lake_width/2),82,SNOW_START_X-24)
-	lake_end_x=clampi(lake_start_x+lake_width,LAKE_MIN_CENTER_X+10,SNOW_START_X-12)
-	lake_width=lake_end_x-lake_start_x
+
+	# Choose a seeded low-slope stretch between the two mine entrances.
+	# This keeps the water physically inside its banks instead of hanging in open air.
+	var best_center=LAKE_MIN_CENTER_X
+	var best_score=999999
+	for attempt in range(16):
+		var candidate=rng.randi_range(LAKE_MIN_CENTER_X,LAKE_MAX_CENTER_X)
+		var start=clampi(candidate-int(lake_width/2),108,164-lake_width)
+		var finish=start+lake_width
+		var left_height=_natural_surface_height(start-1,noise)
+		var right_height=_natural_surface_height(finish+1,noise)
+		var center_height=_natural_surface_height(int((start+finish)/2),noise)
+		var score=absi(left_height-right_height)*8+absi(center_height-left_height)+absi(center_height-right_height)
+		if score<best_score:
+			best_score=score
+			best_center=int((start+finish)/2)
+
+	lake_center_x=best_center
+	lake_start_x=clampi(lake_center_x-int(lake_width/2),108,164-lake_width)
+	lake_end_x=lake_start_x+lake_width
+	lake_center_x=int((lake_start_x+lake_end_x)/2)
+	var left_bank=_natural_surface_height(lake_start_x-1,noise)
+	var right_bank=_natural_surface_height(lake_end_x+1,noise)
+	lake_water_y=clampi(maxi(left_bank,right_bank)+1,26,56)
 	lake_generated=true
+
+func restore_lake_layout(center:int,width:int,depth:int) -> void:
+	if purity_realm:
+		return
+	lake_width=clampi(width,20,28)
+	lake_depth=clampi(depth,7,11)
+	lake_center_x=clampi(center,LAKE_MIN_CENTER_X,LAKE_MAX_CENTER_X)
+	lake_start_x=clampi(lake_center_x-int(lake_width/2),108,164-lake_width)
+	lake_end_x=lake_start_x+lake_width
+	lake_center_x=int((lake_start_x+lake_end_x)/2)
+	lake_generated=true
+	_anchor_lake_to_banks()
+
+func _anchor_lake_to_banks() -> void:
+	if surfaces.size()!=WIDTH:
+		return
+	var left_x=clampi(lake_start_x-1,0,WIDTH-1)
+	var right_x=clampi(lake_end_x+1,0,WIDTH-1)
+	var left_bank=int(surfaces[left_x])
+	var right_bank=int(surfaces[right_x])
+	# Larger Y means lower terrain. One tile below the lower bank guarantees
+	# the water never renders above either shore.
+	lake_water_y=clampi(maxi(left_bank,right_bank)+1,26,56)
 
 func lake_floor_depth(x:int) -> int:
 	if not is_lake_zone(x):
@@ -145,6 +195,7 @@ func lake_floor_depth(x:int) -> int:
 func repair_lake_zone() -> void:
 	if not lake_generated:
 		configure_lake(world_seed)
+	_anchor_lake_to_banks()
 	for x in range(lake_start_x,lake_end_x+1):
 		if x<0 or x>=surfaces.size():
 			continue

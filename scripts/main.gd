@@ -257,7 +257,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.2 • ABYSSAL LAKE"
+	build_badge.text="DREADS CRAFT • BUILD 14.2.1 • LAKE + HUD FIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -443,12 +443,16 @@ func layout() -> void:
 		clock_frame.position=Vector2((size.x-138)/2.0,6) if mobile_layout else Vector2((size.x-184)/2.0,10)
 		clock_frame.size=Vector2(184,38)
 	if is_instance_valid(action_box):
-		action_box.visible=not mobile_layout
-		action_box.scale=Vector2.ONE
-		action_box.position=Vector2(size.x-183,10)
+		# Keep the familiar top-right inventory/crafting/menu/fullscreen buttons
+		# on mobile too; the previous lake build accidentally hid the whole strip.
+		action_box.visible=true
+		action_box.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		var actions_width=175.0*action_box.scale.x
+		action_box.position=Vector2(size.x-actions_width-12.0,8.0 if mobile_layout else 10.0)
 	if is_instance_valid(mode_frame):
-		mode_frame.visible=not mobile_layout
-		mode_frame.position=Vector2(size.x-144,56)
+		mode_frame.visible=true
+		mode_frame.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		mode_frame.position=Vector2(size.x-122.0,48.0) if mobile_layout else Vector2(size.x-144,56)
 		mode_frame.size=Vector2(132,32)
 	if is_instance_valid(hotbar_back):
 		# Mobile hotbar is deliberately larger than desktop: 9 x 64px slots plus a
@@ -3315,7 +3319,7 @@ func save_world() -> bool:
 		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":7,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0}
+	var data={"version":7,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -3338,6 +3342,12 @@ func load_world() -> void:
 	world_name=str(data.name)
 	world.cells=data.cells
 	world.surfaces.assign(data.surfaces)
+	if int(data.get("lake_center_x",-1))>=0:
+		world.restore_lake_layout(
+			int(data.get("lake_center_x",world.lake_center_x)),
+			int(data.get("lake_width",world.lake_width)),
+			int(data.get("lake_depth",world.lake_depth))
+		)
 	world.repair_village_zone()
 	world.repair_lake_zone()
 	world.remove_ore(25)

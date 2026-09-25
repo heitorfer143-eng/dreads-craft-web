@@ -25,11 +25,19 @@ func run() -> void:
 	var width_a=game.world.lake_width
 	var depth_a=game.world.lake_depth
 	var water_y=game.world.lake_water_y
-	check(center_a>=105 and center_a<=155,"Lake center range")
+	check(center_a>=120 and center_a<=150,"Lake center range")
 	check(width_a>=20 and width_a<=28,"Lake width range")
 	check(depth_a>=7 and depth_a<=11,"Lake depth range")
 	check(game.world.is_lake_zone(center_a),"Lake center belongs to lake")
+	check(game.world.lake_water_y>game.world.surfaces[game.world.lake_start_x-1],"Water stays below left bank")
+	check(game.world.lake_water_y>game.world.surfaces[game.world.lake_end_x+1],"Water stays below right bank")
 	check(game.world.is_near_lake_temple(game.world.lake_temple_position()),"Temple entrance is at lake floor")
+	game.device_controls.set_mobile(true)
+	game.layout()
+	check(game.action_box.visible,"Mobile top action buttons stay visible")
+	check(game.mode_frame.visible,"Mobile survival/creative badge stays visible")
+	game.device_controls.set_mobile(false)
+	game.layout()
 
 	game.world.generate(42019)
 	check(game.world.lake_signature()==sig_a,"Same seed keeps identical lake")
