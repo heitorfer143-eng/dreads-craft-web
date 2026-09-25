@@ -22,6 +22,8 @@ func run() -> void:
 	check(scene.world.world_width()==320,"Initial streamed world width")
 	scene.world.ensure_generated_to(390)
 	check(scene.world.world_width()>=448,"World streams new terrain past the old 320-block edge")
+	check(scene.world.has_method("draw_village_decor"),"Village decoration pass exists")
+	check(scene.world.has_method("_draw_lamp_post") and scene.world.has_method("_draw_well"),"Medieval decoration helpers exist")
 	check(scene.world.get_cell(Vector2i(390,scene.world.surfaces[390]))!=0,"Streamed terrain has a surface")
 	var lake_sig_a=scene.world.lake_signature()
 	var lake_center_a=scene.world.lake_center_x
