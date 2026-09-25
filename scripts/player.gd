@@ -27,6 +27,10 @@ var air := 18.0
 var drown_tick := 0.0
 var current_form := "spike"
 var input_locked := false
+var world_min_x:=0.0
+var world_max_x:=320.0*32.0
+var world_min_y:=0.0
+var world_max_y:=96.0*32.0
 
 const SAFE_FALL_SPEED = 650.0
 const FALL_DAMAGE_DIVISOR = 12.0
@@ -112,8 +116,12 @@ func _physics_process(delta: float) -> void:
 			max_fall_speed=0.0
 		was_grounded=grounded_after
 
-	position.x=clampf(position.x,12,320*32-12)
-	if position.y>96*32:
+	var clamped_x=clampf(position.x,world_min_x+12.0,world_max_x-12.0)
+	if not is_equal_approx(clamped_x,position.x):
+		position.x=clamped_x
+		velocity.x=0.0
+	position.y=maxf(position.y,world_min_y+8.0)
+	if position.y>world_max_y:
 		respawn()
 
 	sprite.flip_h=face<0
@@ -142,6 +150,17 @@ func _normalize_form_sprite(kind:String) -> void:
 	var factor=target_height/maxf(1.0,tex_size.y)
 	sprite.scale=Vector2(factor,factor)
 	sprite.position.y=-30.0 if kind=="fox" else -30.0
+
+func set_world_bounds(min_x:float,max_x:float,min_y:float,max_y:float) -> void:
+	world_min_x=min_x
+	world_max_x=max_x
+	world_min_y=min_y
+	world_max_y=max_y
+	if is_instance_valid(camera):
+		camera.limit_left=int(min_x)
+		camera.limit_right=int(max_x)
+		camera.limit_top=int(min_y)
+		camera.limit_bottom=int(max_y)
 
 func set_form(form_id:String) -> void:
 	current_form="fox" if form_id=="fox" else "spike"

@@ -13,6 +13,9 @@ var amount_label:Label
 var network_id:String=""
 var networked:=false
 var pickup_requested:=false
+var pickup_request_time:=0.0
+const MAGNET_RADIUS=135.0
+const COLLECT_RADIUS=30.0
 
 func setup(p_item_id:int,p_count:int,p_player:CharacterBody2D,p_lifetime:float=300.0,p_network_id:String="",p_networked:bool=false) -> void:
 	item_id=p_item_id
@@ -67,31 +70,44 @@ func _physics_process(delta:float) -> void:
 	age+=delta
 	lifetime-=delta
 	pickup_delay=maxf(0.0,pickup_delay-delta)
+	pickup_request_time=maxf(0.0,pickup_request_time-delta)
+	if pickup_requested and pickup_request_time<=0:
+		pickup_requested=false
 	if lifetime<=0:
 		queue_free()
 		return
 
-	velocity.y=minf(700.0,velocity.y+900.0*delta)
-	velocity.x=move_toward(velocity.x,0.0,110.0*delta)
+	var distance=INF
+	var attracting=false
+	if pickup_delay<=0 and is_instance_valid(player):
+		distance=global_position.distance_to(player.global_position)
+		attracting=distance<MAGNET_RADIUS
+
+	if attracting:
+		var target=player.global_position+Vector2(0,-24)
+		var to_player=target-global_position
+		var speed=clampf(260.0+to_player.length()*3.0,260.0,720.0)
+		velocity=velocity.lerp(to_player.normalized()*speed,minf(1.0,delta*8.5))
+	else:
+		velocity.y=minf(700.0,velocity.y+900.0*delta)
+		velocity.x=move_toward(velocity.x,0.0,110.0*delta)
 	move_and_slide()
-	if is_on_floor():
+	if not attracting and is_on_floor():
 		velocity.y=0.0
 
 	if is_instance_valid(sprite):
 		sprite.position.y=-12.0+sin(age*5.0)*2.0
 
-	if pickup_delay<=0 and is_instance_valid(player) and global_position.distance_to(player.global_position)<46.0:
+	if pickup_delay<=0 and is_instance_valid(player) and distance<COLLECT_RADIUS:
 		var game=get_parent().get_parent() if get_parent()!=null and get_parent().get_parent()!=null else null
 		if networked and network_id!="":
 			if not pickup_requested and game!=null and game.has_method("request_online_drop_pickup"):
 				pickup_requested=true
-				pickup_delay=0.75
+				pickup_request_time=1.0
 				game.request_online_drop_pickup(network_id)
 			return
-		player.inventory[item_id]=int(player.inventory.get(item_id,0))+count
-		if game!=null and game.has_method("on_ground_item_picked"):
-			game.on_ground_item_picked(item_id,count)
-		queue_free()
+		if game!=null and game.has_method("try_collect_ground_item") and game.try_collect_ground_item(item_id,count):
+			queue_free()
 
 func serialize() -> Dictionary:
 	return {

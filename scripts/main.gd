@@ -5,6 +5,7 @@ const Player = preload("res://scripts/player.gd")
 const Mob = preload("res://scripts/mob.gd")
 const Items = preload("res://scripts/items.gd")
 const Saves = preload("res://scripts/save_game.gd")
+const Accounts = preload("res://scripts/account_store.gd")
 const Backdrop = preload("res://scripts/backdrop.gd")
 const LobbyBackdrop = preload("res://scripts/lobby_backdrop.gd")
 const NPC = preload("res://scripts/npc.gd")
@@ -135,6 +136,11 @@ var chat_button: Button
 var chat_close_button: Button
 var chat_messages:Array=[]
 var chest_inventories:Dictionary={}
+var login_root:Control
+var login_user:LineEdit
+var login_password:LineEdit
+var login_feedback:Label
+var current_account:=""
 const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16,28]
 const LOBBY_TIPS = [
 	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
@@ -167,7 +173,7 @@ func _ready() -> void:
 	online.failed.connect(on_multiplayer_failed)
 	online.room_ready.connect(on_multiplayer_room_ready)
 	add_child(online)
-	show_main()
+	show_login()
 	get_tree().auto_accept_quit=false
 
 func configure_input() -> void:
@@ -836,8 +842,117 @@ func animate_lobby(delta: float) -> void:
 			menu_tip_label.text="✦  "+LOBBY_TIPS[menu_tip_index]
 
 
+func show_login() -> void:
+	active=false
+	modal=true
+	if is_instance_valid(login_root):
+		login_root.queue_free()
+	login_root=Control.new()
+	login_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ui.add_child(login_root)
+	if is_instance_valid(lobby_root):
+		lobby_root.hide()
+	if is_instance_valid(menu_background):
+		menu_background.hide()
+	var background=TextureRect.new()
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if ResourceLoader.exists("res://assets/backgrounds/dreads_craft_cover.jpg"):
+		background.texture=load("res://assets/backgrounds/dreads_craft_cover.jpg")
+	background.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	background.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	background.modulate=Color("9e96a6")
+	login_root.add_child(background)
+	var shade=ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color=Color("08050dcc")
+	login_root.add_child(shade)
+	var center=CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	login_root.add_child(center)
+	var card=PanelContainer.new()
+	card.custom_minimum_size=Vector2(460,500)
+	card.add_theme_stylebox_override("panel",compact_panel_style(0.96,Color("9c6c48"),12))
+	center.add_child(card)
+	var box=VBoxContainer.new()
+	box.add_theme_constant_override("separation",12)
+	card.add_child(box)
+	var title=label("DREADS CRAFT",38)
+	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color",Color("f1d7ad"))
+	box.add_child(title)
+	var sub=label("CONTA LOCAL · SEU REINO, SEU PROGRESSO",11)
+	sub.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_color_override("font_color",Color("bca9c4"))
+	box.add_child(sub)
+	box.add_child(label("Usuário",13))
+	login_user=LineEdit.new()
+	login_user.placeholder_text="Digite seu usuário"
+	login_user.max_length=20
+	login_user.text=Accounts.last_user()
+	login_user.custom_minimum_size=Vector2(0,46)
+	box.add_child(login_user)
+	box.add_child(label("Senha",13))
+	login_password=LineEdit.new()
+	login_password.placeholder_text="Digite sua senha"
+	login_password.secret=true
+	login_password.max_length=72
+	login_password.custom_minimum_size=Vector2(0,46)
+	login_password.text_submitted.connect(func(_value): attempt_login())
+	box.add_child(login_password)
+	login_feedback=label("",12)
+	login_feedback.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	login_feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	login_feedback.add_theme_color_override("font_color",Color("e5b9a8"))
+	box.add_child(login_feedback)
+	var enter=button("ENTRAR",attempt_login)
+	enter.custom_minimum_size=Vector2(0,54)
+	box.add_child(enter)
+	var create=button("CRIAR CONTA",attempt_create_account)
+	create.custom_minimum_size=Vector2(0,48)
+	box.add_child(create)
+	var note=label("Conta local deste dispositivo. A senha nunca é salva em texto puro.",10)
+	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	note.add_theme_color_override("font_color",Color("9f92a6"))
+	box.add_child(note)
+
+func attempt_login() -> void:
+	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
+		return
+	var result=Accounts.authenticate(login_user.text,login_password.text)
+	if not bool(result.get("ok",false)):
+		login_feedback.text=str(result.get("message","Falha no login."))
+		return
+	current_account=str(result.get("user",""))
+	Saves.set_account(current_account)
+	login_password.clear()
+	show_main()
+
+func attempt_create_account() -> void:
+	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
+		return
+	var result=Accounts.create_account(login_user.text,login_password.text)
+	if not bool(result.get("ok",false)):
+		login_feedback.text=str(result.get("message","Falha ao criar conta."))
+		return
+	current_account=str(result.get("user",""))
+	Saves.set_account(current_account)
+	login_password.clear()
+	show_main()
+
+func logout_account() -> void:
+	if active and not multiplayer_active:
+		save_world()
+	Accounts.logout()
+	Saves.clear_account()
+	current_account=""
+	show_login()
+
 func show_main() -> void:
 	active=false
+	modal=true
+	if is_instance_valid(login_root):
+		login_root.hide()
 	if is_instance_valid(chat_panel):
 		chat_panel.hide()
 	if is_instance_valid(chat_button):
@@ -987,6 +1102,7 @@ func show_main() -> void:
 	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer))
 	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2))
 	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia e controles do PC.","res://assets/items/menu.png",func(): show_settings(true)))
+	right.add_child(lobby_button("SAIR DA CONTA","Voltar para a tela de login.","res://assets/items/menu.png",logout_account))
 	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit())
 	right.add_child(exit_button)
 
@@ -1324,10 +1440,8 @@ func current_online_zone() -> String:
 func apply_online_block(cell:Vector2i,id:int) -> void:
 	if not active or in_purity or not is_instance_valid(world):
 		return
-	if cell.x<0 or cell.x>=World.MAX_STREAM_WIDTH or cell.y<0 or cell.y>=95:
+	if cell.x<0 or cell.x>=world.world_width() or cell.y<0 or cell.y>=World.HEIGHT-1:
 		return
-	if cell.x>=world.world_width():
-		world.ensure_generated_to(cell.x+World.STREAM_CHUNK)
 	world.set_cell(cell,id)
 
 func on_multiplayer_disconnected() -> void:
@@ -1652,6 +1766,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	player.position=player.spawn_position
 	add_child(player)
 	player.set_form(current_form)
+	player.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	player.died.connect(on_player_died)
 	if creative:
 		for id in Items.NAMES:
@@ -1662,7 +1777,10 @@ func start_world(creative: bool, seed_value: int) -> void:
 		hotbar=[0,0,0,0,0,0,0,0,0]
 		selected=0
 	world.camera=player.camera
-	player.camera.limit_right=World.MAX_STREAM_WIDTH*32
+	player.camera.limit_left=0
+	player.camera.limit_right=world.world_width()*32
+	player.camera.limit_top=0
+	player.camera.limit_bottom=World.HEIGHT*32
 	sky.camera=player.camera
 	enemies=Node2D.new()
 	add_child(enemies)
@@ -2863,6 +2981,14 @@ func drop_selected_item(amount:int=1) -> void:
 	message_time=2.5
 	refresh_hud()
 
+func try_collect_ground_item(item_id:int,count:int) -> bool:
+	if not is_instance_valid(player) or item_id<=0 or count<=0 or not Items.NAMES.has(item_id):
+		return false
+	player.inventory[item_id]=int(player.inventory.get(item_id,0))+count
+	sync_hotbar_from_inventory()
+	on_ground_item_picked(item_id,count)
+	return true
+
 func on_ground_item_picked(item_id:int,count:int) -> void:
 	status.text="+%d %s" % [count,Items.NAMES.get(item_id,"item")]
 	message_time=1.2
@@ -3053,12 +3179,11 @@ func _process(delta: float) -> void:
 			progress=0
 			status.text="A vila é protegida: não é possível quebrar blocos aqui."
 			message_time=1.5
-		elif not player.creative and not Items.can_mine(id,player.inventory):
-			progress=0
-			status.text="Requer picareta de "+str({7:"pedra",14:"ferro",15:"diamante",25:"diamante"}.get(id,"material superior"))
-			message_time=1
 		else:
 			progress+=delta*Items.mining_speed(player.inventory)
+			if not player.creative and Items.required_pick_tier(id)>0 and not Items.can_mine(id,player.inventory):
+				status.text="Sem "+Items.mining_requirement_text(id)+" · o bloco quebra, mas não gera drop."
+				message_time=1
 		if (player.creative or in_purity_realm or not world.is_village_protected(target)) and (player.creative or progress>=Items.HARDNESS.get(id,1.0)):
 			if id==28:
 				spill_chest(target)
@@ -3066,17 +3191,16 @@ func _process(delta: float) -> void:
 			if multiplayer_active and is_instance_valid(online):
 				online.send_block_change(target,0)
 			if is_instance_valid(game_audio): game_audio.mine()
-			var drop=2 if id==1 else id
-			if in_purity_realm:
-				player.inventory[drop]=int(player.inventory.get(drop,0))+1
-				status.text="+1 "+Items.NAMES.get(drop,"item")
-				message_time=1.5
-			else:
-				var drop_position=Vector2(target.x*32+16,target.y*32+8)
-				if multiplayer_active and is_instance_valid(online):
-					online.send_drop_spawn(drop,1,drop_position)
+			var drop=Items.drop_for_block(id,player.inventory)
+			if drop>0:
+				if in_purity_realm:
+					try_collect_ground_item(drop,1)
 				else:
-					spawn_ground_drop(drop,1,drop_position)
+					var drop_position=Vector2(target.x*32+16,target.y*32+8)
+					if multiplayer_active and is_instance_valid(online):
+						online.send_drop_spawn(drop,1,drop_position)
+					else:
+						spawn_ground_drop(drop,1,drop_position)
 			progress=0
 			if is_instance_valid(device_controls) and device_controls.mobile and mining_held:
 				target=Vector2i(-1,-1)
@@ -3653,6 +3777,7 @@ func ensure_polar_bear() -> void:
 	bear.kind="polar_bear"
 	bear.player=player
 	bear.difficulty_level=maxi(2,difficulty)
+	bear.set_world_bounds(0.0,float(world.world_width()*32))
 	bear.position=Vector2(spawn.x*32+16,spawn.y*32-2)
 	bear.killed.connect(func():
 		polar_bear_defeated=true
@@ -3676,7 +3801,7 @@ func spawn_mob() -> void:
 	# realmente deixar o povoado.
 	if player_cell<=World.VILLAGE_MAX_X+10 or world.is_lake_zone(player_cell):
 		return
-	var cell=clampi(player_cell+(18 if randf()>.5 else -18),World.VILLAGE_MAX_X+11,317)
+	var cell=clampi(player_cell+(18 if randf()>.5 else -18),World.VILLAGE_MAX_X+11,world.world_width()-3)
 	if world.is_lake_zone(cell):
 		return
 	if world.is_village_protected(Vector2i(cell,world.surfaces[cell])):
@@ -3688,6 +3813,7 @@ func spawn_mob() -> void:
 	mob.kind="undead_knight" if roll>.76 else "corrupted_skeleton" if roll>.38 else "dark_slime"
 	mob.player=player
 	mob.difficulty_level=difficulty
+	mob.set_world_bounds(0.0,float(world.world_width()*32))
 	mob.position=Vector2(cell*32,world.surfaces[cell]*32-2)
 	mob.killed.connect(func():
 		var death_pos=mob.position
@@ -3846,7 +3972,7 @@ func save_world() -> bool:
 		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":9,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"chests":serialize_chests()}
+	var data={"version":10,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"chests":serialize_chests()}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]

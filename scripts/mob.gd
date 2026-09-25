@@ -12,6 +12,8 @@ var death_timer = -1.0
 var sprite: AnimatedSprite2D
 var hit_flash=0.0
 var knockback=Vector2.ZERO
+var world_min_x:=0.0
+var world_max_x:=320.0*32.0
 
 func _ready() -> void:
 	collision_layer=4
@@ -55,6 +57,10 @@ func _ready() -> void:
 	damage*=damage_mult
 	queue_redraw()
 
+func set_world_bounds(min_x:float,max_x:float) -> void:
+	world_min_x=min_x
+	world_max_x=max_x
+
 func _physics_process(delta: float) -> void:
 	queue_redraw()
 	if death_timer>=0:
@@ -76,6 +82,11 @@ func _physics_process(delta: float) -> void:
 	elif is_on_wall() and is_on_floor():
 		velocity.y=-430
 	move_and_slide()
+	var clamped_x=clampf(position.x,world_min_x+16.0,world_max_x-16.0)
+	if not is_equal_approx(clamped_x,position.x):
+		position.x=clamped_x
+		velocity.x=0.0
+		knockback.x=0.0
 	sprite.flip_h=direction<0
 	var distance=position.distance_to(player.position)
 	var attack_range=82.0 if kind=="polar_bear" else 62.0 if kind in ["wolf","dark_slime"] else 58.0

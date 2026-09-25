@@ -127,6 +127,14 @@ static func craft(inventory: Dictionary, recipe: Dictionary, creative: bool, nea
 	return true
 
 const PICK_TIERS = {13: 1, 17: 2, 18: 3, 19: 4}
+const MINING_RULES = {
+	3: {"min_pick":1,"drop":3},
+	6: {"min_pick":1,"drop":6},
+	7: {"min_pick":2,"drop":7},
+	14: {"min_pick":3,"drop":14},
+	15: {"min_pick":4,"drop":15},
+	25: {"min_pick":4,"drop":25}
+}
 const SWORD_DAMAGE = {20: 14, 21: 20, 11: 28, 22: 42}
 const SWORD_CRIT_CHANCE = {20: 0.08, 21: 0.10, 11: 0.13, 22: 0.18}
 const SWORD_CRIT_MULT = {20: 1.50, 21: 1.55, 11: 1.65, 22: 1.80}
@@ -141,8 +149,25 @@ static func best_pick(inventory: Dictionary) -> int:
 			tier=maxi(tier,PICK_TIERS[id])
 	return tier
 
+static func required_pick_tier(id:int) -> int:
+	return int(MINING_RULES.get(id,{"min_pick":0}).get("min_pick",0))
+
 static func can_mine(id: int, inventory: Dictionary) -> bool:
-	return best_pick(inventory)>=int({7:2,14:3,15:4,25:4}.get(id,0))
+	return best_pick(inventory)>=required_pick_tier(id)
+
+static func drop_for_block(id:int, inventory:Dictionary) -> int:
+	if id==1:
+		return 2
+	var rule=MINING_RULES.get(id,{})
+	if rule is Dictionary and not rule.is_empty():
+		if best_pick(inventory)<int(rule.get("min_pick",0)):
+			return 0
+		return int(rule.get("drop",id))
+	return id
+
+static func mining_requirement_text(id:int) -> String:
+	var tier=required_pick_tier(id)
+	return str({1:"picareta de madeira",2:"picareta de pedra",3:"picareta de ferro",4:"picareta de diamante"}.get(tier,""))
 
 static func crit_chance(id:int) -> float:
 	return float(SWORD_CRIT_CHANCE.get(id,0.05))

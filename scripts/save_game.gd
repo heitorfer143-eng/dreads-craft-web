@@ -3,11 +3,12 @@ extends RefCounted
 const PATH = "user://dreads_world.json"
 const INDEX_PATH = "user://dreads_worlds.json"
 const WORLDS_DIR = "user://worlds"
-const SAVE_VERSION = 9
+const SAVE_VERSION = 10
 const VALID_BLOCK_IDS = [0,1,2,3,4,5,6,7,8,9,14,15,16,25,28]
 const MIN_WORLD_WIDTH = 320
 const MAX_WORLD_WIDTH = 8192
 static var active_id := ""
+static var active_account := ""
 
 static func _safe_id(name: String) -> String:
 	var clean=name.to_lower().strip_edges().replace(" ","_")
@@ -18,10 +19,41 @@ static func _safe_id(name: String) -> String:
 static func _abs(path: String) -> String:
 	return ProjectSettings.globalize_path(path)
 
+static func set_account(username:String) -> void:
+	active_account=username.strip_edges().to_lower()
+	active_id=""
+	_claim_legacy_worlds()
+
+static func clear_account() -> void:
+	active_account=""
+	active_id=""
+
+static func _claim_legacy_worlds() -> void:
+	if active_account=="":
+		return
+	var entries=_read_index()
+	var owns_any=false
+	for entry in entries:
+		if str(entry.get("owner",""))==active_account:
+			owns_any=true
+			break
+	if owns_any:
+		return
+	var changed=false
+	for i in entries.size():
+		if str(entries[i].get("owner",""))=="":
+			entries[i]["owner"]=active_account
+			changed=true
+	if changed:
+		_write_index(entries)
+
 static func list_worlds() -> Array:
 	# Always use the validated index reader so a damaged primary index can recover
 	# from the automatic .bak/.tmp copies instead of making all worlds look missing.
-	var result=_read_index()
+	if active_account=="":
+		return []
+	_claim_legacy_worlds()
+	var result=_read_index().filter(func(e): return str(e.get("owner",""))==active_account)
 	if result.is_empty() and FileAccess.file_exists(PATH):
 		var legacy=read_path(PATH)
 		if not legacy.is_empty():
@@ -61,6 +93,8 @@ static func select_world(id: String) -> void:
 	active_id=id
 
 static func write(data: Dictionary) -> Error:
+	if active_account=="":
+		return ERR_INVALID_PARAMETER
 	var dir_abs=_abs(WORLDS_DIR)
 	var directory_error=DirAccess.make_dir_recursive_absolute(dir_abs)
 	if directory_error!=OK:
@@ -69,6 +103,7 @@ static func write(data: Dictionary) -> Error:
 		active_id=_safe_id(str(data.get("name","Reino do Abismo")))
 
 	data["version"]=SAVE_VERSION
+	data["owner"]=active_account
 	var save_path=WORLDS_DIR+"/"+active_id+".json"
 	var tmp_path=save_path+".tmp"
 	var bak_path=save_path+".bak"
@@ -113,7 +148,8 @@ static func write(data: Dictionary) -> Error:
 		"clock":float(data.get("clock",0.32)),
 		"creative":bool(data.get("creative",false)),
 		"difficulty":int(data.get("difficulty",1)),
-		"saved_at":int(data.get("saved_at",0))
+		"saved_at":int(data.get("saved_at",0)),
+		"owner":active_account
 	}
 	var replaced=false
 	for i in entries.size():
@@ -134,6 +170,9 @@ static func read_path(save_path: String) -> Dictionary:
 		return {}
 	var version=int(parsed.get("version",1))
 	if version<1 or version>SAVE_VERSION:
+		return {}
+	var owner=str(parsed.get("owner",""))
+	if active_account!="" and owner!="" and owner!=active_account:
 		return {}
 	# Forward migration: old worlds keep working after game updates.
 	if not parsed.has("hotbar"):
