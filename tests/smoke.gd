@@ -15,18 +15,37 @@ func run() -> void:
 	var scene=load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	await process_frame
+	var accounts=load("res://scripts/account_store.gd")
+	var saves=load("res://scripts/save_game.gd")
+	var smoke_user="smoke_"+str(Time.get_ticks_usec())
+	var smoke_password="TestPass987!"
+	var created=accounts.create_account(smoke_user,smoke_password)
+	check(bool(created.get("ok",false)),"Create local account")
+	check(not bool(accounts.authenticate(smoke_user,"wrong-password").get("ok",false)),"Reject wrong password")
+	check(bool(accounts.authenticate(smoke_user,smoke_password).get("ok",false)),"Login local account")
+	saves.set_account(smoke_user)
+	check(is_instance_valid(scene.login_root),"Login screen exists before entering game")
 	scene.start_world(false,42019)
 	await physics_frame
 	await physics_frame
 	check(scene.world.cells.size()==96,"World height")
-	check(scene.world.world_width()==320,"Initial streamed world width")
-	scene.world.ensure_generated_to(390)
-	check(scene.world.world_width()>=448,"World streams new terrain past the old 320-block edge")
+	check(scene.world.world_width()==640,"Finite world uses configured width")
+	var finite_width=scene.world.world_width()
+	scene.world.ensure_generated_to(finite_width+200)
+	check(scene.world.world_width()==finite_width,"World never grows past its finite boundary")
 	check(scene.world.has_method("draw_village_decor"),"Village decoration pass exists")
 	check(ResourceLoader.exists("res://assets/decor/decor_atlas.png"),"Decoration atlas from supplied art exists")
 	check(load("res://assets/decor/decor_atlas.png")!=null,"Decoration atlas imports correctly")
 	check(scene.world.has_method("_draw_decor_sprite"),"World decorations render from sprite atlas")
-	check(scene.world.get_cell(Vector2i(390,scene.world.surfaces[390]))!=0,"Streamed terrain has a surface")
+	var desert_x=scene.world.desert_center_cell()
+	check(scene.world.biome_at(desert_x)=="desert","Generated world contains a real desert region")
+	check(scene.world.get_cell(Vector2i(desert_x,scene.world.surfaces[desert_x]))==29,"Desert surface is sand")
+	check(scene.world.get_cell(Vector2i(desert_x,scene.world.surfaces[desert_x]+1))==30,"Desert subsurface is sandstone")
+	var desert_columns=0
+	for x in range(scene.world.desert_start_x,scene.world.desert_end_x+1):
+		if scene.world.is_desert_biome(x):
+			desert_columns+=1
+	check(desert_columns>=120,"Desert is a large biome instead of a tiny patch")
 	var lake_sig_a=scene.world.lake_signature()
 	var lake_center_a=scene.world.lake_center_x
 	check(scene.world.is_lake_zone(lake_center_a),"Seeded lake center is inside lake")
@@ -88,11 +107,24 @@ func run() -> void:
 	new_slime.free()
 	new_warden.free()
 	var items=load("res://scripts/items.gd")
+	check(items.drop_for_block(3,{})==0,"Stone broken by hand produces no drop")
+	check(items.drop_for_block(3,{13:1})==3,"Stone with wooden pickaxe drops stone")
+	check(items.drop_for_block(7,{13:1})==0 and items.drop_for_block(7,{17:1})==7,"Iron needs stone-tier pickaxe")
+	check(items.drop_for_block(14,{17:1})==0 and items.drop_for_block(14,{18:1})==14,"Diamond needs iron-tier pickaxe")
+	check(items.drop_for_block(15,{18:1})==0 and items.drop_for_block(15,{19:1})==15,"Avarita needs diamond-tier pickaxe")
 	var inventory={4:1}
 	check(items.craft(inventory,items.RECIPES[0],false,false),"Manual planks")
 	check(items.craft(inventory,items.RECIPES[1],false,false),"Manual table")
 	check(inventory.get(9)==1,"Crafted table")
 	check(not items.craft(inventory,items.RECIPES[2],false,false),"Equipment needs table")
+	var stone_before=int(scene.player.inventory.get(3,0))
+	var drop_count_before=scene.drops.get_child_count()
+	scene.spawn_ground_drop(3,2,scene.player.position+Vector2(76,-8))
+	check(scene.drops.get_child_count()==drop_count_before+1,"Drop appears visibly in world")
+	for frame in 150:
+		await physics_frame
+	check(int(scene.player.inventory.get(3,0))==stone_before+2,"Nearby drop is collected into inventory")
+	check(scene.drops.get_child_count()==drop_count_before,"Drop disappears only after collection")
 	# Player can settle onto native collision and turn independently from mouse.
 	for frame in 45:
 		await physics_frame
@@ -163,11 +195,37 @@ func run() -> void:
 	scene.use_selected()
 	var safe_center=Vector2(34*32+16,35*32-2)
 	check(scene.player.position.distance_to(safe_center)<2,"Waystone works while Mel is tamed")
-	# Save roundtrip uses the dedicated DreadsCraftTests data directory.
-	check(scene.save_world(),"Save write")
+	# Save/account roundtrip preserves inventory and modified blocks.
 	var saved_x=scene.player.position.x
+	scene.player.inventory[29]=7
+	var modified_cell=Vector2i(scene.world.desert_center_cell(),scene.world.surfaces[scene.world.desert_center_cell()]-2)
+	scene.world.set_cell(modified_cell,31)
+	check(scene.save_world(),"Save write")
+	accounts.logout()
+	saves.clear_account()
+	check(bool(accounts.authenticate(smoke_user,smoke_password).get("ok",false)),"Login after logout")
+	saves.set_account(smoke_user)
 	scene.load_world()
 	check(absf(scene.player.position.x-saved_x)<1,"Save position roundtrip")
+	check(int(scene.player.inventory.get(29,0))==7,"Inventory survives logout/login")
+	check(scene.world.get_cell(modified_cell)==31,"Modified world survives reload")
+	scene.player.position.x=-200
+	await physics_frame
+	check(scene.player.position.x>=12.0,"Player cannot cross left boundary")
+	scene.player.position.x=scene.world.world_width()*32+200
+	await physics_frame
+	check(scene.player.position.x<=scene.world.world_width()*32-12.0,"Player cannot cross right boundary")
+	var boundary_mob=load("res://scripts/mob.gd").new()
+	boundary_mob.kind="dark_slime"
+	boundary_mob.player=scene.player
+	boundary_mob.set_world_bounds(0.0,float(scene.world.world_width()*32))
+	boundary_mob.position=Vector2(scene.world.world_width()*32-17,scene.world.surfaces[scene.world.world_width()-2]*32-2)
+	boundary_mob.knockback=Vector2(1200,0)
+	scene.enemies.add_child(boundary_mob)
+	await physics_frame
+	await physics_frame
+	check(boundary_mob.position.x<=scene.world.world_width()*32-16.0,"Enemy knockback cannot cross right boundary")
+	boundary_mob.queue_free()
 	scene.start_world(true,42019)
 	await physics_frame
 	Input.action_press("jump")
@@ -236,7 +294,7 @@ func run() -> void:
 	await process_frame
 	check(scene.hp_bar.size.y<=12 and scene.food_bar.size.y<=12,"HUD meters respect dimensions")
 	print("PASS v10: ore counts ",ores,"; connected ratio ",float(paired)/(ores[6]+ores[7]),"; multitouch, pause reset, PC mode, HUD dimensions")
-	print("PASS: native world, sprites, collisions, direction, jump, placement, crafting, menus, mobs, save roundtrip and flight")
+	print("PASS: accounts, mining drops, pickup magnet, finite bounds, desert, saves, sprites and gameplay systems")
 	scene.queue_free()
 	await process_frame
 	quit()
