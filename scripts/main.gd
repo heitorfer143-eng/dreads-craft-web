@@ -133,7 +133,8 @@ var chat_log: RichTextLabel
 var chat_input: LineEdit
 var chat_button: Button
 var chat_messages:Array=[]
-const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16]
+var chest_inventories:Dictionary={}
+const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16,28]
 const LOBBY_TIPS = [
 	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
 	"A noite é mais perigosa: prepare abrigo, espada e comida antes do escurecer.",
@@ -1288,8 +1289,10 @@ func current_online_zone() -> String:
 func apply_online_block(cell:Vector2i,id:int) -> void:
 	if not active or in_purity or not is_instance_valid(world):
 		return
-	if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+	if cell.x<0 or cell.x>=World.MAX_STREAM_WIDTH or cell.y<0 or cell.y>=95:
 		return
+	if cell.x>=world.world_width():
+		world.ensure_generated_to(cell.x+World.STREAM_CHUNK)
 	world.set_cell(cell,id)
 
 func on_multiplayer_disconnected() -> void:
@@ -1597,6 +1600,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	night_kills=0
 	polar_bear_defeated=false
 	snow_announced=false
+	chest_inventories.clear()
 	reset_quest_progress()
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
@@ -1623,6 +1627,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 		hotbar=[0,0,0,0,0,0,0,0,0]
 		selected=0
 	world.camera=player.camera
+	player.camera.limit_right=World.MAX_STREAM_WIDTH*32
 	sky.camera=player.camera
 	enemies=Node2D.new()
 	add_child(enemies)
@@ -2105,6 +2110,121 @@ func show_transformations() -> void:
 	menu_box.add_child(button("FECHAR",resume))
 	layout()
 
+func chest_key(cell:Vector2i) -> String:
+	return "%d,%d" % [cell.x,cell.y]
+
+func serialize_chests() -> Dictionary:
+	return chest_inventories.duplicate(true)
+
+func restore_chests(raw) -> void:
+	chest_inventories.clear()
+	if not raw is Dictionary:
+		return
+	for key in raw:
+		var src=raw[key]
+		if not src is Dictionary:
+			continue
+		var inv:Dictionary={}
+		for item_id in src:
+			var count=int(src[item_id])
+			if count>0:
+				inv[int(item_id)]=count
+		chest_inventories[str(key)]=inv
+
+func spill_chest(cell:Vector2i) -> void:
+	var key=chest_key(cell)
+	if not chest_inventories.has(key):
+		return
+	var pos=Vector2(cell.x*32+16,cell.y*32+8)
+	var stored:Dictionary=chest_inventories[key]
+	for raw_id in stored:
+		var item_id=int(raw_id)
+		var count=int(stored[raw_id])
+		if count<=0:
+			continue
+		if multiplayer_active and is_instance_valid(online):
+			online.send_drop_spawn(item_id,count,pos)
+		else:
+			spawn_ground_drop(item_id,count,pos)
+	chest_inventories.erase(key)
+
+func chest_put_one(cell:Vector2i,item_id:int) -> void:
+	if not is_instance_valid(player) or player.creative:
+		return
+	var owned=int(player.inventory.get(item_id,0))
+	if owned<=0:
+		return
+	var key=chest_key(cell)
+	var stored:Dictionary=chest_inventories.get(key,{})
+	if not stored.has(item_id) and stored.size()>=18:
+		status.text="Baú cheio."
+		message_time=2
+		return
+	player.inventory[item_id]=owned-1
+	stored[item_id]=int(stored.get(item_id,0))+1
+	chest_inventories[key]=stored
+	show_chest(cell)
+
+func chest_take_one(cell:Vector2i,item_id:int) -> void:
+	var key=chest_key(cell)
+	var stored:Dictionary=chest_inventories.get(key,{})
+	var amount=int(stored.get(item_id,0))
+	if amount<=0:
+		return
+	stored[item_id]=amount-1
+	if int(stored[item_id])<=0:
+		stored.erase(item_id)
+	chest_inventories[key]=stored
+	player.inventory[item_id]=int(player.inventory.get(item_id,0))+1
+	show_chest(cell)
+
+func show_chest(cell:Vector2i) -> void:
+	if not active or not is_instance_valid(world) or world.get_cell(cell)!=28:
+		return
+	clear_menu("Baú","chest")
+	var key=chest_key(cell)
+	if not chest_inventories.has(key):
+		chest_inventories[key]={}
+	var stored:Dictionary=chest_inventories[key]
+	var caption=label("ARMAZENADO · %d/18 tipos" % stored.size(),13)
+	caption.add_theme_color_override("font_color",Color("d6b77b"))
+	menu_box.add_child(caption)
+	if stored.is_empty():
+		menu_box.add_child(label("O baú está vazio.",12))
+	else:
+		for raw_id in stored.keys():
+			var item_id=int(raw_id)
+			var line=HBoxContainer.new()
+			line.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+			line.add_theme_constant_override("separation",8)
+			var info=label("%s  x%d" % [Items.NAMES.get(item_id,"Item"),int(stored[raw_id])],13)
+			info.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+			line.add_child(info)
+			var take=button("RETIRAR 1",func(): chest_take_one(cell,item_id))
+			take.custom_minimum_size=Vector2(130,44)
+			line.add_child(take)
+			menu_box.add_child(line)
+	var rule=HSeparator.new()
+	menu_box.add_child(rule)
+	menu_box.add_child(label("SEU INVENTÁRIO",13))
+	for raw_id in player.inventory.keys():
+		var item_id=int(raw_id)
+		var amount=int(player.inventory.get(raw_id,0))
+		if amount<=0:
+			continue
+		var row=HBoxContainer.new()
+		row.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		row.add_theme_constant_override("separation",8)
+		var info=label("%s  x%d" % [Items.NAMES.get(item_id,"Item"),amount],12)
+		info.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		row.add_child(info)
+		var put=button("GUARDAR 1",func(): chest_put_one(cell,item_id))
+		put.custom_minimum_size=Vector2(130,44)
+		put.disabled=player.creative or (not stored.has(item_id) and stored.size()>=18)
+		row.add_child(put)
+		menu_box.add_child(row)
+	menu_box.add_child(button("FECHAR",resume))
+
 func show_inventory() -> void:
 	if not active:
 		return
@@ -2505,7 +2625,7 @@ func set_touch_place_target() -> void:
 	var origin=player.position-Vector2(0,24)
 	# First respect the exact empty cell touched by the player.
 	var desired=Vector2i(floor((player.position+touch_aim).x/32.0),floor((player.position+touch_aim).y/32.0))
-	if desired.x>=0 and desired.x<320 and desired.y>=0 and desired.y<95:
+	if desired.x>=0 and desired.x<world.world_width() and desired.y>=0 and desired.y<95:
 		var desired_center=Vector2(desired*32+Vector2i(16,16))
 		var desired_area=Rect2(Vector2(desired)*32,Vector2(32,32))
 		if world.get_cell(desired)==0 and origin.distance_to(desired_center)<=170.0 and not player.body_rect().intersects(desired_area):
@@ -2590,6 +2710,8 @@ func place_block() -> bool:
 	if not player.creative and player.inventory.get(selected,0)<1:
 		return false
 	world.set_cell(target,selected)
+	if selected==28:
+		chest_inventories[chest_key(target)]={}
 	if multiplayer_active and is_instance_valid(online):
 		online.send_block_change(target,selected)
 	if not player.creative:
@@ -2903,6 +3025,8 @@ func _process(delta: float) -> void:
 		else:
 			progress+=delta*Items.mining_speed(player.inventory)
 		if (player.creative or in_purity_realm or not world.is_village_protected(target)) and (player.creative or progress>=Items.HARDNESS.get(id,1.0)):
+			if id==28:
+				spill_chest(target)
 			world.set_cell(target,0)
 			if multiplayer_active and is_instance_valid(online):
 				online.send_block_change(target,0)
@@ -3323,7 +3447,7 @@ func exit_structure() -> void:
 	player.position=structure_return_position
 	player.velocity=Vector2.ZERO
 	player.camera.limit_left=0
-	player.camera.limit_right=320*32
+	player.camera.limit_right=World.MAX_STREAM_WIDTH*32
 	player.camera.limit_top=0
 	player.camera.limit_bottom=96*32
 	player.camera.position=Vector2(0,-100)
@@ -3632,7 +3756,7 @@ func leave_lake_temple(on_death:bool=false) -> void:
 	player.max_fall_speed=0
 	player.set_water_state(world.is_point_in_lake_water(player.position),world.is_point_in_lake_water(player.position+Vector2(0,-38)))
 	player.camera.limit_left=0
-	player.camera.limit_right=World.WIDTH*32
+	player.camera.limit_right=World.MAX_STREAM_WIDTH*32
 	player.camera.limit_top=0
 	player.camera.limit_bottom=World.HEIGHT*32
 	player.camera.position=Vector2(0,-100)
@@ -3687,7 +3811,7 @@ func save_world() -> bool:
 		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":8,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form}
+	var data={"version":9,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"chests":serialize_chests()}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -3784,6 +3908,7 @@ func load_world() -> void:
 		if hotbar.size()>9:
 			hotbar.resize(9)
 	selected=int(data.get("selected",0))
+	restore_chests(data.get("chests",{}))
 	restore_ground_drops(data.get("dropped_items",[]))
 	restore_death_backpacks(data.get("death_backpacks",[]))
 	if monk_quest_done:
@@ -3876,6 +4001,9 @@ func use_selected() -> void:
 		return
 	if target.x>=0 and world.get_cell(target)==9:
 		show_craft()
+		return
+	if target.x>=0 and world.get_cell(target)==28:
+		show_chest(target)
 		return
 	if selected==10:
 		eat()

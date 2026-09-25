@@ -4,6 +4,8 @@ const Items = preload("res://scripts/items.gd")
 const TILE = 32
 const WIDTH = 320
 const HEIGHT = 96
+const STREAM_CHUNK = 64
+const MAX_STREAM_WIDTH = 8192
 const VILLAGE_MIN_X = 4
 const VILLAGE_MAX_X = 66
 const SNOW_START_X = 190
@@ -112,6 +114,67 @@ func generate_structures() -> void:
 					if cells[y][x] in [3,4,5,8,9]:
 						cells[y][x]=0
 
+func world_width() -> int:
+	return surfaces.size()
+
+func ensure_generated_to(target_x:int) -> void:
+	if purity_realm or cells.is_empty() or target_x<surfaces.size()-32:
+		return
+	var wanted=clampi(int(ceil(float(target_x+1)/float(STREAM_CHUNK)))*STREAM_CHUNK,WIDTH,MAX_STREAM_WIDTH)
+	if wanted<=surfaces.size():
+		return
+	var old_width=surfaces.size()
+	for y in range(cells.size()):
+		var row=cells[y]
+		row.resize(wanted)
+		for x in range(old_width,wanted):
+			row[x]=0
+		cells[y]=row
+	var noise=FastNoiseLite.new()
+	noise.seed=world_seed
+	noise.frequency=0.027
+	for x in range(old_width,wanted):
+		var height=_natural_surface_height(x,noise)
+		surfaces.append(height)
+		for y in range(height,HEIGHT):
+			cells[y][x]=1 if y==height else 2 if y<height+4 else 3
+		# Continue the two long cave bands used by the original generator.
+		for layer in 2:
+			var center=58+layer*18+int(sin(x*0.065+layer)*4)
+			for cy in range(center-3,center+4):
+				if cy>height+5 and cy<HEIGHT:
+					cells[cy][x]=0
+		# Deterministic ore field: every client with the same seed gets the same new chunks.
+		for y in range(height+7,HEIGHT-2):
+			if cells[y][x]!=3:
+				continue
+			var h=absi((x*73856093) ^ (y*19349663) ^ (world_seed*83492791))
+			if y>=85 and h%4093==0:
+				cells[y][x]=15
+			elif y>=70 and h%521<3:
+				cells[y][x]=14
+			elif y>=54 and h%173<4:
+				cells[y][x]=7
+			elif y>=45 and h%109<6:
+				cells[y][x]=6
+	# Continue surface trees without touching the protected village/lake from the original map.
+	for x in range(maxi(72,old_width),wanted):
+		if (x-72)%11!=0:
+			continue
+		var top=surfaces[x]-6
+		for y in range(maxi(0,top),surfaces[x]):
+			if cells[y][x]==0:
+				cells[y][x]=4
+		for dx in range(-2,3):
+			for dy in range(-2,3):
+				var tx=x+dx
+				var ty=top+dy
+				if tx>=old_width and tx<wanted and ty>=0 and ty<HEIGHT and abs(dx)+abs(dy)<4 and cells[ty][tx]==0:
+					cells[ty][tx]=5
+	for y in range(HEIGHT):
+		dirty_rows[y]=true
+	queue_redraw()
+
 func _natural_surface_height(x:int,noise:FastNoiseLite) -> int:
 	var height=35+int(noise.get_noise_1d(x)*(6 if x<100 else 13))
 	if x<70:
@@ -170,7 +233,7 @@ func restore_lake_layout(center:int,width:int,depth:int) -> void:
 	_anchor_lake_to_banks()
 
 func _anchor_lake_to_banks() -> void:
-	if surfaces.size()!=WIDTH:
+	if surfaces.size()<WIDTH:
 		return
 	var left_x=clampi(lake_start_x-1,0,WIDTH-1)
 	var right_x=clampi(lake_end_x+1,0,WIDTH-1)
@@ -434,14 +497,16 @@ func snow_spawn_cell() -> Vector2i:
 
 
 func get_cell(cell: Vector2i) -> int:
-	if cell.x<0 or cell.x>=WIDTH or cell.y>=HEIGHT:
+	if cell.x<0 or cell.x>=surfaces.size() or cell.y>=HEIGHT:
 		return 3
 	if cell.y<0:
 		return 0
 	return int(cells[cell.y][cell.x])
 
 func set_cell(cell: Vector2i, id: int) -> void:
-	if cell.x<0 or cell.x>=WIDTH or cell.y<0 or cell.y>=HEIGHT-1:
+	if cell.x>=surfaces.size() and not purity_realm:
+		ensure_generated_to(cell.x+STREAM_CHUNK)
+	if cell.x<0 or cell.x>=surfaces.size() or cell.y<0 or cell.y>=HEIGHT-1:
 		return
 	cells[cell.y][cell.x]=id
 	dirty_rows[cell.y]=true
@@ -469,13 +534,14 @@ func rebuild_row(y: int) -> void:
 	body.collision_mask = 0
 	add_child(body)
 	rows[y] = body
+	var width=surfaces.size()
 	var x = 0
-	while x<WIDTH:
+	while x<width:
 		if not is_solid(Vector2i(x,y)):
 			x+=1
 			continue
 		var start=x
-		while x<WIDTH and is_solid(Vector2i(x,y)):
+		while x<width and is_solid(Vector2i(x,y)):
 			x+=1
 		var shape = RectangleShape2D.new()
 		shape.size = Vector2((x-start)*TILE,TILE)
@@ -485,6 +551,9 @@ func rebuild_row(y: int) -> void:
 		body.add_child(collider)
 
 func _process(_delta: float) -> void:
+	if camera and not purity_realm and not surfaces.is_empty():
+		var ahead=int((camera.get_screen_center_position().x+get_viewport_rect().size.x)/TILE)+72
+		ensure_generated_to(ahead)
 	for y in dirty_rows:
 		rebuild_row(y)
 	dirty_rows.clear()
@@ -497,7 +566,7 @@ func _draw() -> void:
 	var center = camera.get_screen_center_position() if camera else Vector2(640,1000)
 	var extent = get_viewport_rect().size/2.0+Vector2(64,64)
 	var left = maxi(0,int((center.x-extent.x)/TILE))
-	var right = mini(WIDTH,int((center.x+extent.x)/TILE)+1)
+	var right = mini(surfaces.size(),int((center.x+extent.x)/TILE)+1)
 	var top = maxi(0,int((center.y-extent.y)/TILE))
 	var bottom = mini(HEIGHT,int((center.y+extent.y)/TILE)+1)
 	# The Lake of Shadows is drawn behind terrain so the player can wade through it.
@@ -531,6 +600,15 @@ func _draw() -> void:
 				draw_rect(Rect2(pos+Vector2(12,13),Vector2(9,3)),Color("6b6670"))
 				draw_rect(Rect2(pos+Vector2(4,29),Vector2(7,3)),Color("21171a"))
 				draw_rect(Rect2(pos+Vector2(21,29),Vector2(7,3)),Color("21171a"))
+			elif id==28:
+				# Storage chest: compact medieval wood box with iron latch.
+				draw_rect(Rect2(pos+Vector2(2,9),Vector2(28,21)),Color("2b1b18"))
+				draw_rect(Rect2(pos+Vector2(3,10),Vector2(26,8)),Color("a56632"))
+				draw_rect(Rect2(pos+Vector2(3,18),Vector2(26,11)),Color("744225"))
+				draw_rect(Rect2(pos+Vector2(3,17),Vector2(26,3)),Color("d0934d"))
+				draw_rect(Rect2(pos+Vector2(14,16),Vector2(5,8)),Color("d2b46f"))
+				draw_rect(Rect2(pos+Vector2(15,18),Vector2(3,3)),Color("3a3030"))
+				draw_rect(Rect2(pos+Vector2(2,28),Vector2(28,3)),Color("1c1415"))
 			elif texture:
 				draw_texture_rect(texture,Rect2(pos,Vector2(TILE,TILE)),false)
 			else:
@@ -614,7 +692,7 @@ func draw_lake(left:int,right:int) -> void:
 func draw_surface_decor(left:int,right:int) -> void:
 	if purity_realm or surfaces.is_empty():
 		return
-	for x in range(maxi(left,VILLAGE_MAX_X+7),mini(right,WIDTH-1)):
+	for x in range(maxi(left,VILLAGE_MAX_X+7),mini(right,surfaces.size())):
 		if x<0 or x>=surfaces.size():
 			continue
 		if is_lake_zone(x):

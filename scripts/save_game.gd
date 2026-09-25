@@ -3,8 +3,10 @@ extends RefCounted
 const PATH = "user://dreads_world.json"
 const INDEX_PATH = "user://dreads_worlds.json"
 const WORLDS_DIR = "user://worlds"
-const SAVE_VERSION = 8
-const VALID_BLOCK_IDS = [0,1,2,3,4,5,6,7,8,9,14,15,16,25]
+const SAVE_VERSION = 9
+const VALID_BLOCK_IDS = [0,1,2,3,4,5,6,7,8,9,14,15,16,25,28]
+const MIN_WORLD_WIDTH = 320
+const MAX_WORLD_WIDTH = 8192
 static var active_id := ""
 
 static func _safe_id(name: String) -> String:
@@ -174,18 +176,30 @@ static func read_path(save_path: String) -> Dictionary:
 		parsed["forms_unlocked"]={"spike":true,"fox":bool(parsed.get("lake_boss_defeated",false))}
 	if not parsed.has("current_form"):
 		parsed["current_form"]="spike"
+	if not parsed.has("chests"):
+		parsed["chests"]={}
 	parsed["version"]=SAVE_VERSION
 	var cells=parsed.get("cells",[])
 	if not cells is Array or cells.size()!=96:
 		return {}
+	var row_width=-1
 	for row in cells:
-		if not row is Array or row.size()!=320:
+		if not row is Array:
+			return {}
+		if row_width<0:
+			row_width=row.size()
+			if row_width<MIN_WORLD_WIDTH or row_width>MAX_WORLD_WIDTH:
+				return {}
+		elif row.size()!=row_width:
 			return {}
 		for id in row:
 			if not id is float and not id is int:
 				return {}
 			if id!=int(id) or int(id) not in VALID_BLOCK_IDS:
 				return {}
+	var surfaces=parsed.get("surfaces",[])
+	if not surfaces is Array or surfaces.size()!=row_width:
+		return {}
 	for row in cells:
 		for x in row.size():
 			row[x]=int(row[x])

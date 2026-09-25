@@ -55,7 +55,7 @@ func _ready() -> void:
 	camera.position_smoothing_speed=8
 	camera.limit_left=0
 	camera.limit_top=0
-	camera.limit_right=320*32
+	camera.limit_right=8192*32
 	camera.limit_bottom=96*32
 	add_child(camera)
 	was_grounded=is_on_floor()

@@ -133,7 +133,7 @@ wss.on("connection",(ws)=>{
       broadcast(room,{type:"state",id:p.id,name:p.name,...p.state},ws);
     } else if(msg.type==="block"){
       const x=Math.trunc(Number(msg.x)), y=Math.trunc(Number(msg.y)), block=Math.trunc(Number(msg.id));
-      if(x<0||x>=320||y<0||y>=95||block<0||block>64) return;
+      if(x<0||x>=8192||y<0||y>=95||block<0||block>64) return;
       room.blocks.set(x+","+y,block);
       broadcast(room,{type:"block",x,y,id:block,by:p.id},ws);
     } else if(msg.type==="drop_spawn"){

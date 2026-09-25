@@ -19,6 +19,10 @@ func run() -> void:
 	await physics_frame
 	await physics_frame
 	check(scene.world.cells.size()==96,"World height")
+	check(scene.world.world_width()==320,"Initial streamed world width")
+	scene.world.ensure_generated_to(390)
+	check(scene.world.world_width()>=448,"World streams new terrain past the old 320-block edge")
+	check(scene.world.get_cell(Vector2i(390,scene.world.surfaces[390]))!=0,"Streamed terrain has a surface")
 	var lake_sig_a=scene.world.lake_signature()
 	var lake_center_a=scene.world.lake_center_x
 	check(scene.world.is_lake_zone(lake_center_a),"Seeded lake center is inside lake")
@@ -119,6 +123,13 @@ func run() -> void:
 	scene.world.set_cell(scene.target,0)
 	check(scene.place_block(),"Stone block can be placed")
 	check(scene.world.get_cell(Vector2i(16,33))==3,"Placed stone uses stone tile id")
+	scene.player.inventory[28]=1
+	scene.selected=28
+	scene.target=Vector2i(17,33)
+	scene.world.set_cell(scene.target,0)
+	check(scene.place_block(),"Chest can be placed")
+	check(scene.world.get_cell(Vector2i(17,33))==28,"Chest uses storage block id")
+	check(scene.has_method("show_chest") and scene.has_method("spill_chest"),"Chest storage handlers exist")
 	check(scene.has_method("apply_online_drop") and scene.has_method("resolve_online_drop_pickup"),"Multiplayer shared drop handlers exist")
 	check(is_instance_valid(scene.chat_panel) and is_instance_valid(scene.chat_input),"Multiplayer chat UI exists")
 	scene.show_inventory()
