@@ -399,7 +399,9 @@ func is_lake_zone(cell_x: int) -> bool:
 
 func lake_temple_position() -> Vector2:
 	var floor_y=surfaces[lake_center_x] if lake_center_x>=0 and lake_center_x<surfaces.size() else lake_water_y+lake_depth
-	return Vector2(lake_center_x*TILE+TILE/2.0,floor_y*TILE-34)
+	# This point represents the BOTTOM of the submerged temple. Keeping it on the
+	# exact terrain surface prevents the structure from floating above the lake bed.
+	return Vector2(lake_center_x*TILE+TILE/2.0,floor_y*TILE)
 
 func lake_shore_spawn() -> Vector2:
 	var x=maxi(VILLAGE_MAX_X+8,lake_start_x-3)

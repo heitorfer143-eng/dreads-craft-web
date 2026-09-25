@@ -104,12 +104,10 @@ static func make(kind: String) -> AnimatedSprite2D:
 
 	if kind in ["normal","demon","fox"]:
 		_add_player_frames(frames,kind)
-		if kind=="fox":
-			sprite.scale=Vector2(0.62,0.62)
-			sprite.position.y=-24
-		else:
-			sprite.scale=Vector2(0.16,0.16)
-			sprite.position.y=-27.2
+		# Player owns final size normalization because source art can have very
+		# different canvas sizes. Keep this neutral to avoid giant Spike renders.
+		sprite.scale=Vector2.ONE
+		sprite.position.y=-28
 	elif GENERATED_MOBS.has(kind):
 		_add_generated_mob_frames(frames,kind)
 		match kind:

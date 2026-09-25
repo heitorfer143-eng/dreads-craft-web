@@ -266,7 +266,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.3.1 • DEATH BAG + BOSS FIX"
+	build_badge.text="DREADS CRAFT • BUILD 14.3.2 • TEMPLE + VICTORY FIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -3464,12 +3464,19 @@ func leave_lake_temple(on_death:bool=false) -> void:
 func on_lake_boss_defeated() -> void:
 	lake_boss_defeated=true
 	lake_boss=null
+	# Victory is a safe state. The menu is modal, so main._process() stops updating
+	# water state; explicitly clear submersion here so the player cannot drown
+	# while reading the victory screen or be treated as dead when the boss falls.
+	player.hp=player.max_hp
+	player.air=player.max_air
+	player.hurt_time=1.5
+	player.velocity=Vector2.ZERO
+	player.set_water_state(false,false)
 	if int(player.inventory.get(27,0))<=0:
 		player.inventory[27]=1
 	forms_unlocked["fox"]=true
 	player.inventory[14]=int(player.inventory.get(14,0))+3
 	player.inventory[25]=int(player.inventory.get(25,0))+4
-	player.hp=player.max_hp
 	clear_menu("LEVIATÃ DO LAGO ABISSAL DERROTADO","lake_victory")
 	var victory=label("O coração da criatura ainda pulsa entre as ruínas inundadas.",16)
 	victory.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -3993,7 +4000,7 @@ func on_player_died() -> void:
 			lake_boss.hp=lake_boss.max_hp
 			lake_boss.state="recover"
 			lake_boss.timer=1.25
-		status.text="VOCÊ CAIU · recupere sua mochila e tente o Leviatã novamente."
+		status.text="VOCÊ CAIU · recupere sua mochila e tente o Leviatã novamente." if not lake_boss_defeated else "VOCÊ CAIU · sua mochila continua dentro do templo."
 		message_time=4
 		refresh_hud()
 		save_world()

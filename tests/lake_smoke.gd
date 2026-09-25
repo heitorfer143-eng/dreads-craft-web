@@ -32,6 +32,8 @@ func run() -> void:
 	check(game.world.lake_water_y>game.world.surfaces[game.world.lake_start_x-1],"Water stays below left bank")
 	check(game.world.lake_water_y>game.world.surfaces[game.world.lake_end_x+1],"Water stays below right bank")
 	check(game.world.is_near_lake_temple(game.world.lake_temple_position()),"Temple entrance is at lake floor")
+	var temple_floor_y=float(game.world.surfaces[game.world.lake_center_x]*game.world.TILE)
+	check(absf(game.world.lake_temple_position().y-temple_floor_y)<0.1,"Submerged temple bottom is anchored to lake bed")
 	game.device_controls.set_mobile(true)
 	game.layout()
 	check(game.action_box.visible,"Mobile top action buttons stay visible")
@@ -54,6 +56,8 @@ func run() -> void:
 	check(game.lake_boss.max_hp==1400.0,"Leviathan HP")
 	check(game.lake_arena.boss_position.y>=640.0,"Leviathan is positioned deeper in the lake")
 	check(game.player.max_air==8.0,"Player has underwater air capacity")
+	var spike_tex=game.player.sprite.sprite_frames.get_frame_texture("idle",0)
+	check(spike_tex!=null and spike_tex.get_size().y*game.player.sprite.scale.y<=70.0,"Spike visual size stays normalized")
 	game.player.set_water_state(true,true)
 	var air_before=game.player.air
 	game.player._update_breath(1.25)
@@ -81,10 +85,15 @@ func run() -> void:
 	game.ensure_lake_boss()
 	game.lake_boss.hit(701.0)
 	check(game.lake_boss.phase_two(),"Phase two starts at 50 percent")
+	game.player.hp=37.0
+	game.player.air=0.1
+	game.player.set_water_state(true,true)
 	game.lake_boss.hit(9999.0)
 	await process_frame
 	check(game.lake_boss_defeated,"Leviathan defeat persists in state")
 	check(game.in_lake_temple,"Defeating Leviathan does not automatically exit arena")
+	check(game.player.hp==game.player.max_hp,"Leviathan victory fully heals player")
+	check(game.player.air==game.player.max_air and not game.player.submerged,"Victory clears drowning state")
 	check(int(game.player.inventory.get(27,0))==1,"Unique Abyssal Heart reward")
 	check(bool(game.forms_unlocked.get("fox",false)),"Leviathan unlocks Fox form")
 	game.apply_form("fox")
