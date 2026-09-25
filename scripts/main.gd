@@ -2463,7 +2463,7 @@ func attack() -> void:
 		if not is_instance_valid(mob) or not mob.has_method("hit"):
 			continue
 		var difference=mob.position-player.position
-			var is_guardian=is_instance_valid(boss) and mob==boss
+		var is_guardian=is_instance_valid(boss) and mob==boss
 		var is_lake_guardian=is_instance_valid(lake_boss) and mob==lake_boss
 		var is_large_boss=is_guardian or is_lake_guardian
 		var reach_x=185.0 if is_lake_guardian else 145.0 if is_guardian else 100.0
