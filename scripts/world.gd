@@ -515,6 +515,20 @@ func _draw() -> void:
 				var portal_size=Vector2(TILE*4.0,TILE*4.0)
 				var portal_pos=pos+Vector2(TILE*0.5-portal_size.x*0.5,TILE-portal_size.y)
 				draw_texture_rect(texture,Rect2(portal_pos,portal_size),false)
+			elif id==9:
+				# Workbench is rendered procedurally so the placed object looks like a
+				# proper medieval crafting table instead of the old flat pedestal tile.
+				draw_rect(Rect2(pos+Vector2(1,5),Vector2(30,8)),Color("2a1b19"))
+				draw_rect(Rect2(pos+Vector2(2,4),Vector2(28,5)),Color("9a673f"))
+				draw_rect(Rect2(pos+Vector2(4,5),Vector2(24,2)),Color("d0a05e"))
+				draw_rect(Rect2(pos+Vector2(5,13),Vector2(5,18)),Color("4a2e27"))
+				draw_rect(Rect2(pos+Vector2(22,13),Vector2(5,18)),Color("4a2e27"))
+				draw_rect(Rect2(pos+Vector2(9,15),Vector2(14,4)),Color("684231"))
+				draw_rect(Rect2(pos+Vector2(11,20),Vector2(10,3)),Color("302126"))
+				draw_rect(Rect2(pos+Vector2(15,10),Vector2(3,8)),Color("b7b3b5"))
+				draw_rect(Rect2(pos+Vector2(12,13),Vector2(9,3)),Color("6b6670"))
+				draw_rect(Rect2(pos+Vector2(4,29),Vector2(7,3)),Color("21171a"))
+				draw_rect(Rect2(pos+Vector2(21,29),Vector2(7,3)),Color("21171a"))
 			elif texture:
 				draw_texture_rect(texture,Rect2(pos,Vector2(TILE,TILE)),false)
 			else:

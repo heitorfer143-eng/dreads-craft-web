@@ -15,6 +15,7 @@ const GeneratedAssets = preload("res://scripts/generated_assets.gd")
 const GeneratedIntro = preload("res://scripts/generated_intro.gd")
 const MultiplayerClient = preload("res://scripts/multiplayer_client.gd")
 const DroppedItem = preload("res://scripts/dropped_item.gd")
+const DeathBackpack = preload("res://scripts/death_backpack.gd")
 const SoulProjectile = preload("res://scripts/soul_projectile.gd")
 const LakeBoss = preload("res://scripts/lake_leviathan.gd")
 const LakeArena = preload("res://scripts/lake_arena.gd")
@@ -44,6 +45,7 @@ var enemies: Node2D
 var npcs: Node2D
 var structures: Node2D
 var drops: Node2D
+var death_bags: Node2D
 var interior: Node2D
 var in_structure := ""
 var structure_return_position := Vector2.ZERO
@@ -264,7 +266,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.3 • AIR + FOX FORM"
+	build_badge.text="DREADS CRAFT • BUILD 14.3.1 • DEATH BAG + BOSS FIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -1480,7 +1482,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	reset_quest_progress()
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
-	for node in [world,player,enemies,npcs,structures,drops,interior,selection,mel]:
+	for node in [world,player,enemies,npcs,structures,drops,death_bags,interior,selection,mel]:
 		if is_instance_valid(node):
 			remove_child(node)
 			node.queue_free()
@@ -1515,6 +1517,9 @@ func start_world(creative: bool, seed_value: int) -> void:
 	drops=Node2D.new()
 	drops.name="GroundDrops"
 	add_child(drops)
+	death_bags=Node2D.new()
+	death_bags.name="DeathBackpacks"
+	add_child(death_bags)
 	spawn_village_hub()
 	spawn_world_npcs()
 	spawn_mel()
@@ -2466,6 +2471,57 @@ func spawn_ground_drop(item_id:int,count:int,world_position:Vector2,remaining:fl
 	pickup.position=world_position
 	drops.add_child(pickup)
 
+func current_death_scope() -> String:
+	if in_lake_temple:
+		return "lake"
+	if in_structure!="":
+		return "structure:"+in_structure
+	if in_purity:
+		return "purity_realm" if in_purity_realm else "purity_arena"
+	return "overworld"
+
+func spawn_death_backpack(contents:Dictionary,world_position:Vector2,scope:String) -> void:
+	if not is_instance_valid(death_bags) or contents.is_empty():
+		return
+	var bag=DeathBackpack.new()
+	bag.setup(contents,player,self,scope)
+	bag.position=world_position
+	death_bags.add_child(bag)
+
+func serialize_death_backpacks() -> Array:
+	var result:Array=[]
+	if not is_instance_valid(death_bags):
+		return result
+	for bag in death_bags.get_children():
+		if bag.has_method("serialize"):
+			result.append(bag.serialize())
+	return result
+
+func restore_death_backpacks(saved:Array) -> void:
+	if not is_instance_valid(death_bags):
+		return
+	for entry in saved:
+		if not entry is Dictionary:
+			continue
+		var raw_contents=entry.get("contents",{})
+		if not raw_contents is Dictionary:
+			continue
+		var contents:Dictionary={}
+		for raw_id in raw_contents:
+			var amount=int(raw_contents[raw_id])
+			if amount>0:
+				contents[int(raw_id)]=amount
+		var pos=entry.get("position",[0,0])
+		if contents.is_empty() or not pos is Array or pos.size()<2:
+			continue
+		spawn_death_backpack(contents,Vector2(float(pos[0]),float(pos[1])),str(entry.get("scope","overworld")))
+
+func on_death_backpack_collected() -> void:
+	status.text="MOCHILA RECUPERADA · seus itens voltaram ao inventário."
+	message_time=3
+	refresh_hud()
+	save_world()
+
 func drop_selected_item(amount:int=1) -> void:
 	if not active or (modal and pause_kind!="inventory") or player.creative or in_purity or in_structure!="" or selected<=0:
 		return
@@ -3344,6 +3400,8 @@ func enter_lake_temple(skip_intro:bool=false) -> void:
 	for node in [structures,npcs,mel,drops]:
 		if is_instance_valid(node):
 			node.hide()
+	if is_instance_valid(death_bags):
+		death_bags.show()
 	for mob in enemies.get_children():
 		enemies.remove_child(mob)
 		mob.queue_free()
@@ -3387,6 +3445,8 @@ func leave_lake_temple(on_death:bool=false) -> void:
 	for node in [structures,npcs,mel,drops]:
 		if is_instance_valid(node):
 			node.show()
+	if is_instance_valid(death_bags):
+		death_bags.show()
 	player.position=world.lake_shore_spawn() if on_death else lake_return_position
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0
@@ -3418,6 +3478,9 @@ func on_lake_boss_defeated() -> void:
 	var fox_unlock=label("NOVA FORMA DESBLOQUEADA: RAPOSA",15)
 	fox_unlock.add_theme_color_override("font_color",Color("e8ad72"))
 	menu_box.add_child(fox_unlock)
+	menu_box.add_child(button("CONTINUAR NA ARENA",func():
+		resume()
+	))
 	menu_box.add_child(button("SAIR DO TEMPLO",func():
 		resume()
 		leave_lake_temple()
@@ -3437,7 +3500,7 @@ func save_world() -> bool:
 		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":8,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form}
+	var data={"version":8,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -3535,6 +3598,7 @@ func load_world() -> void:
 			hotbar.resize(9)
 	selected=int(data.get("selected",0))
 	restore_ground_drops(data.get("dropped_items",[]))
+	restore_death_backpacks(data.get("death_backpacks",[]))
 	if monk_quest_done:
 		player.max_hp=maxf(player.max_hp,120.0)
 		player.hp=minf(player.hp,player.max_hp)
@@ -3904,10 +3968,49 @@ func leave_purity() -> void:
 	save_world()
 
 func on_player_died() -> void:
-	if in_lake_temple:
-		call_deferred("leave_lake_temple",true)
-	elif in_purity:
+	var death_position=player.position
+	var death_scope=current_death_scope()
+	if not player.creative:
+		var lost:Dictionary={}
+		for raw_id in player.inventory.keys():
+			var item_id=int(raw_id)
+			var amount=int(player.inventory.get(raw_id,0))
+			if amount>0:
+				lost[item_id]=amount
+		player.inventory.clear()
+		hotbar=[0,0,0,0,0,0,0,0,0]
+		selected=0
+		spawn_death_backpack(lost,death_position,death_scope)
+
+	if in_lake_temple and is_instance_valid(lake_arena):
+		# Do not throw the player out of the boss room on death. Player.respawn()
+		# uses this position after the signal returns, so the retry happens inside.
+		player.spawn_position=lake_arena.spawn_position
+		player.air=player.max_air
+		player.set_water_state(false,false)
+		if is_instance_valid(lake_boss):
+			lake_boss.hp=lake_boss.max_hp
+			lake_boss.state="recover"
+			lake_boss.timer=1.25
+		status.text="VOCÊ CAIU · recupere sua mochila e tente o Leviatã novamente."
+		message_time=4
+		refresh_hud()
+		save_world()
+		return
+
+	if in_structure!="":
+		player.spawn_position=Vector2(640,570)
+		status.text="VOCÊ CAIU · sua mochila ficou onde você morreu."
+		message_time=4
+		refresh_hud()
+		return
+
+	player.spawn_position=Vector2(12*32+16,35*32-2)
+	if in_purity:
 		call_deferred("leave_purity")
+	status.text="VOCÊ CAIU · volte ao local da morte para recuperar sua mochila."
+	message_time=4
+	refresh_hud()
 
 func on_boss_defeated() -> void:
 	boss_defeated=true
