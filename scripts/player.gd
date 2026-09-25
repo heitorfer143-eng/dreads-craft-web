@@ -136,10 +136,10 @@ func _normalize_form_sprite(kind:String) -> void:
 	if texture==null:
 		return
 	var tex_size=texture.get_size()
-	var target_height=58.0 if kind=="fox" else 62.0
+	var target_height=68.0 if kind=="fox" else 62.0
 	var factor=target_height/maxf(1.0,tex_size.y)
 	sprite.scale=Vector2(factor,factor)
-	sprite.position.y=-26.0 if kind=="fox" else -30.0
+	sprite.position.y=-30.0 if kind=="fox" else -30.0
 
 func set_form(form_id:String) -> void:
 	current_form="fox" if form_id=="fox" else "spike"

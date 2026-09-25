@@ -15,13 +15,18 @@ const PLAYER_FILES = {
 		"attack": ["res://assets/sprites/demon_attack_0.png"],
 		"hurt": ["res://assets/sprites/demon_hurt_0.png"]
 	},
-	"fox": {
-		"idle": ["res://assets/player/forms/fox_idle.svg","res://assets/player/forms/fox_idle_blink.svg"],
-		"walk": ["res://assets/player/forms/fox_walk_0.svg","res://assets/player/forms/fox_walk_1.svg","res://assets/player/forms/fox_walk_2.svg"],
-		"jump": ["res://assets/player/forms/fox_jump.svg"],
-		"attack": ["res://assets/player/forms/fox_attack.svg","res://assets/player/forms/fox_attack_1.svg"],
-		"hurt": ["res://assets/player/forms/fox_hurt.svg"]
-	}
+}
+
+# Fox animation atlas cut directly from the approved reference sheet.
+# 64x64 per frame, 7 columns x 2 rows:
+# 0-3 idle, 4-9 walk/run, 10 jump, 11-12 attack, 13 hurt.
+const FOX_ATLAS_PATH = "res://assets/player/forms/fox_animation_atlas.png"
+const FOX_ACTIONS = {
+	"idle": [0,1,2,3],
+	"walk": [4,5,6,7,8,9],
+	"jump": [10],
+	"attack": [11,12],
+	"hurt": [13]
 }
 
 # Existing, valid PNG sheets already in the project.
@@ -76,6 +81,25 @@ static func _add_player_frames(frames: SpriteFrames, kind: String) -> void:
 		for path in PLAYER_FILES[kind][action]:
 			frames.add_frame(action,load(path) as Texture2D)
 
+static func _add_fox_frames(frames: SpriteFrames) -> void:
+	var sheet=load(FOX_ATLAS_PATH) as Texture2D
+	for action in FOX_ACTIONS:
+		frames.add_animation(action)
+		var speed=10.0
+		match action:
+			"idle": speed=4.0
+			"walk": speed=12.0
+			"attack": speed=12.0
+			"hurt": speed=8.0
+			"jump": speed=8.0
+		frames.set_animation_speed(action,speed)
+		frames.set_animation_loop(action,action in ["idle","walk","jump"])
+		for index in FOX_ACTIONS[action]:
+			var texture=AtlasTexture.new()
+			texture.atlas=sheet
+			texture.region=Rect2(int(index%7)*64,int(index/7)*64,64,64)
+			frames.add_frame(action,texture)
+
 static func _add_generated_mob_frames(frames: SpriteFrames, kind: String) -> void:
 	var sheet=load(GENERATED_MOBS[kind]) as Texture2D
 	for action in GENERATED_ACTIONS:
@@ -110,12 +134,16 @@ static func make(kind: String) -> AnimatedSprite2D:
 	var frames=SpriteFrames.new()
 	frames.remove_animation("default")
 
-	if kind in ["normal","demon","fox"]:
+	if kind in ["normal","demon"]:
 		_add_player_frames(frames,kind)
 		# Player owns final size normalization because source art can have very
 		# different canvas sizes. Keep this neutral to avoid giant Spike renders.
 		sprite.scale=Vector2.ONE
 		sprite.position.y=-28
+	elif kind=="fox":
+		_add_fox_frames(frames)
+		sprite.scale=Vector2.ONE
+		sprite.position.y=-30
 	elif GENERATED_MOBS.has(kind):
 		_add_generated_mob_frames(frames,kind)
 		match kind:
