@@ -300,7 +300,7 @@ func build_ui() -> void:
 	stats_frame.add_child(stats_root)
 	var portrait=TextureRect.new()
 	portrait_icon=portrait
-	portrait.texture=load("res://assets/ui/spike_portrait.png")
+	portrait.texture=load("res://assets/sprites/normal_idle_0.png")
 	portrait.position=Vector2(10,12)
 	portrait.size=Vector2(46,46)
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
@@ -1844,7 +1844,7 @@ func refresh_hud() -> void:
 	if not active:
 		return
 	sync_hotbar_from_inventory()
-	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png" if player.creative else ("res://assets/player/forms/fox_idle.svg" if current_form=="fox" else "res://assets/ui/spike_portrait.png"))
+	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png" if player.creative else ("res://assets/player/forms/fox_idle.svg" if current_form=="fox" else "res://assets/sprites/normal_idle_0.png"))
 	form_name_label.text="LIVRE" if player.creative else ("RAPOSA" if current_form=="fox" else "SPIKE")
 	hp_bar.max_value=player.max_hp
 	hp_bar.value=player.max_hp if player.creative else player.hp
@@ -1956,7 +1956,7 @@ func show_transformations() -> void:
 		apply_form("spike")
 		resume()
 	)
-	spike_button.icon=load("res://assets/ui/spike_portrait.png")
+	spike_button.icon=load("res://assets/sprites/normal_idle_0.png")
 	spike_button.expand_icon=true
 	menu_box.add_child(spike_button)
 	var fox_unlocked=bool(forms_unlocked.get("fox",false))
@@ -3988,6 +3988,7 @@ func on_player_died() -> void:
 		player.spawn_position=lake_arena.spawn_position
 		player.air=player.max_air
 		player.set_water_state(false,false)
+		call_deferred("_finish_lake_respawn")
 		if is_instance_valid(lake_boss):
 			lake_boss.hp=lake_boss.max_hp
 			lake_boss.state="recover"
@@ -4011,6 +4012,16 @@ func on_player_died() -> void:
 	status.text="VOCÊ CAIU · volte ao local da morte para recuperar sua mochila."
 	message_time=4
 	refresh_hud()
+
+func _finish_lake_respawn() -> void:
+	if not in_lake_temple or not is_instance_valid(player) or not is_instance_valid(lake_arena):
+		return
+	player.position=lake_arena.spawn_position
+	player.velocity=Vector2.ZERO
+	player.max_fall_speed=0.0
+	player.air=player.max_air
+	player.set_water_state(false,false)
+	player.camera.reset_smoothing()
 
 func on_boss_defeated() -> void:
 	boss_defeated=true

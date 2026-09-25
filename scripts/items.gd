@@ -55,7 +55,6 @@ const TILE_TEXTURES = {
 	6: "res://assets/tiles/coal.png",
 	7: "res://assets/tiles/iron.png",
 	8: "res://assets/tiles/planks.png",
-	9: "res://assets/tiles/table.png",
 	14: "res://assets/tiles/tile_14.svg",
 	15: "res://assets/tiles/tile_15.svg",
 	16: "res://assets/items/portal_new_world.svg",

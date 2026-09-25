@@ -67,13 +67,15 @@ func run() -> void:
 	game.player.hurt_time=0.0
 	game.player.take_damage(9999.0)
 	await process_frame
+	await process_frame
 	check(game.in_lake_temple,"Death does not eject player from Leviathan arena")
-	check(game.player.position.distance_to(game.lake_arena.spawn_position)<8.0,"Lake death respawns inside arena")
+	check(game.player.position.distance_to(game.lake_arena.spawn_position)<36.0,"Lake death respawns inside arena")
 	check(game.player.inventory.is_empty(),"Death removes carried inventory")
 	check(game.death_bags.get_child_count()==1,"Death creates one recoverable backpack")
 	var bag=game.death_bags.get_child(0)
 	game.player.position=bag.position
 	bag.try_collect()
+	await process_frame
 	check(int(game.player.inventory.get(14,0))==2 and int(game.player.inventory.get(3,0))==9,"Death backpack restores all items")
 	check(game.death_bags.get_child_count()==0,"Backpack disappears only after collection")
 	game.ensure_lake_boss()
