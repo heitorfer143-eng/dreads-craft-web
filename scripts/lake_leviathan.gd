@@ -7,7 +7,7 @@ var max_hp := 1400.0
 var hp := 1400.0
 var awakened := true
 var state := "recover"
-var timer := 1.1
+var timer := 1.6
 var age := 0.0
 var flash := 0.0
 var warning_x := 0.0
@@ -18,6 +18,7 @@ var orbs: Array = []
 var wave_x := 0.0
 var wave_dir := -1.0
 var wave_hit := false
+var orb_volley_can_damage := true
 
 func _ready() -> void:
 	z_index=8
@@ -57,7 +58,7 @@ func _physics_process(delta:float) -> void:
 	if state=="wave":
 		wave_x+=wave_dir*(620.0 if enraged else 500.0)*delta
 		if not wave_hit and is_instance_valid(player) and absf(player.position.x-wave_x)<38.0 and player.position.y>420:
-			player.take_damage(22 if enraged else 16)
+			player.take_damage(15 if enraged else 12)
 			player.velocity.x=wave_dir*340.0
 			wave_hit=true
 		if wave_x<20 or wave_x>1260:
@@ -77,26 +78,26 @@ func _physics_process(delta:float) -> void:
 				0:
 					state="tentacle_warn"
 					warning_x=player.position.x
-					timer=0.48 if enraged else 0.72
+					timer=0.65 if enraged else 0.82
 				1:
 					state="wave_warn"
-					timer=0.52 if enraged else 0.8
+					timer=0.72 if enraged else 0.92
 				2:
 					state="orb_warn"
-					timer=0.42 if enraged else 0.7
+					timer=0.62 if enraged else 0.78
 				3:
 					state="dive_warn"
 					dive_target_x=clampf(player.position.x,260.0,1120.0)
-					timer=0.55 if enraged else 0.85
+					timer=0.78 if enraged else 1.02
 		"tentacle_warn":
 			if absf(player.position.x-warning_x)<62.0 and player.position.y>420:
-				player.take_damage(28 if enraged else 21)
+				player.take_damage(20 if enraged else 16)
 				player.velocity.y=-260
 			state="tentacle_impact"
 			timer=0.24
 		"tentacle_impact":
 			state="recover"
-			timer=0.5 if enraged else 0.75
+			timer=0.68 if enraged else 0.86
 		"wave_warn":
 			wave_dir=-1.0 if player.position.x<position.x else 1.0
 			wave_x=position.x
@@ -106,23 +107,24 @@ func _physics_process(delta:float) -> void:
 		"orb_warn":
 			_spawn_orbs(5 if enraged else 3)
 			state="recover"
-			timer=0.7 if enraged else 1.0
+			timer=0.82 if enraged else 1.05
 		"dive_warn":
 			state="dive_hidden"
 			timer=0.52 if enraged else 0.8
 		"dive_hidden":
 			position.x=dive_target_x
 			if absf(player.position.x-position.x)<105.0 and player.position.y>400:
-				player.take_damage(30 if enraged else 23)
+				player.take_damage(23 if enraged else 18)
 				player.velocity.y=-330
 			state="dive_splash"
 			timer=0.28
 		"dive_splash":
 			state="recover"
-			timer=0.55 if enraged else 0.85
+			timer=0.7 if enraged else 0.92
 	queue_redraw()
 
 func _spawn_orbs(count:int) -> void:
+	orb_volley_can_damage=true
 	var origin=position+Vector2(0,-175)
 	for i in range(count):
 		var target=player.position+Vector2((float(i)-float(count-1)/2.0)*44.0,-20)
@@ -135,7 +137,9 @@ func _update_orbs(delta:float) -> void:
 		orb["pos"]=Vector2(orb["pos"])+Vector2(orb["vel"])*delta
 		orb["life"]=float(orb["life"])-delta
 		if is_instance_valid(player) and Vector2(orb["pos"]).distance_to(player.position+Vector2(0,-22))<24:
-			player.take_damage(18 if phase_two() else 13)
+			if orb_volley_can_damage:
+				player.take_damage(13 if phase_two() else 10)
+				orb_volley_can_damage=false
 			orbs.remove_at(i)
 			continue
 		if float(orb["life"])<=0 or Vector2(orb["pos"]).x<0 or Vector2(orb["pos"]).x>1280 or Vector2(orb["pos"]).y<0 or Vector2(orb["pos"]).y>720:

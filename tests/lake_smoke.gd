@@ -55,7 +55,7 @@ func run() -> void:
 	check(is_instance_valid(game.lake_boss),"Leviathan spawns only inside temple")
 	check(game.lake_boss.max_hp==1400.0,"Leviathan HP")
 	check(game.lake_arena.boss_position.y>=640.0,"Leviathan is positioned deeper in the lake")
-	check(game.player.max_air==8.0,"Player has underwater air capacity")
+	check(game.player.max_air>=18.0,"Player has enough underwater air for a real boss attempt")
 	var spike_tex=game.player.sprite.sprite_frames.get_frame_texture("idle",0)
 	check(spike_tex!=null and spike_tex.get_size().y*game.player.sprite.scale.y<=70.0,"Spike visual size stays normalized")
 	game.player.set_water_state(true,true)
@@ -66,6 +66,14 @@ func run() -> void:
 	game.player._update_breath(1.0)
 	check(game.player.air>0.0,"Air recovers out of water")
 	check(not bool(game.forms_unlocked.get("fox",false)),"Fox form starts locked")
+	var boss_hp_before_orb=game.lake_boss.hp
+	var soul_projectile=load("res://scripts/soul_projectile.gd").new()
+	soul_projectile.setup(Vector2.RIGHT,game.world,game.enemies,game)
+	soul_projectile.position=game.lake_boss.position-Vector2(100,0)
+	game.add_child(soul_projectile)
+	await process_frame
+	soul_projectile._process(0.08)
+	check(game.lake_boss.hp<boss_hp_before_orb,"Soul Orb damages Leviathan inside submerged arena")
 	game.player.inventory[14]=2
 	game.player.inventory[3]=9
 	game.player.hurt_time=0.0

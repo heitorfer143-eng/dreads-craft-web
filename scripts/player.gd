@@ -22,8 +22,8 @@ var max_fall_speed = 0.0
 var was_grounded = false
 var in_water := false
 var submerged := false
-var max_air := 8.0
-var air := 8.0
+var max_air := 18.0
+var air := 18.0
 var drown_tick := 0.0
 var current_form := "spike"
 
@@ -180,7 +180,7 @@ func take_damage(amount: float) -> void:
 	if creative or hurt_time>0:
 		return
 	hp-=amount
-	hurt_time=.6
+	hurt_time=.85
 	if hp<=0:
 		respawn()
 

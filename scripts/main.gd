@@ -266,7 +266,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.3.2 • TEMPLE + VICTORY FIX"
+	build_badge.text="DREADS CRAFT • BUILD 14.3.3 • BOSS + ORB FIX"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -297,12 +297,15 @@ func build_ui() -> void:
 	hud.add_child(stats_frame)
 	var stats_root=Control.new()
 	stats_root.custom_minimum_size=Vector2(244,90)
+	stats_root.size=Vector2(244,90)
+	stats_root.clip_contents=true
 	stats_frame.add_child(stats_root)
 	var portrait=TextureRect.new()
 	portrait_icon=portrait
 	portrait.texture=load("res://assets/sprites/normal_idle_0.png")
 	portrait.position=Vector2(10,12)
 	portrait.size=Vector2(46,46)
+	portrait.custom_minimum_size=Vector2(46,46)
 	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -2591,10 +2594,17 @@ func show_damage_popup(world_position:Vector2,amount:int,critical:bool) -> void:
 
 func fire_soul_projectile() -> void:
 	var projectile=SoulProjectile.new()
-	projectile.setup(player.face,world,enemies,self)
-	projectile.position=player.position+Vector2(player.face*34,-28)
+	var launch=player.position+Vector2(player.face*34,-28)
+	var aim_target=player.position+touch_aim if is_instance_valid(device_controls) and device_controls.mobile else get_global_mouse_position()
+	var aim_direction=(aim_target-launch).normalized()
+	if aim_direction.length_squared()<0.01:
+		aim_direction=Vector2(player.face,0)
+	if signf(aim_direction.x)!=0:
+		player.face=1 if aim_direction.x>0 else -1
+	projectile.setup(aim_direction,world,enemies,self)
+	projectile.position=launch
 	add_child(projectile)
-	status.text="✦ PROJÉTIL DE ALMA"
+	status.text="✦ ORBE DAS ALMAS DISPARADO"
 	message_time=0.8
 
 
