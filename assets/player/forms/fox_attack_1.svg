@@ -1,26 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" shape-rendering="crispEdges">
 <rect width="96" height="96" fill="none"/>
-<polygon points="31,47 22,42 11,42 6,46 13,50 7,55 17,59 28,57 35,52" fill="#21171b"/>
-<polygon points="30,49 21,45 13,45 11,47 16,50 11,54 18,56 27,54 32,51" fill="#d96d2d"/>
-<polygon points="14,45 11,47 16,50 11,54 18,56 20,52 21,46" fill="#f4e2bf"/>
-<polygon points="29,44 40,42 62,44 71,49 69,62 60,66 34,64 27,57" fill="#21171b"/>
-<polygon points="32,46 41,45 60,47 67,50 66,58 59,62 35,61 30,55" fill="#d96d2d"/>
-<polygon points="40,45 58,47 63,49 56,52 39,50" fill="#f07b31"/>
-<polygon points="47,55 61,53 64,58 58,62 49,60" fill="#f4e2bf"/>
-<polygon points="34,58 43,58 46,66 39,70 31,66" fill="#39292b"/>
-<polygon points="48,59 56,58 61,65 55,68 47,65" fill="#39292b"/>
-<polygon points="60,57 67,56 78,62 76,67 64,64" fill="#39292b"/>
-<polygon points="62,53 69,53 82,57 80,62 67,60" fill="#39292b"/>
-<polygon points="62,34 65,29 67,18 74,29 77,29 83,19 87,35 89,40 88,50 83,55 69,55 62,50" fill="#21171b"/>
-<polygon points="65,35 67,31 70,24 74,32 78,32 83,26 85,36 86,41 85,47 81,51 71,52 65,48" fill="#d96d2d"/>
-<polygon points="69,29 70,23 73,31" fill="#f4e2bf"/>
-<polygon points="80,31 83,24 84,34" fill="#f4e2bf"/>
-<rect x="72" y="36" width="10" height="3" fill="#21171b"/>
-<rect x="74" y="39" width="8" height="6" fill="#21171b"/>
-<rect x="76" y="40" width="5" height="3" fill="#f8c94f"/>
-<rect x="79" y="40" width="2" height="3" fill="#171216"/>
-<polygon points="76,44 87,43 92,47 88,50 92,53 84,55 75,52 71,48" fill="#f4e2bf"/>
-<polygon points="88,46 94,48 89,51" fill="#181216"/>
-<rect x="83" y="51" width="7" height="3" fill="#21171b"/>
-<polygon points="86,51 89,51 87,55" fill="#fff4d4"/>
+<polygon points="35,49 26,43 15,42 7,47 13,52 7,57 16,63 27,61 38,55" fill="#21191c"/>
+<polygon points="33,50 25,46 16,45 12,48 17,52 11,56 18,59 27,57 34,53" fill="#d86b2b"/>
+<polygon points="16,45 12,48 17,52 11,56 18,59 20,53 21,46" fill="#f2dfbb"/>
+<polygon points="31,44 42,40 61,42 70,48 69,60 60,66 37,64 29,57" fill="#21191c"/>
+<polygon points="34,46 43,43 59,45 66,49 65,57 58,62 38,60 33,55" fill="#d86b2b"/>
+<polygon points="49,52 64,51 66,57 59,62 51,59" fill="#f2dfbb"/>
+<polygon points="36,57 45,57 49,65 42,69 33,65" fill="#3a2b2c"/>
+<polygon points="52,57 60,56 69,62 66,67 55,64" fill="#3a2b2c"/>
+<polygon points="57,35 59,28 62,24 64,10 72,24 77,23 86,10 88,28 93,34 94,45 89,54 80,59 66,58 59,52" fill="#21191c"/>
+<polygon points="61,35 62,29 66,25 67,17 72,28 78,27 84,18 85,30 89,35 90,43 86,50 79,55 68,55 62,50" fill="#d86b2b"/>
+<polygon points="66,24 67,16 71,27" fill="#f2dfbb"/>
+<polygon points="82,25 85,16 86,29" fill="#f2dfbb"/>
+<polygon points="61,36 67,30 75,28 85,31 90,37 84,40 68,41" fill="#ef7d32"/>
+<polygon points="69,42 85,41 94,46 91,51 95,54 87,58 73,56 65,50" fill="#f2dfbb"/>
+<polygon points="68,34 83,34 81,38 69,39" fill="#21191c"/>
+<polygon points="70,38 82,37 81,45 72,45" fill="#21191c"/>
+<polygon points="72,39 79,39 78,43 73,43" fill="#f7c647"/>
+<rect x="77" y="39" width="2" height="5" fill="#171216"/>
+<polygon points="90,46 96,49 91,52" fill="#171216"/>
+<rect x="86" y="52" width="8" height="3" fill="#21191c"/>
+<polygon points="88,52 91,52 89,56" fill="#fff1d2"/>
 </svg>
