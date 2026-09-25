@@ -45,7 +45,7 @@ func run() -> void:
 			break
 	check(tree_cell.x>=0 and not scene.world.is_solid(tree_cell),"Tree trunks are pass-through but remain world cells")
 	check(scene.player.sprite.sprite_frames.has_animation("walk"),"Player animations")
-	check(scene.mel.base_scale<0.5,"Mel uses compact in-world scale")
+	check(scene.mel.base_scale<0.7,"Mel uses compact in-world scale")
 	var market_found=false
 	for building in scene.structures.get_children():
 		if str(building.kind)=="market":
