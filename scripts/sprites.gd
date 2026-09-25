@@ -14,6 +14,13 @@ const PLAYER_FILES = {
 		"jump": ["res://assets/sprites/demon_jump_0.png"],
 		"attack": ["res://assets/sprites/demon_attack_0.png"],
 		"hurt": ["res://assets/sprites/demon_hurt_0.png"]
+	},
+	"fox": {
+		"idle": ["res://assets/player/forms/fox_idle.svg"],
+		"walk": ["res://assets/player/forms/fox_walk_0.svg","res://assets/player/forms/fox_walk_1.svg"],
+		"jump": ["res://assets/player/forms/fox_jump.svg"],
+		"attack": ["res://assets/player/forms/fox_attack.svg"],
+		"hurt": ["res://assets/player/forms/fox_hurt.svg"]
 	}
 }
 
@@ -95,10 +102,14 @@ static func make(kind: String) -> AnimatedSprite2D:
 	var frames=SpriteFrames.new()
 	frames.remove_animation("default")
 
-	if kind in ["normal","demon"]:
+	if kind in ["normal","demon","fox"]:
 		_add_player_frames(frames,kind)
-		sprite.scale=Vector2(0.16,0.16)
-		sprite.position.y=-27.2
+		if kind=="fox":
+			sprite.scale=Vector2(0.62,0.62)
+			sprite.position.y=-24
+		else:
+			sprite.scale=Vector2(0.16,0.16)
+			sprite.position.y=-27.2
 	elif GENERATED_MOBS.has(kind):
 		_add_generated_mob_frames(frames,kind)
 		match kind:

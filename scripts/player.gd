@@ -21,6 +21,11 @@ var spawn_position = Vector2(400,1000)
 var max_fall_speed = 0.0
 var was_grounded = false
 var in_water := false
+var submerged := false
+var max_air := 8.0
+var air := 8.0
+var drown_tick := 0.0
+var current_form := "spike"
 
 const SAFE_FALL_SPEED = 650.0
 const FALL_DAMAGE_DIVISOR = 12.0
@@ -35,9 +40,7 @@ func _ready() -> void:
 	collider.shape=shape
 	collider.position=Vector2(0,-22)
 	add_child(collider)
-	sprite=Sprites.make("demon" if creative else "normal")
-	sprite.scale=Vector2(0.18,0.18)
-	add_child(sprite)
+	_rebuild_form_sprite()
 	weapon_sprite=Sprite2D.new()
 	weapon_sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	weapon_sprite.position=Vector2(18,-28)
@@ -59,6 +62,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	attack_time=maxf(0,attack_time-delta)
 	hurt_time=maxf(0,hurt_time-delta)
+	_update_breath(delta)
 	var direction=Input.get_axis("left","right")
 	velocity.x=direction*(155.0 if in_water and not creative else 220.0)
 	if direction!=0:
@@ -116,13 +120,43 @@ func _physics_process(delta: float) -> void:
 		sprite.play(animation)
 	sprite.modulate=Color(1,.6,.6) if hurt_time>0 else Color.WHITE
 
-func set_water_state(value:bool) -> void:
-	if in_water==value:
-		return
+func _rebuild_form_sprite() -> void:
+	if is_instance_valid(sprite):
+		remove_child(sprite)
+		sprite.queue_free()
+	var kind="demon" if creative else ("fox" if current_form=="fox" else "normal")
+	sprite=Sprites.make(kind)
+	sprite.scale=Vector2(0.62,0.62) if kind=="fox" else Vector2(0.18,0.18)
+	add_child(sprite)
+
+func set_form(form_id:String) -> void:
+	current_form="fox" if form_id=="fox" else "spike"
+	_rebuild_form_sprite()
+
+func set_water_state(value:bool,head_submerged:bool=false) -> void:
 	in_water=value
+	submerged=value and head_submerged
 	if in_water:
 		max_fall_speed=0.0
 		velocity.y=minf(velocity.y,140.0)
+	else:
+		submerged=false
+
+func _update_breath(delta:float) -> void:
+	if creative:
+		air=max_air
+		drown_tick=0.0
+		return
+	if submerged:
+		air=maxf(0.0,air-delta)
+		if air<=0.0:
+			drown_tick-=delta
+			if drown_tick<=0.0:
+				drown_tick=1.0
+				take_damage(5.0)
+	else:
+		air=minf(max_air,air+delta*3.6)
+		drown_tick=0.0
 
 func _apply_fall_damage(impact_speed: float) -> void:
 	if creative or in_water or impact_speed<=SAFE_FALL_SPEED:
@@ -142,6 +176,9 @@ func respawn() -> void:
 	died.emit()
 	hp=max_hp
 	food=75
+	air=max_air
+	submerged=false
+	in_water=false
 	position=spawn_position
 	velocity=Vector2.ZERO
 	max_fall_speed=0.0

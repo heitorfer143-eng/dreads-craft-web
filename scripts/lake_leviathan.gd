@@ -24,7 +24,7 @@ func _ready() -> void:
 	body_sprite=Sprite2D.new()
 	body_sprite.texture=load("res://assets/boss/lake_leviathan.svg")
 	body_sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
-	body_sprite.position=Vector2(0,-162)
+	body_sprite.position=Vector2(0,-128)
 	body_sprite.scale=Vector2(0.72,0.72)
 	body_sprite.z_index=2
 	add_child(body_sprite)
@@ -48,7 +48,7 @@ func _physics_process(delta:float) -> void:
 	flash=maxf(0.0,flash-delta)
 	var enraged=phase_two()
 	if is_instance_valid(body_sprite):
-		body_sprite.position.y=-162.0+sin(age*(2.8 if enraged else 2.0))*4.0
+		body_sprite.position.y=-128.0+sin(age*(2.8 if enraged else 2.0))*4.0
 		body_sprite.rotation=sin(age*1.15)*0.012
 		body_sprite.modulate=Color("fff1ff") if flash>0 else (Color("e9d7ff") if enraged else Color.WHITE)
 		body_sprite.visible=state!="dive_hidden"

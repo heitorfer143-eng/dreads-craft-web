@@ -3,7 +3,7 @@ extends Node2D
 var world_seed := 1
 var spawn_position := Vector2(150,585)
 var exit_position := Vector2(92,574)
-var boss_position := Vector2(900,605)
+var boss_position := Vector2(900,650)
 var water_top := 492.0
 
 func _ready() -> void:

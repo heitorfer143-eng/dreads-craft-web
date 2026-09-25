@@ -56,6 +56,13 @@ var stats: Label
 var time_label: Label
 var hp_bar: ProgressBar
 var food_bar: ProgressBar
+var air_frame: Panel
+var air_bar: ProgressBar
+var air_value: Label
+var transform_button: Button
+var form_name_label: Label
+var forms_unlocked: Dictionary = {"spike":true,"fox":false}
+var current_form := "spike"
 var bar: HBoxContainer
 var hotbar_back: Panel
 var status: Label
@@ -257,7 +264,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.2.1 • LAKE + HUD FIX"
+	build_badge.text="DREADS CRAFT • BUILD 14.3 • AIR + FOX FORM"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -298,11 +305,11 @@ func build_ui() -> void:
 	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	stats_root.add_child(portrait)
-	var spike_name=label("SPIKE",9)
-	spike_name.position=Vector2(12,61)
-	spike_name.size=Vector2(44,15)
-	spike_name.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	stats_root.add_child(spike_name)
+	form_name_label=label("SPIKE",9)
+	form_name_label.position=Vector2(8,61)
+	form_name_label.size=Vector2(52,15)
+	form_name_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	stats_root.add_child(form_name_label)
 	var hp_caption=label("VIDA",9)
 	hp_caption.position=Vector2(68,9)
 	stats_root.add_child(hp_caption)
@@ -339,6 +346,30 @@ func build_ui() -> void:
 	stats_root.add_child(food_value)
 	stats_root.add_child(stats)
 
+	air_frame=Panel.new()
+	air_frame.name="AirFrame"
+	air_frame.size=Vector2(194,34)
+	air_frame.add_theme_stylebox_override("panel",panel_style(0.90,Color("607aa5")))
+	air_frame.hide()
+	hud.add_child(air_frame)
+	var air_caption=label("AR",9)
+	air_caption.position=Vector2(10,8)
+	air_frame.add_child(air_caption)
+	air_bar=ProgressBar.new()
+	air_bar.position=Vector2(36,10)
+	air_bar.size=Vector2(112,10)
+	air_bar.max_value=8
+	air_bar.value=8
+	air_bar.show_percentage=false
+	air_bar.add_theme_stylebox_override("background",meter_style(Color("101522")))
+	air_bar.add_theme_stylebox_override("fill",meter_style(Color("6f9ed4")))
+	air_frame.add_child(air_bar)
+	air_value=label("100%",9)
+	air_value.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	air_value.position=Vector2(150,6)
+	air_value.size=Vector2(36,18)
+	air_frame.add_child(air_value)
+
 	var clock_frame=Panel.new()
 	clock_frame.name="ClockFrame"
 	clock_frame.size=Vector2(184,38)
@@ -368,6 +399,9 @@ func build_ui() -> void:
 	mode_label.position=Vector2(7,5)
 	mode_label.size=Vector2(118,22)
 	mode_frame.add_child(mode_label)
+	transform_button=icon_button("res://assets/ui/transform.svg","Transformações",show_transformations)
+	transform_button.name="TransformButton"
+	hud.add_child(transform_button)
 
 	hotbar_back=Panel.new()
 	hotbar_back.size=Vector2(492,58)
@@ -454,6 +488,13 @@ func layout() -> void:
 		mode_frame.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
 		mode_frame.position=Vector2(size.x-122.0,48.0) if mobile_layout else Vector2(size.x-144,56)
 		mode_frame.size=Vector2(132,32)
+	if is_instance_valid(transform_button):
+		transform_button.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		transform_button.position=Vector2(size.x-48.0,82.0) if mobile_layout else Vector2(size.x-52.0,96.0)
+	if is_instance_valid(air_frame):
+		var stat_scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		air_frame.scale=stat_scale
+		air_frame.position=Vector2(6,80) if mobile_layout else Vector2(12,104)
 	if is_instance_valid(hotbar_back):
 		# Mobile hotbar is deliberately larger than desktop: 9 x 64px slots plus a
 		# compact frame. It remains centered between the movement and action clusters.
@@ -1427,6 +1468,8 @@ func start_world(creative: bool, seed_value: int) -> void:
 	lake_discovered=false
 	in_lake_temple=false
 	lake_arena=null
+	forms_unlocked={"spike":true,"fox":false}
+	current_form="spike"
 	mel_tamed=false
 	mel_quest_started=false
 	borin_quest_done=false
@@ -1449,6 +1492,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	player.spawn_position=Vector2(12*32+16,35*32-2)
 	player.position=player.spawn_position
 	add_child(player)
+	player.set_form(current_form)
 	player.died.connect(on_player_died)
 	if creative:
 		for id in Items.NAMES:
@@ -1795,7 +1839,8 @@ func refresh_hud() -> void:
 	if not active:
 		return
 	sync_hotbar_from_inventory()
-	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png" if player.creative else "res://assets/ui/spike_portrait.png")
+	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png" if player.creative else ("res://assets/player/forms/fox_idle.svg" if current_form=="fox" else "res://assets/ui/spike_portrait.png"))
+	form_name_label.text="LIVRE" if player.creative else ("RAPOSA" if current_form=="fox" else "SPIKE")
 	hp_bar.max_value=player.max_hp
 	hp_bar.value=player.max_hp if player.creative else player.hp
 	food_bar.value=100 if player.creative else player.food
@@ -1805,6 +1850,7 @@ func refresh_hud() -> void:
 	time_label.text="DIA %d  ·  %02d:%02d" % [day,minutes/60,minutes%60]
 	mode_label.text="CRIATIVO" if player.creative else "SOBREVIVÊNCIA"
 	selected_name.text=Items.NAMES.get(selected,"Mãos vazias") if selected!=0 else "Mãos vazias"
+	update_air_hud()
 
 	for child in bar.get_children():
 		bar.remove_child(child)
@@ -1864,6 +1910,66 @@ func refresh_hud() -> void:
 		number.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		slot.add_child(number)
 		bar.add_child(slot)
+	layout()
+
+func update_air_hud() -> void:
+	if not is_instance_valid(air_frame) or not is_instance_valid(player):
+		return
+	var visible=active and player.in_water and not player.creative
+	air_frame.visible=visible
+	if not visible:
+		return
+	air_bar.max_value=player.max_air
+	air_bar.value=player.air
+	air_value.text="%d%%" % clampi(int(round(player.air/player.max_air*100.0)),0,100)
+	air_bar.modulate=Color("ef6a75") if player.air<=2.0 else Color.WHITE
+
+func apply_form(form_id:String) -> void:
+	if not is_instance_valid(player):
+		return
+	var normalized="fox" if form_id=="fox" else "spike"
+	if normalized=="fox" and not bool(forms_unlocked.get("fox",false)):
+		status.text="RAPOSA BLOQUEADA · derrote o Leviatã do Lago Abissal."
+		message_time=3
+		return
+	current_form=normalized
+	player.set_form(current_form)
+	refresh_hud()
+	status.text="FORMA ATIVA: RAPOSA" if current_form=="fox" else "FORMA ATIVA: SPIKE"
+	message_time=2.5
+	save_world()
+
+func show_transformations() -> void:
+	if not active:
+		return
+	clear_menu("Transformações","transformations")
+	var intro=label("Escolha a forma de Spike. Novas formas serão adicionadas futuramente.",13)
+	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	intro.add_theme_color_override("font_color",Color("c9b6d8"))
+	menu_box.add_child(intro)
+	var spike_button=button(("✓ " if current_form=="spike" else "")+"SPIKE · FORMA ORIGINAL",func():
+		apply_form("spike")
+		resume()
+	)
+	spike_button.icon=load("res://assets/ui/spike_portrait.png")
+	spike_button.expand_icon=true
+	menu_box.add_child(spike_button)
+	var fox_unlocked=bool(forms_unlocked.get("fox",false))
+	var fox_button=button(("✓ " if current_form=="fox" else "")+("RAPOSA · DESBLOQUEADA" if fox_unlocked else "RAPOSA · BLOQUEADA"),func():
+		apply_form("fox")
+		if bool(forms_unlocked.get("fox",false)):
+			resume()
+	)
+	fox_button.icon=load("res://assets/player/forms/fox_idle.svg")
+	fox_button.expand_icon=true
+	fox_button.disabled=not fox_unlocked
+	menu_box.add_child(fox_button)
+	if not fox_unlocked:
+		var hint=label("Derrote o LEVIATÃ DO LAGO ABISSAL para libertar a Forma Raposa.",12)
+		hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		hint.add_theme_color_override("font_color",Color("a98dbd"))
+		menu_box.add_child(hint)
+	menu_box.add_child(button("FECHAR",resume))
 	layout()
 
 func show_inventory() -> void:
@@ -2503,7 +2609,10 @@ func _process(delta: float) -> void:
 	if in_lake_temple:
 		mining_held=false
 		if is_instance_valid(lake_arena):
-			player.set_water_state(lake_arena.is_in_water(player.position))
+			var body_in_water=lake_arena.is_in_water(player.position)
+			var head_in_water=lake_arena.is_in_water(player.position+Vector2(0,-38))
+			player.set_water_state(body_in_water,head_in_water)
+			update_air_hud()
 			if message_time<=0 and player.position.distance_to(lake_arena.exit_position)<150:
 				status.text="FALAR / ENTRAR · SAIR DO TEMPLO SUBMERSO"
 		auto_save+=delta
@@ -2529,7 +2638,10 @@ func _process(delta: float) -> void:
 	else:
 		update_target()
 	if is_instance_valid(player):
-		player.set_water_state(not in_purity and in_structure=="" and is_instance_valid(world) and world.is_point_in_lake_water(player.position))
+		var body_in_water=not in_purity and in_structure=="" and is_instance_valid(world) and world.is_point_in_lake_water(player.position)
+		var head_in_water=body_in_water and world.is_point_in_lake_water(player.position+Vector2(0,-38))
+		player.set_water_state(body_in_water,head_in_water)
+		update_air_hud()
 	if not in_purity:
 		var near_mel=find_near_mel()
 		var near_npc=find_near_npc()
@@ -2614,6 +2726,7 @@ func _process(delta: float) -> void:
 		food_bar.value=100 if player.creative else player.food
 		stats.text="LIVRE" if player.creative else "%d/%d" % [int(player.hp),int(player.max_hp)]
 		food_value.text="LIVRE" if player.creative else str(int(player.food))
+		update_air_hud()
 		var minutes=int(clock*1440)
 		time_label.text=("SALA "+online.room_code+" · " if multiplayer_active and is_instance_valid(online) else "")+"DIA %d  ·  %02d:%02d" % [day,minutes/60,minutes%60]
 	message_time=maxf(0,message_time-delta)
@@ -2918,6 +3031,7 @@ func set_world_collision(enabled: bool) -> void:
 func enter_structure(kind: String, display_name: String) -> void:
 	if in_structure!="" or in_purity:
 		return
+	player.set_water_state(false,false)
 	structure_return_position=player.position
 	in_structure=kind
 	set_world_collision(false)
@@ -3241,7 +3355,7 @@ func enter_lake_temple(skip_intro:bool=false) -> void:
 	player.position=lake_arena.spawn_position
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0
-	player.set_water_state(lake_arena.is_in_water(player.position))
+	player.set_water_state(lake_arena.is_in_water(player.position),lake_arena.is_in_water(player.position+Vector2(0,-38)))
 	player.camera.limit_left=0
 	player.camera.limit_right=1280
 	player.camera.limit_top=0
@@ -3276,7 +3390,7 @@ func leave_lake_temple(on_death:bool=false) -> void:
 	player.position=world.lake_shore_spawn() if on_death else lake_return_position
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0
-	player.set_water_state(world.is_point_in_lake_water(player.position))
+	player.set_water_state(world.is_point_in_lake_water(player.position),world.is_point_in_lake_water(player.position+Vector2(0,-38)))
 	player.camera.limit_left=0
 	player.camera.limit_right=World.WIDTH*32
 	player.camera.limit_top=0
@@ -3292,6 +3406,7 @@ func on_lake_boss_defeated() -> void:
 	lake_boss=null
 	if int(player.inventory.get(27,0))<=0:
 		player.inventory[27]=1
+	forms_unlocked["fox"]=true
 	player.inventory[14]=int(player.inventory.get(14,0))+3
 	player.inventory[25]=int(player.inventory.get(25,0))+4
 	player.hp=player.max_hp
@@ -3300,6 +3415,9 @@ func on_lake_boss_defeated() -> void:
 	victory.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	menu_box.add_child(victory)
 	menu_box.add_child(label("Recompensa: 1x Coração Abissal · 3 Diamantes · 4 Minérios das Almas",13))
+	var fox_unlock=label("NOVA FORMA DESBLOQUEADA: RAPOSA",15)
+	fox_unlock.add_theme_color_override("font_color",Color("e8ad72"))
+	menu_box.add_child(fox_unlock)
 	menu_box.add_child(button("SAIR DO TEMPLO",func():
 		resume()
 		leave_lake_temple()
@@ -3319,7 +3437,7 @@ func save_world() -> bool:
 		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":7,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0}
+	var data={"version":8,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -3377,6 +3495,16 @@ func load_world() -> void:
 	lake_boss_defeated=bool(data.get("lake_boss_defeated",false))
 	lake_discovered=bool(data.get("lake_discovered",false))
 	lake_announced=lake_discovered
+	forms_unlocked={"spike":true,"fox":false}
+	var loaded_forms=data.get("forms_unlocked",{})
+	if loaded_forms is Dictionary:
+		forms_unlocked["fox"]=bool(loaded_forms.get("fox",false))
+	if lake_boss_defeated:
+		forms_unlocked["fox"]=true
+	current_form=str(data.get("current_form","spike"))
+	if current_form not in ["spike","fox"] or (current_form=="fox" and not bool(forms_unlocked.get("fox",false))):
+		current_form="spike"
+	player.set_form(current_form)
 	var saved_quests=data.get("quest_states",{})
 	if saved_quests is Dictionary and not saved_quests.is_empty():
 		for quest_id in [QUEST_MEL,QUEST_BORIN,QUEST_MERCHANT,QUEST_ABYSS,QUEST_MONK,QUEST_SNOW]:
