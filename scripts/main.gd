@@ -1847,7 +1847,7 @@ func refresh_hud() -> void:
 	if not active:
 		return
 	sync_hotbar_from_inventory()
-	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png" if player.creative else ("res://assets/player/forms/fox_idle.svg" if current_form=="fox" else "res://assets/sprites/normal_idle_0.png"))
+	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png") if player.creative else (fox_preview_texture() if current_form=="fox" else load("res://assets/sprites/normal_idle_0.png"))
 	form_name_label.text="LIVRE" if player.creative else ("RAPOSA" if current_form=="fox" else "SPIKE")
 	hp_bar.max_value=player.max_hp
 	hp_bar.value=player.max_hp if player.creative else player.hp
@@ -1932,6 +1932,16 @@ func update_air_hud() -> void:
 	air_value.text="%d%%" % clampi(int(round(player.air/player.max_air*100.0)),0,100)
 	air_bar.modulate=Color("ef6a75") if player.air<=2.0 else Color.WHITE
 
+
+func fox_preview_texture() -> Texture2D:
+	var sheet=load("res://assets/player/forms/fox_animation_atlas.png") as Texture2D
+	if sheet==null:
+		return null
+	var texture=AtlasTexture.new()
+	texture.atlas=sheet
+	texture.region=Rect2(0,0,64,64)
+	return texture
+
 func apply_form(form_id:String) -> void:
 	if not is_instance_valid(player):
 		return
@@ -1968,7 +1978,7 @@ func show_transformations() -> void:
 		if bool(forms_unlocked.get("fox",false)):
 			resume()
 	)
-	fox_button.icon=load("res://assets/player/forms/fox_idle.svg")
+	fox_button.icon=fox_preview_texture()
 	fox_button.expand_icon=true
 	fox_button.disabled=not fox_unlocked
 	menu_box.add_child(fox_button)

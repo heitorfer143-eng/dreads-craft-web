@@ -57,6 +57,7 @@ func run() -> void:
 	check(scene.player.sprite.sprite_frames.has_animation("walk"),"Player animations")
 	# Fox transformation keeps the existing player state machine, but now has authored multi-frame motion.
 	scene.player.set_form("fox")
+	check(load("res://assets/player/forms/fox_animation_atlas.png")!=null,"Fox atlas PNG loads cleanly")
 	check(scene.player.sprite.sprite_frames.has_animation("idle"),"Fox idle animation exists")
 	check(ResourceLoader.exists("res://assets/player/forms/fox_animation_atlas.png"),"Approved fox atlas exists")
 	check(load("res://assets/player/forms/fox_animation_atlas.png")!=null,"Approved fox atlas imports correctly")
