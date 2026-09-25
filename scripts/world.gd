@@ -25,11 +25,22 @@ var world_seed: int = 1
 var camera: Camera2D
 var dirty_rows: Dictionary = {}
 var tile_textures: Dictionary = {}
+var decor_atlas: Texture2D
+const DECOR_CELL = Vector2(96,64)
+const DECOR_INDEX = {
+	"tree":0, "pine":1, "shrub":2, "flowers":3, "fence":4,
+	"lampadao":5, "poste":6, "banner_red":7, "sign":8, "bench":9,
+	"well":10, "crates":11, "barrels":12, "vase":13, "plants":14,
+	"ivy":15, "lantern":16, "notice":17, "small_crate":18, "log":19,
+	"stump":20, "hay_pile":21, "hay_bale":22, "white_flower":23, "tall_grass":24
+}
 var purity_realm := false
 
 func _ready() -> void:
+	texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	for id in Items.TILE_TEXTURES:
 		tile_textures[id] = load(Items.TILE_TEXTURES[id])
+	decor_atlas=load("res://assets/decor/decor_atlas.png")
 
 func generate(seed_value: int) -> void:
 	world_seed = seed_value
@@ -656,164 +667,57 @@ func _draw() -> void:
 func _decor_base(x:int) -> Vector2:
 	return Vector2(x*TILE+TILE/2.0,surfaces[x]*TILE)
 
-func _draw_flower_patch(base:Vector2,snowy:bool=false) -> void:
-	var stem=Color("35513a")
-	var bloom_a=Color("f3e6cf") if snowy else Color("c95446")
-	var bloom_b=Color("f8f3e8") if snowy else Color("e7b25a")
-	for dx in [-10,-3,5,11]:
-		var h=10+absi(dx)%7
-		draw_line(base+Vector2(dx,-1),base+Vector2(dx-1,-h),stem,2)
-		draw_circle(base+Vector2(dx-1,-h),3,bloom_a if dx%2==0 else bloom_b)
-	draw_rect(Rect2(base+Vector2(-13,-3),Vector2(27,4)),Color("263629"))
+func _draw_decor_sprite(base:Vector2,key:String,scale:float=1.0) -> void:
+	if decor_atlas==null or not DECOR_INDEX.has(key):
+		return
+	var index=int(DECOR_INDEX[key])
+	var column=index%5
+	var row=int(index/5)
+	var source=Rect2(Vector2(column*int(DECOR_CELL.x),row*int(DECOR_CELL.y)),DECOR_CELL)
+	var draw_size=DECOR_CELL*scale
+	var destination=Rect2(base+Vector2(-draw_size.x*0.5,-draw_size.y),draw_size)
+	draw_texture_rect_region(decor_atlas,destination,source)
 
-func _draw_shrub(base:Vector2,snowy:bool=false) -> void:
-	var dark=Color("253727")
-	var mid=Color("3f633c")
-	var light=Color("67855a")
-	draw_circle(base+Vector2(-10,-8),8,dark)
-	draw_circle(base+Vector2(0,-12),11,mid)
-	draw_circle(base+Vector2(10,-8),8,dark)
-	draw_circle(base+Vector2(-4,-17),6,light)
-	if snowy:
-		draw_circle(base+Vector2(-4,-18),5,Color("eaf5fb"))
-		draw_circle(base+Vector2(8,-12),4,Color("eaf5fb"))
-
-func _draw_tall_grass(base:Vector2,snowy:bool=false) -> void:
-	var c=Color("6c7d4f") if not snowy else Color("d9edf6")
-	for dx in [-12,-8,-4,0,4,8,12]:
-		var lean=float((dx%5)-2)
-		draw_line(base+Vector2(dx,0),base+Vector2(dx+lean,-12-absi(dx)%9),c,2)
-
-func _draw_rocks(base:Vector2,snowy:bool=false) -> void:
-	draw_circle(base+Vector2(-8,-5),7,Color("4b4a55"))
-	draw_circle(base+Vector2(3,-6),9,Color("5b5965"))
-	draw_circle(base+Vector2(11,-4),5,Color("3b3942"))
-	draw_rect(Rect2(base+Vector2(-14,-3),Vector2(30,4)),Color("302e36"))
-	if snowy:
-		draw_line(base+Vector2(-10,-10),base+Vector2(8,-12),Color("edf7fc"),3)
-
-func _draw_log(base:Vector2) -> void:
-	draw_rect(Rect2(base+Vector2(-18,-10),Vector2(36,9)),Color("2c1d1b"))
-	draw_rect(Rect2(base+Vector2(-16,-9),Vector2(31,6)),Color("6d432f"))
-	draw_rect(Rect2(base+Vector2(-12,-7),Vector2(24,2)),Color("a66b42"))
-	draw_circle(base+Vector2(18,-5),6,Color("2b1b19"))
-	draw_circle(base+Vector2(18,-5),3,Color("8c5d3a"))
-
-func _draw_stump(base:Vector2) -> void:
-	draw_rect(Rect2(base+Vector2(-8,-16),Vector2(16,15)),Color("4a2c24"))
-	draw_rect(Rect2(base+Vector2(-10,-18),Vector2(20,6)),Color("2b1b1a"))
-	draw_rect(Rect2(base+Vector2(-7,-17),Vector2(14,3)),Color("a87345"))
-	draw_line(base+Vector2(-3,-16),base+Vector2(5,-16),Color("65402c"),1)
-
-func _draw_hay(base:Vector2) -> void:
-	draw_rect(Rect2(base+Vector2(-15,-16),Vector2(30,15)),Color("9b6b32"))
-	draw_rect(Rect2(base+Vector2(-13,-14),Vector2(26,11)),Color("c99343"))
-	for y in [-12,-8,-4]:
-		draw_line(base+Vector2(-12,y),base+Vector2(12,y),Color("e1b761"),1)
-	draw_line(base+Vector2(0,-15),base+Vector2(0,-2),Color("76502b"),2)
-
-func _draw_fence(base:Vector2,width:int=42) -> void:
-	draw_rect(Rect2(base+Vector2(-width/2.0,-24),Vector2(6,24)),Color("3b2620"))
-	draw_rect(Rect2(base+Vector2(width/2.0-6,-24),Vector2(6,24)),Color("3b2620"))
-	draw_rect(Rect2(base+Vector2(-width/2.0,-19),Vector2(width,5)),Color("7b4d32"))
-	draw_rect(Rect2(base+Vector2(-width/2.0,-9),Vector2(width,5)),Color("6b412c"))
-	draw_line(base+Vector2(-width/2.0+4,-17),base+Vector2(width/2.0-4,-7),Color("a56c43"),2)
-
-func _draw_lamp_post(base:Vector2) -> void:
-	draw_rect(Rect2(base+Vector2(-3,-62),Vector2(6,62)),Color("2c201e"))
-	draw_rect(Rect2(base+Vector2(-5,-64),Vector2(10,5)),Color("6b4930"))
-	draw_rect(Rect2(base+Vector2(-2,-58),Vector2(25,4)),Color("7b5133"))
-	draw_rect(Rect2(base+Vector2(18,-55),Vector2(5,11)),Color("2a1c19"))
-	draw_rect(Rect2(base+Vector2(16,-52),Vector2(9,14)),Color("5a3825"))
-	draw_rect(Rect2(base+Vector2(18,-50),Vector2(5,9)),Color("f0aa3b"))
-	draw_circle(base+Vector2(20,-46),18,Color(1.0,0.58,0.16,0.08))
-
-func _draw_bench(base:Vector2) -> void:
-	draw_rect(Rect2(base+Vector2(-23,-18),Vector2(46,7)),Color("39231f"))
-	draw_rect(Rect2(base+Vector2(-21,-17),Vector2(42,4)),Color("8b5b38"))
-	draw_rect(Rect2(base+Vector2(-19,-31),Vector2(38,6)),Color("70462e"))
-	draw_rect(Rect2(base+Vector2(-17,-27),Vector2(4,16)),Color("3b2721"))
-	draw_rect(Rect2(base+Vector2(13,-27),Vector2(4,16)),Color("3b2721"))
-	draw_rect(Rect2(base+Vector2(-17,-11),Vector2(5,11)),Color("2e211e"))
-	draw_rect(Rect2(base+Vector2(12,-11),Vector2(5,11)),Color("2e211e"))
-
-func _draw_crates(base:Vector2) -> void:
-	for data in [[-17,-23,20,22],[4,-17,18,16]]:
-		var x=float(data[0]); var y=float(data[1]); var w=float(data[2]); var h=float(data[3])
-		draw_rect(Rect2(base+Vector2(x,y),Vector2(w,h)),Color("3a241d"))
-		draw_rect(Rect2(base+Vector2(x+2,y+2),Vector2(w-4,h-4)),Color("8b5834"))
-		draw_line(base+Vector2(x+3,y+3),base+Vector2(x+w-3,y+h-3),Color("4d3024"),2)
-		draw_line(base+Vector2(x+w-3,y+3),base+Vector2(x+3,y+h-3),Color("4d3024"),2)
-
-func _draw_barrels(base:Vector2) -> void:
-	for dx in [-10,8]:
-		draw_rect(Rect2(base+Vector2(dx-7,-24),Vector2(14,23)),Color("3b2720"))
-		draw_rect(Rect2(base+Vector2(dx-5,-22),Vector2(10,19)),Color("7a4a2f"))
-		draw_line(base+Vector2(dx-6,-18),base+Vector2(dx+6,-18),Color("242024"),2)
-		draw_line(base+Vector2(dx-6,-7),base+Vector2(dx+6,-7),Color("242024"),2)
-
-func _draw_sign(base:Vector2) -> void:
-	draw_rect(Rect2(base+Vector2(-3,-42),Vector2(6,42)),Color("3d2921"))
-	draw_rect(Rect2(base+Vector2(-22,-43),Vector2(44,16)),Color("2a1d1b"))
-	draw_rect(Rect2(base+Vector2(-20,-41),Vector2(40,12)),Color("765035"))
-	draw_line(base+Vector2(-13,-37),base+Vector2(12,-37),Color("a77a4d"),2)
-
-func _draw_notice_board(base:Vector2) -> void:
-	draw_rect(Rect2(base+Vector2(-25,-43),Vector2(50,37)),Color("30211d"))
-	draw_rect(Rect2(base+Vector2(-22,-40),Vector2(44,29)),Color("6e482e"))
-	draw_rect(Rect2(base+Vector2(-18,-36),Vector2(14,17)),Color("c3a77e"))
-	draw_rect(Rect2(base+Vector2(0,-33),Vector2(16,12)),Color("b28b65"))
-	draw_rect(Rect2(base+Vector2(-20,-7),Vector2(6,7)),Color("3a2923"))
-	draw_rect(Rect2(base+Vector2(14,-7),Vector2(6,7)),Color("3a2923"))
-
-func _draw_banner(base:Vector2,light:bool=false) -> void:
-	var fabric=Color("8e302f") if not light else Color("c7b486")
-	draw_rect(Rect2(base+Vector2(-2,-54),Vector2(4,54)),Color("3a2923"))
-	draw_rect(Rect2(base+Vector2(2,-49),Vector2(22,4)),Color("5a3b28"))
-	draw_polygon(PackedVector2Array([
-		base+Vector2(5,-45),base+Vector2(22,-45),base+Vector2(22,-17),
-		base+Vector2(14,-23),base+Vector2(5,-17)
-	]),PackedColorArray([fabric,fabric,fabric,fabric,fabric]))
-	draw_line(base+Vector2(9,-37),base+Vector2(18,-27),Color("ead9b4"),2)
-	draw_line(base+Vector2(18,-37),base+Vector2(9,-27),Color("ead9b4"),2)
-
-func _draw_well(base:Vector2) -> void:
-	draw_rect(Rect2(base+Vector2(-22,-22),Vector2(44,22)),Color("2f2d31"))
-	draw_rect(Rect2(base+Vector2(-20,-20),Vector2(40,8)),Color("66636b"))
-	draw_rect(Rect2(base+Vector2(-16,-30),Vector2(5,13)),Color("3a2822"))
-	draw_rect(Rect2(base+Vector2(11,-30),Vector2(5,13)),Color("3a2822"))
-	draw_rect(Rect2(base+Vector2(-20,-34),Vector2(40,5)),Color("54372a"))
-	draw_rect(Rect2(base+Vector2(-13,-42),Vector2(26,9)),Color("2d2527"))
-	draw_rect(Rect2(base+Vector2(-10,-40),Vector2(20,5)),Color("6f4b35"))
-	draw_circle(base+Vector2(0,-11),11,Color("121a25"))
+func draw_surface_decor(left:int,right:int) -> void:
+	if purity_realm or surfaces.is_empty():
+		return
+	for x in range(maxi(left,VILLAGE_MAX_X+7),mini(right,surfaces.size())):
+		if x<0 or x>=surfaces.size() or is_lake_zone(x):
+			continue
+		if get_cell(Vector2i(x,surfaces[x]-1)) in [4,5]:
+			continue
+		var code=absi((x*73+world_seed*19+x*x*7)%137)
+		if code>10:
+			continue
+		var base=_decor_base(x)
+		match code:
+			0: _draw_decor_sprite(base,"shrub",0.72)
+			1: _draw_decor_sprite(base,"flowers",0.70)
+			2: _draw_decor_sprite(base,"tall_grass",0.70)
+			3: _draw_decor_sprite(base,"log",0.74)
+			4: _draw_decor_sprite(base,"stump",0.70)
+			5: _draw_decor_sprite(base,"hay_pile",0.72)
+			6: _draw_decor_sprite(base,"white_flower",0.68)
+			7: _draw_decor_sprite(base,"plants",0.70)
+			8: _draw_decor_sprite(base,"crates",0.63)
+			9: _draw_decor_sprite(base,"barrels",0.60)
+			10: _draw_decor_sprite(base,"small_crate",0.58)
 
 func draw_village_decor(left:int,right:int) -> void:
 	if surfaces.size()<67:
 		return
-	# Fixed medieval dressing around the three original village structures.
-	# It is render-only, so saves/multiplayer remain deterministic and collision-free.
+	# Exact art from the supplied decoration sheet; no procedural substitutes.
 	var props=[
-		[6,"fence"],[8,"flowers"],[10,"notice"],[13,"barrels"],
-		[26,"lamp"],[29,"sign"],[31,"crates"],
-		[41,"bench"],[44,"well"],[47,"flowers"],
-		[57,"lamp"],[60,"banner"],[63,"crates"],[65,"flowers"]
+		[5,"tree",0.90],[8,"notice",0.78],[11,"flowers",0.70],[14,"lampadao",0.82],
+		[26,"barrels",0.62],[29,"crates",0.65],[31,"poste",0.78],
+		[40,"bench",0.82],[44,"well",0.82],[47,"flowers",0.72],
+		[56,"lantern",0.76],[59,"banner_red",0.78],[62,"vase",0.62],[65,"pine",0.88]
 	]
 	for data in props:
 		var x=int(data[0])
 		if x<left or x>=right or x<0 or x>=surfaces.size():
 			continue
-		var base=_decor_base(x)
-		match str(data[1]):
-			"fence": _draw_fence(base,52)
-			"flowers": _draw_flower_patch(base,false)
-			"notice": _draw_notice_board(base)
-			"barrels": _draw_barrels(base)
-			"lamp": _draw_lamp_post(base)
-			"sign": _draw_sign(base)
-			"crates": _draw_crates(base)
-			"bench": _draw_bench(base)
-			"well": _draw_well(base)
-			"banner": _draw_banner(base,false)
+		_draw_decor_sprite(_decor_base(x),str(data[1]),float(data[2]))
 
 func draw_lake(left:int,right:int) -> void:
 	var visible_left=maxi(left,lake_start_x-2)
