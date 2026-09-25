@@ -141,7 +141,8 @@ var login_user:LineEdit
 var login_password:LineEdit
 var login_feedback:Label
 var current_account:=""
-const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16,28]
+var desert_announced:=false
+const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16,28,29,30,31]
 const LOBBY_TIPS = [
 	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
 	"A noite é mais perigosa: prepare abrigo, espada e comida antes do escurecer.",
@@ -1749,6 +1750,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	night_kills=0
 	polar_bear_defeated=false
 	snow_announced=false
+	desert_announced=false
 	chest_inventories.clear()
 	reset_quest_progress()
 	if is_instance_valid(boss_panel):
@@ -3220,7 +3222,7 @@ func _process(delta: float) -> void:
 			lake_discovered=true
 			status.text="LAGO ABISSAL DESCOBERTO · há ruínas no ponto mais profundo."
 			message_time=5
-	if not in_purity and player_cell_x>=World.SNOW_START_X:
+	if not in_purity and world.is_snow_biome(player_cell_x):
 		if not snow_announced:
 			snow_announced=true
 			status.text="BIOMA NEVADO DESCOBERTO · O frio daqui exige preparação."
@@ -3229,6 +3231,10 @@ func _process(delta: float) -> void:
 			snow_reached=true
 			ensure_polar_bear()
 			update_quest_markers()
+	if not in_purity and world.is_desert_biome(player_cell_x) and not desert_announced:
+		desert_announced=true
+		status.text="DESERTO DESCOBERTO · areia, arenito e vegetação rara."
+		message_time=5
 	spawn_timer+=delta
 	if spawn_timer>9:
 		spawn_timer=0
@@ -3572,10 +3578,7 @@ func enter_structure(kind: String, display_name: String) -> void:
 		player.sprite.show()
 	player.position=Vector2(640,570)
 	player.velocity=Vector2.ZERO
-	player.camera.limit_left=0
-	player.camera.limit_right=1280
-	player.camera.limit_top=0
-	player.camera.limit_bottom=720
+	player.set_world_bounds(0.0,1280.0,0.0,720.0)
 	# Frame the 1280x720 interior background exactly while keeping the player
 	# close to the bottom of the screen.
 	player.camera.position=Vector2(0,-210)
@@ -3605,10 +3608,7 @@ func exit_structure() -> void:
 	sky.show()
 	player.position=structure_return_position
 	player.velocity=Vector2.ZERO
-	player.camera.limit_left=0
-	player.camera.limit_right=World.MAX_STREAM_WIDTH*32
-	player.camera.limit_top=0
-	player.camera.limit_bottom=96*32
+	player.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	player.camera.position=Vector2(0,-100)
 	player.camera.reset_smoothing()
 
@@ -3879,10 +3879,7 @@ func enter_lake_temple(skip_intro:bool=false) -> void:
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0
 	player.set_water_state(lake_arena.is_in_water(player.position),lake_arena.is_in_water(player.position+Vector2(0,-38)))
-	player.camera.limit_left=0
-	player.camera.limit_right=1280
-	player.camera.limit_top=0
-	player.camera.limit_bottom=720
+	player.set_world_bounds(0.0,1280.0,0.0,720.0)
 	player.camera.position=Vector2(0,-120)
 	player.camera.reset_smoothing()
 	mining_held=false
@@ -3916,10 +3913,7 @@ func leave_lake_temple(on_death:bool=false) -> void:
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0
 	player.set_water_state(world.is_point_in_lake_water(player.position),world.is_point_in_lake_water(player.position+Vector2(0,-38)))
-	player.camera.limit_left=0
-	player.camera.limit_right=World.MAX_STREAM_WIDTH*32
-	player.camera.limit_top=0
-	player.camera.limit_bottom=World.HEIGHT*32
+	player.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	player.camera.position=Vector2(0,-100)
 	player.camera.reset_smoothing()
 	status.text="Você voltou ao LAGO ABISSAL."
@@ -3995,6 +3989,9 @@ func load_world() -> void:
 	world_name=str(data.name)
 	world.cells=data.cells
 	world.surfaces.assign(data.surfaces)
+	# Older saves were 320 blocks wide. Extend them deterministically once to the
+	# current finite width, preserving every existing modified cell.
+	world.ensure_generated_to(World.WIDTH-1)
 	if int(data.get("lake_center_x",-1))>=0:
 		world.restore_lake_layout(
 			int(data.get("lake_center_x",world.lake_center_x)),
@@ -4326,8 +4323,7 @@ func enter_purity(skip_dialogue: bool=false) -> void:
 	player.velocity=Vector2.ZERO
 	player.set_water_state(false)
 	player.max_fall_speed=0
-	player.camera.limit_left=5*32
-	player.camera.limit_right=37*32
+	player.set_world_bounds(5.0*32.0,37.0*32.0,0.0,float(World.HEIGHT*32))
 	player.camera.reset_smoothing()
 	in_purity=true
 	sky.purity=true
@@ -4366,8 +4362,7 @@ func enter_purity_realm() -> void:
 	player.position=Vector2(spawn_x*32,world.surfaces[spawn_x]*32-2)
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0
-	player.camera.limit_left=0
-	player.camera.limit_right=World.WIDTH*32
+	player.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	player.camera.reset_smoothing()
 	in_purity=true
 	in_purity_realm=true
@@ -4465,8 +4460,7 @@ func leave_purity() -> void:
 	player.position=return_position
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0
-	player.camera.limit_left=0
-	player.camera.limit_right=320*32
+	player.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	player.camera.reset_smoothing()
 	in_purity=false
 	in_purity_realm=false

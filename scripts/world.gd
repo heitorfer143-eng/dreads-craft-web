@@ -2,13 +2,18 @@ extends Node2D
 
 const Items = preload("res://scripts/items.gd")
 const TILE = 32
-const WIDTH = 320
+const WIDTH = 640
 const HEIGHT = 96
 const STREAM_CHUNK = 64
-const MAX_STREAM_WIDTH = 8192
+const MAX_STREAM_WIDTH = WIDTH
+const WORLD_MIN_X = 0
+const WORLD_MAX_X = WIDTH*TILE
+const WORLD_MIN_Y = 0
+const WORLD_MAX_Y = HEIGHT*TILE
 const VILLAGE_MIN_X = 4
 const VILLAGE_MAX_X = 66
 const SNOW_START_X = 190
+const SNOW_END_X = 292
 const LAKE_MIN_CENTER_X = 120
 const LAKE_MAX_CENTER_X = 150
 var lake_center_x := 130
@@ -18,6 +23,8 @@ var lake_start_x := 118
 var lake_end_x := 142
 var lake_water_y := 35
 var lake_generated := false
+var desert_start_x := 350
+var desert_end_x := 500
 var cells: Array = []
 var surfaces: Array[int] = []
 var rows: Dictionary = {}
@@ -26,6 +33,7 @@ var camera: Camera2D
 var dirty_rows: Dictionary = {}
 var tile_textures: Dictionary = {}
 var decor_atlas: Texture2D
+var desert_decor: Dictionary = {}
 const DECOR_CELL = Vector2(96,64)
 const DECOR_INDEX = {
 	"tree":0, "pine":1, "shrub":2, "flowers":3, "fence":4,
@@ -41,9 +49,57 @@ func _ready() -> void:
 	for id in Items.TILE_TEXTURES:
 		tile_textures[id] = load(Items.TILE_TEXTURES[id])
 	decor_atlas=load("res://assets/decor/decor_atlas.png")
+	for key in ["cactus","dry_bush","bones","desert_rock"]:
+		var path="res://assets/decor/desert_"+key+".svg"
+		if ResourceLoader.exists(path):
+			desert_decor[key]=load(path)
+
+func configure_biomes(seed_value:int) -> void:
+	var shift=absi(seed_value)%46
+	desert_start_x=330+shift
+	desert_end_x=mini(WIDTH-70,desert_start_x+150)
+
+func desert_strength(x:int) -> float:
+	var transition=14.0
+	if x<desert_start_x-transition or x>desert_end_x+transition:
+		return 0.0
+	if x<desert_start_x:
+		return clampf((float(x)-float(desert_start_x)+transition)/transition,0.0,1.0)
+	if x<=desert_end_x:
+		return 1.0
+	return clampf((float(desert_end_x)+transition-float(x))/transition,0.0,1.0)
+
+func is_snow_biome(x:int) -> bool:
+	return x>=SNOW_START_X and x<=SNOW_END_X
+
+func is_desert_biome(x:int) -> bool:
+	return desert_strength(x)>=0.62
+
+func biome_at(x:int) -> String:
+	if is_snow_biome(x):
+		return "snow"
+	var strength=desert_strength(x)
+	if strength>=0.62:
+		return "desert"
+	if strength>0.0:
+		return "desert_transition"
+	return "forest"
+
+func desert_center_cell() -> int:
+	return int((desert_start_x+desert_end_x)/2)
+
+func _uses_sand_surface(x:int) -> bool:
+	var strength=desert_strength(x)
+	if strength<=0.0:
+		return false
+	if strength>=0.98:
+		return true
+	var roll=absi((x*92821)^(world_seed*68917))%100
+	return roll<int(strength*100.0)
 
 func generate(seed_value: int) -> void:
 	world_seed = seed_value
+	configure_biomes(seed_value)
 	configure_lake(seed_value)
 	var noise = FastNoiseLite.new()
 	noise.seed = world_seed
@@ -60,8 +116,9 @@ func generate(seed_value: int) -> void:
 		if not purity_realm and is_lake_zone(x):
 			height=lake_water_y+lake_floor_depth(x)
 		surfaces.append(height)
+		var sandy=not purity_realm and _uses_sand_surface(x) and not is_lake_zone(x)
 		for y in range(height, HEIGHT):
-			var id = 1 if y == height else 2 if y < height+4 else 3
+			var id = (29 if y==height else 30 if y<height+5 else 3) if sandy else (1 if y==height else 2 if y<height+4 else 3)
 			cells[y][x] = id
 		for layer in 2:
 			var center = 58 + layer*18 + int(sin(x*0.065+layer)*4)
@@ -70,7 +127,7 @@ func generate(seed_value: int) -> void:
 					cells[y][x] = 0
 	# Trees are a separate pass: later terrain columns cannot overwrite foliage.
 	for x in range(72,WIDTH-5,11):
-		if is_lake_zone(x):
+		if is_lake_zone(x) or desert_strength(x)>0.28:
 			continue
 		var blocked_by_village=false
 		for village_x in [18,34,50]:
@@ -147,8 +204,9 @@ func ensure_generated_to(target_x:int) -> void:
 	for x in range(old_width,wanted):
 		var height=_natural_surface_height(x,noise)
 		surfaces.append(height)
+		var sandy=_uses_sand_surface(x)
 		for y in range(height,HEIGHT):
-			cells[y][x]=1 if y==height else 2 if y<height+4 else 3
+			cells[y][x]=(29 if y==height else 30 if y<height+5 else 3) if sandy else (1 if y==height else 2 if y<height+4 else 3)
 		# Continue the two long cave bands used by the original generator.
 		for layer in 2:
 			var center=58+layer*18+int(sin(x*0.065+layer)*4)
@@ -170,7 +228,7 @@ func ensure_generated_to(target_x:int) -> void:
 				cells[y][x]=6
 	# Continue surface trees without touching the protected village/lake from the original map.
 	for x in range(maxi(72,old_width),wanted):
-		if (x-72)%11!=0:
+		if (x-72)%11!=0 or desert_strength(x)>0.28:
 			continue
 		var top=surfaces[x]-6
 		for y in range(maxi(0,top),surfaces[x]):
@@ -190,8 +248,13 @@ func _natural_surface_height(x:int,noise:FastNoiseLite) -> int:
 	var height=35+int(noise.get_noise_1d(x)*(6 if x<100 else 13))
 	if x<70:
 		height=35
-	elif not purity_realm and x>=SNOW_START_X:
+	elif not purity_realm and is_snow_biome(x):
 		height=37+int(noise.get_noise_1d(x*1.35)*6)
+	if not purity_realm:
+		var strength=desert_strength(x)
+		if strength>0.0:
+			var dune_height=37+int(noise.get_noise_1d(x*0.72)*3.0)+int(sin(float(x)*0.085)*2.0)
+			height=int(round(lerpf(float(height),float(dune_height),strength)))
 	return clampi(height,22,58)
 
 func configure_lake(seed_value:int) -> void:
@@ -501,9 +564,7 @@ func is_snow_biome(cell_x: int) -> bool:
 	return cell_x>=SNOW_START_X
 
 func snow_spawn_cell() -> Vector2i:
-	# Keep the polar-bear encounter deep enough into the biome to feel earned,
-	# while no longer hiding the entire snow region at the extreme edge of the map.
-	var x=250
+	var x=int((SNOW_START_X+SNOW_END_X)/2)
 	return Vector2i(x,surfaces[x])
 
 
@@ -624,10 +685,10 @@ func _draw() -> void:
 				draw_texture_rect(texture,Rect2(pos,Vector2(TILE,TILE)),false)
 			else:
 				draw_rect(Rect2(pos,Vector2(TILE,TILE)),Items.COLORS.get(id,Color.GRAY))
-			if x>=SNOW_START_X:
+			if is_snow_biome(x):
 				# Strong, unmistakable snow biome treatment. This is render-only, so old
 				# saves instantly gain the biome without rewriting their terrain data.
-				var deep_snow=x>=SNOW_START_X+22
+				var deep_snow=x>=SNOW_START_X+22 and x<=SNOW_END_X-12
 				if id==1:
 					draw_rect(Rect2(pos,Vector2(TILE,TILE)),Color("bcd6e86e" if deep_snow else "afc8df52"),true)
 					if y==surfaces[x]:
@@ -678,6 +739,13 @@ func _draw_decor_sprite(base:Vector2,key:String,scale:float=1.0) -> void:
 	var destination=Rect2(base+Vector2(-draw_size.x*0.5,-draw_size.y),draw_size)
 	draw_texture_rect_region(decor_atlas,destination,source)
 
+func _draw_desert_sprite(base:Vector2,key:String,scale:float=1.0) -> void:
+	var texture:Texture2D=desert_decor.get(key)
+	if texture==null:
+		return
+	var size=texture.get_size()*scale
+	draw_texture_rect(texture,Rect2(base+Vector2(-size.x*0.5,-size.y),size),false)
+
 func draw_surface_decor(left:int,right:int) -> void:
 	if purity_realm or surfaces.is_empty():
 		return
@@ -687,9 +755,19 @@ func draw_surface_decor(left:int,right:int) -> void:
 		if get_cell(Vector2i(x,surfaces[x]-1)) in [4,5]:
 			continue
 		var code=absi((x*73+world_seed*19+x*x*7)%137)
+		var base=_decor_base(x)
+		if desert_strength(x)>0.56:
+			if code%17==0:
+				_draw_desert_sprite(base,"cactus",0.72)
+			elif code%13==0:
+				_draw_desert_sprite(base,"dry_bush",0.72)
+			elif code%19==0:
+				_draw_desert_sprite(base,"bones",0.70)
+			elif code%11==0:
+				_draw_desert_sprite(base,"desert_rock",0.72)
+			continue
 		if code>10:
 			continue
-		var base=_decor_base(x)
 		match code:
 			0: _draw_decor_sprite(base,"shrub",0.72)
 			1: _draw_decor_sprite(base,"flowers",0.70)

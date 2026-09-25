@@ -1,8 +1,8 @@
 extends RefCounted
 
-const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante", 23: "Osso", 24: "Waystone", 25: "Minério das Almas", 26: "Orbe das Almas", 27: "Coração Abissal", 28: "Baú"}
-const COLORS = {1: Color("68765b"), 2: Color("594237"), 3: Color("575663"), 4: Color("79503b"), 5: Color("354838"), 6: Color("33323d"), 7: Color("9b7768"), 8: Color("a67b50"), 9: Color("bd9160"), 25: Color("f4fbff")}
-const HARDNESS = {1: 0.5, 2: 0.65, 3: 1.8, 4: 1.15, 5: 0.3, 6: 2.1, 7: 2.6, 8: 0.8, 9: 1.2, 14: 5.0, 15: 9.0, 16: 3.0, 25: 7.5, 28: 1.1}
+const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante", 23: "Osso", 24: "Waystone", 25: "Minério das Almas", 26: "Orbe das Almas", 27: "Coração Abissal", 28: "Baú", 29: "Areia", 30: "Arenito", 31: "Arenito trabalhado"}
+const COLORS = {1: Color("68765b"), 2: Color("594237"), 3: Color("575663"), 4: Color("79503b"), 5: Color("354838"), 6: Color("33323d"), 7: Color("9b7768"), 8: Color("a67b50"), 9: Color("bd9160"), 25: Color("f4fbff"), 29: Color("d9b76f"), 30: Color("b88750"), 31: Color("c9975c")}
+const HARDNESS = {1: 0.5, 2: 0.65, 3: 1.8, 4: 1.15, 5: 0.3, 6: 2.1, 7: 2.6, 8: 0.8, 9: 1.2, 14: 5.0, 15: 9.0, 16: 3.0, 25: 7.5, 28: 1.1, 29: 0.55, 30: 1.65, 31: 1.8}
 
 const ICONS = {
 	2: "res://assets/items/dirt.png",
@@ -31,7 +31,10 @@ const ICONS = {
 	25: "res://assets/items/soul_ore.svg",
 	26: "res://assets/items/soul_ore.svg",
 	27: "res://assets/items/abyssal_heart.svg",
-	28: "res://assets/items/chest.svg"
+	28: "res://assets/items/chest.svg",
+	29: "res://assets/tiles/sand.svg",
+	30: "res://assets/tiles/sandstone.svg",
+	31: "res://assets/tiles/cut_sandstone.svg"
 }
 
 const CRAFT_ICONS = {
@@ -59,7 +62,10 @@ const TILE_TEXTURES = {
 	14: "res://assets/tiles/tile_14.svg",
 	15: "res://assets/tiles/tile_15.svg",
 	16: "res://assets/items/portal_new_world.svg",
-	25: "res://assets/tiles/soul_ore.svg"
+	25: "res://assets/tiles/soul_ore.svg",
+	29: "res://assets/tiles/sand.svg",
+	30: "res://assets/tiles/sandstone.svg",
+	31: "res://assets/tiles/cut_sandstone.svg"
 }
 const RECIPES = [
 	{"name": "Tábuas x4", "cost": {4: 1}, "id": 8, "count": 4, "table": false},
@@ -75,7 +81,9 @@ const RECIPES = [
 	{"name": "Portal da Pureza", "cost": {14: 9, 15: 1}, "id": 16, "count": 1, "table": true},
 	{"name": "Waystone", "cost": {3: 8, 14: 1}, "id": 24, "count": 1, "table": true},
 	{"name": "Orbe das Almas", "cost": {25: 6, 7: 2, 14: 1}, "id": 26, "count": 1, "table": true},
-	{"name": "Baú", "cost": {8: 8}, "id": 28, "count": 1, "table": true}
+	{"name": "Baú", "cost": {8: 8}, "id": 28, "count": 1, "table": true},
+	{"name": "Arenito x2", "cost": {29: 4}, "id": 30, "count": 2, "table": false},
+	{"name": "Arenito trabalhado x4", "cost": {30: 4}, "id": 31, "count": 4, "table": true}
 ]
 
 const DETAILS = {
@@ -94,7 +102,10 @@ const DETAILS = {
 	25: {"category":"materials", "desc":"Minério branco brilhante encontrado apenas no Reino da Pureza após a queda do Guardião.", "stats":["Raridade: Muito rara", "Requer: Picareta de diamante"]},
 	26: {"category":"weapons", "desc":"Um foco arcano alimentado por Minério das Almas. Dispara projéteis em linha reta.", "stats":["Dano de projétil: 36", "Alcance: 18 blocos", "Recarga: 0,65 s"]},
 	27: {"category":"special", "desc":"O núcleo ainda pulsante do Leviatã do Lago Abissal. Troféu único do Templo Submerso.", "stats":["Raridade: Lendária", "Boss: Leviatã do Lago Abissal", "Não pode ser obtido novamente"]},
-	28: {"category":"blocks", "desc":"Armazena itens. Coloque no mundo e use botão direito/FALAR para abrir.", "stats":["18 tipos de item por baú"]}
+	28: {"category":"blocks", "desc":"Armazena itens. Coloque no mundo e use botão direito/FALAR para abrir.", "stats":["18 tipos de item por baú"]},
+	29: {"category":"blocks", "desc":"Areia do deserto. Fácil de coletar e ótima para construções claras.", "stats":[]},
+	30: {"category":"blocks", "desc":"Rocha sedimentar compacta. Precisa de picareta para gerar drop.", "stats":["Requer: picareta de madeira+"]},
+	31: {"category":"blocks", "desc":"Arenito lapidado para construções e ruínas.", "stats":["Bloco decorativo"]}
 }
 
 static func recipe_category(id: int) -> String:
@@ -133,7 +144,9 @@ const MINING_RULES = {
 	7: {"min_pick":2,"drop":7},
 	14: {"min_pick":3,"drop":14},
 	15: {"min_pick":4,"drop":15},
-	25: {"min_pick":4,"drop":25}
+	25: {"min_pick":4,"drop":25},
+	30: {"min_pick":1,"drop":30},
+	31: {"min_pick":1,"drop":31}
 }
 const SWORD_DAMAGE = {20: 14, 21: 20, 11: 28, 22: 42}
 const SWORD_CRIT_CHANCE = {20: 0.08, 21: 0.10, 11: 0.13, 22: 0.18}
