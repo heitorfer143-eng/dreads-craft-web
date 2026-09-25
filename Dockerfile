@@ -7,6 +7,9 @@ RUN mkdir -p assets/mobs/generated && \
     godot --headless --script scripts/tools/extract_mob_pngs.gd && \
     godot --headless --editor --quit
 
+# Fast integration test for seeded lake, temple entry and Leviathan progression.
+RUN godot --headless --script tests/lake_smoke.gd
+
 # Web build
 RUN mkdir -p build/web && godot --headless --export-release "Web" build/web/index.html
 
