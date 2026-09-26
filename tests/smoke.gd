@@ -192,6 +192,8 @@ func run() -> void:
 	var craft_root=scene.menu_box.get_child(scene.menu_box.get_child_count()-1)
 	check(craft_root is HBoxContainer and craft_root.get_child_count()>=2,"Craft menu layout has sidebar and recipes")
 	scene.resume()
+	scene.player.position=Vector2(34*32+16,scene.world.surfaces[34]*32-2)
+	scene.player.velocity=Vector2.ZERO
 	var safe_enemy_count=scene.enemies.get_child_count()
 	scene.spawn_mob()
 	await physics_frame
