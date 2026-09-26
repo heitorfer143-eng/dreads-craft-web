@@ -10,6 +10,10 @@ var player: CharacterBody2D
 var sprite: Sprite2D
 var quest_marker := ""
 var visual_height := 86.0
+var world_min_x:=0.0
+var world_max_x:=320.0*32.0
+var world_min_y:=0.0
+var world_max_y:=96.0*32.0
 
 func setup(kind: String, display_name: String, lines: Array, target: CharacterBody2D) -> void:
 	role=kind
@@ -43,6 +47,12 @@ func _ready() -> void:
 	z_index=6
 	set_process(true)
 
+func set_world_bounds(min_x:float,max_x:float,min_y:float,max_y:float) -> void:
+	world_min_x=min_x
+	world_max_x=max_x
+	world_min_y=min_y
+	world_max_y=max_y
+
 func set_quest_marker(value:String) -> void:
 	quest_marker=value if value in ["!","?"] else ""
 	queue_redraw()
@@ -62,6 +72,8 @@ func next_line() -> String:
 	return line
 
 func _process(_delta: float) -> void:
+	global_position.x=clampf(global_position.x,world_min_x+18.0,world_max_x-18.0)
+	global_position.y=clampf(global_position.y,world_min_y+visual_height,world_max_y-2.0)
 	queue_redraw()
 
 func draw_ellipse_shadow(center:Vector2,radius:Vector2,color:Color) -> void:

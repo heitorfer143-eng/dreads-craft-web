@@ -1,6 +1,6 @@
 extends RefCounted
 
-const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante", 23: "Osso", 24: "Waystone", 25: "Minério das Almas", 26: "Orbe das Almas", 27: "Coração Abissal", 28: "Baú", 29: "Areia", 30: "Arenito", 31: "Arenito trabalhado"}
+const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante", 23: "Osso", 24: "Waystone", 25: "Minério das Almas", 26: "Orbe das Almas", 27: "Coração Abissal", 28: "Baú", 29: "Areia", 30: "Arenito", 31: "Arenito trabalhado", 32: "Capacete de Avarita", 33: "Peitoral de Avarita", 34: "Calças de Avarita", 35: "Botas de Avarita"}
 const COLORS = {1: Color("68765b"), 2: Color("594237"), 3: Color("575663"), 4: Color("79503b"), 5: Color("354838"), 6: Color("33323d"), 7: Color("9b7768"), 8: Color("a67b50"), 9: Color("bd9160"), 25: Color("f4fbff"), 29: Color("d9b76f"), 30: Color("b88750"), 31: Color("c9975c")}
 const HARDNESS = {1: 0.5, 2: 0.65, 3: 1.8, 4: 1.15, 5: 0.3, 6: 2.1, 7: 2.6, 8: 0.8, 9: 1.2, 14: 5.0, 15: 9.0, 16: 3.0, 25: 7.5, 28: 1.1, 29: 0.55, 30: 1.65, 31: 1.8}
 
@@ -34,7 +34,11 @@ const ICONS = {
 	28: "res://assets/items/chest.svg",
 	29: "res://assets/tiles/sand.svg",
 	30: "res://assets/tiles/sandstone.svg",
-	31: "res://assets/tiles/cut_sandstone.svg"
+	31: "res://assets/tiles/cut_sandstone.svg",
+	32: "res://assets/armor/avarita_helmet.png",
+	33: "res://assets/armor/avarita_chest.png",
+	34: "res://assets/armor/avarita_legs.png",
+	35: "res://assets/armor/avarita_boots.png"
 }
 
 const CRAFT_ICONS = {
@@ -47,7 +51,11 @@ const CRAFT_ICONS = {
 	22: "res://assets/items/generated/sword_diamond.png",
 	16: "res://assets/items/portal_new_world.svg",
 	25: "res://assets/tiles/soul_ore.svg",
-	26: "res://assets/items/soul_ore.svg"
+	26: "res://assets/items/soul_ore.svg",
+	32: "res://assets/armor/avarita_helmet.png",
+	33: "res://assets/armor/avarita_chest.png",
+	34: "res://assets/armor/avarita_legs.png",
+	35: "res://assets/armor/avarita_boots.png"
 }
 
 const TILE_TEXTURES = {
@@ -83,7 +91,11 @@ const RECIPES = [
 	{"name": "Orbe das Almas", "cost": {25: 6, 7: 2, 14: 1}, "id": 26, "count": 1, "table": true},
 	{"name": "Baú", "cost": {8: 8}, "id": 28, "count": 1, "table": true},
 	{"name": "Arenito x2", "cost": {29: 4}, "id": 30, "count": 2, "table": false},
-	{"name": "Arenito trabalhado x4", "cost": {30: 4}, "id": 31, "count": 4, "table": true}
+	{"name": "Arenito trabalhado x4", "cost": {30: 4}, "id": 31, "count": 4, "table": true},
+	{"name": "Capacete de Avarita", "cost": {15: 3, 7: 2}, "id": 32, "count": 1, "table": true},
+	{"name": "Peitoral de Avarita", "cost": {15: 6, 7: 4}, "id": 33, "count": 1, "table": true},
+	{"name": "Calças de Avarita", "cost": {15: 5, 7: 3}, "id": 34, "count": 1, "table": true},
+	{"name": "Botas de Avarita", "cost": {15: 3, 7: 2}, "id": 35, "count": 1, "table": true}
 ]
 
 const DETAILS = {
@@ -105,7 +117,11 @@ const DETAILS = {
 	28: {"category":"blocks", "desc":"Armazena itens. Coloque no mundo e use botão direito/FALAR para abrir.", "stats":["18 tipos de item por baú"]},
 	29: {"category":"blocks", "desc":"Areia do deserto. Fácil de coletar e ótima para construções claras.", "stats":[]},
 	30: {"category":"blocks", "desc":"Rocha sedimentar compacta. Precisa de picareta para gerar drop.", "stats":["Requer: picareta de madeira+"]},
-	31: {"category":"blocks", "desc":"Arenito lapidado para construções e ruínas.", "stats":["Bloco decorativo"]}
+	31: {"category":"blocks", "desc":"Arenito lapidado para construções e ruínas.", "stats":["Bloco decorativo"]},
+	32: {"category":"armor", "desc":"Capacete forjado com Avarita cristalizada.", "stats":["Redução de dano: 7%","Slot: Cabeça"]},
+	33: {"category":"armor", "desc":"Peitoral pesado de Avarita, núcleo defensivo do conjunto.", "stats":["Redução de dano: 16%","Slot: Peitoral"]},
+	34: {"category":"armor", "desc":"Proteção de pernas reforçada com cristais de Avarita.", "stats":["Redução de dano: 12%","Slot: Pernas"]},
+	35: {"category":"armor", "desc":"Botas blindadas de Avarita.", "stats":["Redução de dano: 7%","Slot: Pés"]}
 }
 
 static func recipe_category(id: int) -> String:
@@ -148,6 +164,21 @@ const MINING_RULES = {
 	30: {"min_pick":1,"drop":30},
 	31: {"min_pick":1,"drop":31}
 }
+const ARMOR_SLOTS = {32:"head",33:"chest",34:"legs",35:"feet"}
+const ARMOR_REDUCTION = {32:0.07,33:0.16,34:0.12,35:0.07}
+
+static func is_armor(id:int) -> bool:
+	return ARMOR_SLOTS.has(id)
+
+static func armor_slot(id:int) -> String:
+	return str(ARMOR_SLOTS.get(id,""))
+
+static func armor_reduction(equipment:Dictionary) -> float:
+	var total=0.0
+	for slot in ["head","chest","legs","feet"]:
+		total+=float(ARMOR_REDUCTION.get(int(equipment.get(slot,0)),0.0))
+	return clampf(total,0.0,0.65)
+
 const SWORD_DAMAGE = {20: 14, 21: 20, 11: 28, 22: 42}
 const SWORD_CRIT_CHANCE = {20: 0.08, 21: 0.10, 11: 0.13, 22: 0.18}
 const SWORD_CRIT_MULT = {20: 1.50, 21: 1.55, 11: 1.65, 22: 1.80}

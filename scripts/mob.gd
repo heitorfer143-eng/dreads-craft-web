@@ -14,6 +14,8 @@ var hit_flash=0.0
 var knockback=Vector2.ZERO
 var world_min_x:=0.0
 var world_max_x:=320.0*32.0
+var world_min_y:=0.0
+var world_max_y:=96.0*32.0
 
 func _ready() -> void:
 	collision_layer=4
@@ -57,9 +59,11 @@ func _ready() -> void:
 	damage*=damage_mult
 	queue_redraw()
 
-func set_world_bounds(min_x:float,max_x:float) -> void:
+func set_world_bounds(min_x:float,max_x:float,min_y:float=0.0,max_y:float=96.0*32.0) -> void:
 	world_min_x=min_x
 	world_max_x=max_x
+	world_min_y=min_y
+	world_max_y=max_y
 
 func _physics_process(delta: float) -> void:
 	queue_redraw()
@@ -87,6 +91,10 @@ func _physics_process(delta: float) -> void:
 		position.x=clamped_x
 		velocity.x=0.0
 		knockback.x=0.0
+	var clamped_y=clampf(position.y,world_min_y+8.0,world_max_y-2.0)
+	if not is_equal_approx(clamped_y,position.y):
+		position.y=clamped_y
+		velocity.y=0.0
 	sprite.flip_h=direction<0
 	var distance=position.distance_to(player.position)
 	var attack_range=82.0 if kind=="polar_bear" else 62.0 if kind in ["wolf","dark_slime"] else 58.0

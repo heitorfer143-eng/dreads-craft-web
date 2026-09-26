@@ -27,6 +27,7 @@ var air := 18.0
 var drown_tick := 0.0
 var current_form := "spike"
 var input_locked := false
+var armor_reduction:=0.0
 var world_min_x:=0.0
 var world_max_x:=320.0*32.0
 var world_min_y:=0.0
@@ -120,9 +121,11 @@ func _physics_process(delta: float) -> void:
 	if not is_equal_approx(clamped_x,position.x):
 		position.x=clamped_x
 		velocity.x=0.0
-	position.y=maxf(position.y,world_min_y+8.0)
-	if position.y>world_max_y:
-		respawn()
+	var clamped_y=clampf(position.y,world_min_y+44.0,world_max_y-4.0)
+	if not is_equal_approx(clamped_y,position.y):
+		position.y=clamped_y
+		velocity.y=0.0
+		max_fall_speed=0.0
 
 	sprite.flip_h=face<0
 	var animation="attack" if attack_time>0 else "hurt" if hurt_time>0 else "jump" if not is_on_floor() else "walk" if absf(velocity.x)>1 else "idle"
@@ -150,6 +153,9 @@ func _normalize_form_sprite(kind:String) -> void:
 	var factor=target_height/maxf(1.0,tex_size.y)
 	sprite.scale=Vector2(factor,factor)
 	sprite.position.y=-30.0 if kind=="fox" else -30.0
+
+func set_armor_reduction(value:float) -> void:
+	armor_reduction=clampf(value,0.0,0.65)
 
 func set_world_bounds(min_x:float,max_x:float,min_y:float,max_y:float) -> void:
 	world_min_x=min_x
@@ -200,7 +206,8 @@ func _apply_fall_damage(impact_speed: float) -> void:
 func take_damage(amount: float) -> void:
 	if creative or hurt_time>0:
 		return
-	hp-=amount
+	var final_damage=maxf(1.0,amount*(1.0-armor_reduction))
+	hp-=final_damage
 	hurt_time=.85
 	if hp<=0:
 		respawn()
