@@ -9,6 +9,7 @@ RUN mkdir -p assets/mobs/generated && \
 
 # Parse-check the scripts changed by this update before integration tests.
 RUN godot --headless --check-only --script scripts/items.gd && \
+    godot --headless --check-only --script scripts/dungeon_system.gd && \
     godot --headless --check-only --script scripts/account_store.gd && \
     godot --headless --check-only --script scripts/cloud_client.gd && \
     godot --headless --check-only --script scripts/player_history.gd && \
@@ -25,6 +26,7 @@ RUN godot --headless --check-only --script scripts/items.gd && \
 # finite boundaries and desert generation, then lake/Leviathan progression.
 RUN godot --headless --script tests/smoke.gd
 RUN godot --headless --script tests/lake_smoke.gd
+RUN godot --headless --script tests/dungeon_smoke.gd
 
 # Web build
 RUN mkdir -p build/web && godot --headless --export-release "Web" build/web/index.html
