@@ -368,11 +368,11 @@ func generate_ores() -> void:
 	rng.seed=world_seed ^ 0x5F3759DF
 	# Seeded connected clusters, with a stone buffer between different minerals.
 	for ore in [6,7,14,15]:
-		var attempts=int({6:180,7:100,14:24,15:5}[ore])
+		var attempts=int({6:180,7:100,14:24,15:22}[ore])
 		for attempt in attempts:
 			var cell=Vector2i(rng.randi_range(3,WIDTH-4),rng.randi_range(int({6:43,7:55,14:72,15:85}[ore]),HEIGHT-4))
 			var min_size=int({6:5,7:3,14:3,15:1}[ore])
-			var max_size=int({6:11,7:7,14:5,15:1}[ore])
+			var max_size=int({6:11,7:7,14:5,15:2}[ore])
 			var target_size=rng.randi_range(min_size,max_size)
 			var frontier: Array[Vector2i]=[cell]
 			var visited: Dictionary={}
@@ -407,7 +407,7 @@ func generate_ores() -> void:
 			count+=row.count(ore)
 		for y in range(90,80,-1):
 			for x in range(5,WIDTH-5,3):
-				if count>=int({14:18,15:1}[ore]):
+				if count>=int({14:18,15:10}[ore]):
 					break
 				var point=Vector2i(x,y)
 				if get_cell(point)!=3:
@@ -424,7 +424,7 @@ func generate_ores() -> void:
 func ensure_ore_minimums() -> void:
 	# Keeps both new worlds and older saves populated with useful ore.
 	# Only replaces deep stone, so caves/buildings/terrain remain untouched.
-	var minimums={6:110,7:70,14:24,15:3}
+	var minimums={6:110,7:70,14:24,15:20}
 	var min_depth={6:43,7:52,14:68,15:82}
 	var rng=RandomNumberGenerator.new()
 	rng.seed=world_seed ^ 0x2A7D91C3
@@ -451,7 +451,8 @@ func ensure_ore_minimums() -> void:
 				continue
 			cells[y][x]=ore
 			count+=1
-			# Coal/iron/diamond form small readable veins. Avarita stays extremely rare.
+			# Common ores form readable veins; Avarita remains deep and sparse but
+			# is no longer so scarce that the endgame armor is practically impossible.
 			if ore!=15:
 				for offset in [Vector2i.RIGHT,Vector2i.DOWN,Vector2i.LEFT,Vector2i.UP]:
 					if count>=int(minimums[ore]):
