@@ -36,11 +36,15 @@ class CloudStore {
     this.rootDir = rootDir || path.join(__dirname, "data");
     this.accountsFile = path.join(this.rootDir, "accounts.json");
     this.worldsDir = path.join(this.rootDir, "worlds");
-    this.sessions = new Map();
+    this.sessionSecretFile = path.join(this.rootDir, "session_secret");
     safeMkdir(this.worldsDir);
     if (!fs.existsSync(this.accountsFile)) {
       atomicWriteJson(this.accountsFile, { version: ACCOUNT_VERSION, users: {} });
     }
+    if (!fs.existsSync(this.sessionSecretFile)) {
+      fs.writeFileSync(this.sessionSecretFile, crypto.randomBytes(32).toString("hex"), { encoding: "utf8", mode: 0o600 });
+    }
+    this.sessionSecret = fs.readFileSync(this.sessionSecretFile, "utf8").trim();
   }
 
   _readAccounts() {
@@ -71,9 +75,9 @@ class CloudStore {
   }
 
   _issueSession(key, display) {
-    const token = crypto.randomBytes(32).toString("base64url");
-    this.sessions.set(token, { key, display, expires: Date.now() + SESSION_TTL_MS });
-    return token;
+    const payload = Buffer.from(JSON.stringify({ k:key, u:display, e:Date.now()+SESSION_TTL_MS }), "utf8").toString("base64url");
+    const signature = crypto.createHmac("sha256", this.sessionSecret).update(payload).digest("base64url");
+    return payload + "." + signature;
   }
 
   createAccount(username, password) {
@@ -108,13 +112,21 @@ class CloudStore {
   }
 
   auth(token) {
-    const session = this.sessions.get(String(token || ""));
-    if (!session) return null;
-    if (session.expires < Date.now()) {
-      this.sessions.delete(String(token || ""));
+    try {
+      const parts=String(token || "").split(".");
+      if (parts.length!==2) return null;
+      const expected=crypto.createHmac("sha256",this.sessionSecret).update(parts[0]).digest();
+      const actual=Buffer.from(parts[1],"base64url");
+      if (expected.length!==actual.length || !crypto.timingSafeEqual(expected,actual)) return null;
+      const payload=JSON.parse(Buffer.from(parts[0],"base64url").toString("utf8"));
+      if (!payload || Number(payload.e)<Date.now()) return null;
+      const accounts=this._readAccounts();
+      const record=accounts.users[String(payload.k || "")];
+      if (!record) return null;
+      return { key:String(payload.k), display:String(record.username || payload.u || payload.k), expires:Number(payload.e) };
+    } catch {
       return null;
     }
-    return session;
   }
 
   _userWorldDir(userKey) {

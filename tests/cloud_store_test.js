@@ -20,6 +20,7 @@ try {
   const listed=store.listWorlds(session.key);
   if(listed.length!==1 || listed[0].name!=="Meu Reino") throw new Error("list failed");
   const restarted=new CloudStore(dir);
+  if(!restarted.auth(login.token)) throw new Error("session token did not survive server restart");
   const loginAfterRestart=restarted.login("Heitor","senha123");
   if(!loginAfterRestart.ok) throw new Error("account did not persist across restart");
   const loaded=restarted.loadWorld("heitor","reino_42");
