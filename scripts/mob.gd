@@ -17,6 +17,9 @@ var world_max_x:=320.0*32.0
 var world_min_y:=0.0
 var world_max_y:=96.0*32.0
 var despawn_distance:=1800.0
+var is_dungeon_miniboss:=false
+var dungeon_id:=""
+var elite_name:=""
 
 func _ready() -> void:
 	collision_layer=4
@@ -58,7 +61,17 @@ func _ready() -> void:
 	var damage_mult=[0.75,1.0,1.22,1.48][index]
 	hp*=hp_mult
 	damage*=damage_mult
+	if is_dungeon_miniboss:
+		hp*=2.8
+		damage*=1.45
+		despawn_distance=4200.0
+		sprite.scale*=1.16
 	queue_redraw()
+
+func set_dungeon_miniboss(id:String,name:String) -> void:
+	is_dungeon_miniboss=true
+	dungeon_id=id
+	elite_name=name
 
 func set_world_bounds(min_x:float,max_x:float,min_y:float=0.0,max_y:float=96.0*32.0) -> void:
 	world_min_x=min_x
@@ -123,6 +136,10 @@ func hit(amount: float, force: float=240.0) -> void:
 		killed.emit()
 
 func _draw() -> void:
+	if is_dungeon_miniboss:
+		draw_circle(Vector2(0,-31),38,Color("8e58b526"))
+		draw_arc(Vector2(0,-31),32,0,TAU,28,Color("d39cff99"),3)
+		draw_polygon(PackedVector2Array([Vector2(-11,-76),Vector2(-5,-88),Vector2(0,-79),Vector2(6,-90),Vector2(12,-76)]),PackedColorArray([Color("d7b866"),Color("d7b866"),Color("d7b866"),Color("d7b866"),Color("d7b866")]))
 	var radius=Vector2(28,7)
 	if kind=="dark_slime":
 		radius=Vector2(24,6)

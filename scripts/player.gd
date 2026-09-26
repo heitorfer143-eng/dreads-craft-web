@@ -20,6 +20,9 @@ var weapon_sprite: Sprite2D
 var weapon_tween: Tween
 var armor_sprites: Dictionary = {}
 var armor_reduction := 0.0
+var exploration_speed_multiplier := 1.0
+var exploration_damage_reduction := 0.0
+var exploration_max_hp_bonus := 0.0
 var spawn_position = Vector2(400,1000)
 var max_fall_speed = 0.0
 var was_grounded = false
@@ -74,7 +77,8 @@ func _physics_process(delta: float) -> void:
 	_update_breath(delta)
 	var controls_enabled=not input_locked
 	var direction=Input.get_axis("left","right") if controls_enabled else 0.0
-	velocity.x=direction*(155.0 if in_water and not creative else 220.0)
+	var base_speed=155.0 if in_water and not creative else 220.0
+	velocity.x=direction*base_speed*exploration_speed_multiplier
 	if direction!=0:
 		face=int(sign(direction))
 
@@ -184,6 +188,14 @@ func _update_armor_visibility() -> void:
 		if is_instance_valid(layer):
 			layer.visible=show_armor and layer.texture!=null
 
+func set_exploration_bonuses(speed_multiplier:float,damage_reduction:float,max_hp_bonus:float) -> void:
+	var base_hp=maxf(100.0,max_hp-exploration_max_hp_bonus)
+	exploration_speed_multiplier=clampf(speed_multiplier,1.0,1.35)
+	exploration_damage_reduction=clampf(damage_reduction,0.0,0.20)
+	exploration_max_hp_bonus=maxf(0.0,max_hp_bonus)
+	max_hp=base_hp+exploration_max_hp_bonus
+	hp=minf(hp,max_hp)
+
 func set_armor_equipment(equipment:Dictionary) -> void:
 	var paths={
 		32:"res://assets/armor/avarita_helmet.png",
@@ -252,7 +264,8 @@ func _apply_fall_damage(impact_speed: float) -> void:
 func take_damage(amount: float) -> void:
 	if creative or hurt_time>0:
 		return
-	var final_damage=maxf(1.0,amount*(1.0-armor_reduction))
+	var total_reduction=clampf(armor_reduction+exploration_damage_reduction,0.0,0.72)
+	var final_damage=maxf(1.0,amount*(1.0-total_reduction))
 	hp-=final_damage
 	hurt_time=.85
 	if hp<=0:

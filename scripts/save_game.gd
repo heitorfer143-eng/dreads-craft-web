@@ -3,7 +3,7 @@ extends RefCounted
 const PATH = "user://dreads_world.json"
 const INDEX_PATH = "user://dreads_worlds.json"
 const WORLDS_DIR = "user://worlds"
-const SAVE_VERSION = 11
+const SAVE_VERSION = 12
 const VALID_BLOCK_IDS = [0,1,2,3,4,5,6,7,8,9,14,15,16,25,28,29,30,31]
 const MIN_WORLD_WIDTH = 320
 const MAX_WORLD_WIDTH = 8192
@@ -234,6 +234,14 @@ static func read_path(save_path: String) -> Dictionary:
 		parsed["current_form"]="spike"
 	if not parsed.has("chests"):
 		parsed["chests"]={}
+	if not parsed.has("chest_metadata"):
+		parsed["chest_metadata"]={}
+	if not parsed.has("dungeon_miniboss_defeated"):
+		parsed["dungeon_miniboss_defeated"]={}
+	if not parsed.has("dungeon_discovered"):
+		parsed["dungeon_discovered"]={}
+	if not parsed.has("dungeon_generated"):
+		parsed["dungeon_generated"]=false
 	parsed["version"]=SAVE_VERSION
 	var cells=parsed.get("cells",[])
 	if not cells is Array or cells.size()!=96:
