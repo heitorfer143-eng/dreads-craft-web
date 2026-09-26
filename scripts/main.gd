@@ -3284,6 +3284,7 @@ func spawn_mel() -> void:
 		return
 	mel=Mel.new()
 	mel.setup(player,mel_tamed)
+	mel.set_world_bounds(0.0,float(world.world_width()*32))
 	var x=26
 	mel.position=Vector2(x*32+16,world.surfaces[x]*32-2)
 	mel.interacted.connect(func(_dog): show_mel_dialogue())

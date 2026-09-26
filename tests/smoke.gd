@@ -154,37 +154,43 @@ func run() -> void:
 	await physics_frame
 	check(scene.player.velocity.y<0,"Jump")
 	Input.action_release("jump")
-	# Placement uses target cell and blocks overlap.
-	scene.player.position=Vector2(12*32+16,scene.world.surfaces[12]*32-2)
+	# Placement uses an unprotected outdoor area; the village intentionally blocks building.
+	var build_x=100
+	scene.player.position=Vector2((build_x-2)*32+16,scene.world.surfaces[build_x-2]*32-2)
 	scene.player.velocity=Vector2.ZERO
 	scene.player.inventory[2]=3
 	scene.selected=2
-	scene.target=Vector2i(15,33)
-	scene.world.set_cell(scene.target,0)
+	var dirt_target=Vector2i(build_x,scene.world.surfaces[build_x]-2)
+	scene.target=dirt_target
+	scene.world.set_cell(dirt_target,0)
 	var count=int(scene.player.inventory.get(2,0))
-	check(scene.place_block(),"Place empty target")
-	check(scene.world.get_cell(scene.target)==2,"Target changed")
-	check(scene.player.inventory[2]==count-1,"Placement consumed item")
+	check(scene.place_block(),"Place empty target outside protected village")
+	check(scene.world.get_cell(dirt_target)==2,"Target changed")
+	check(int(scene.player.inventory.get(2,0))==count-1,"Placement consumed item")
 	check(not scene.place_block(),"Cannot place on solid target")
 	scene.player.inventory[3]=2
 	scene.selected=3
-	scene.target=Vector2i(16,33)
-	scene.world.set_cell(scene.target,0)
+	var stone_target=Vector2i(build_x+1,scene.world.surfaces[build_x+1]-2)
+	scene.target=stone_target
+	scene.world.set_cell(stone_target,0)
 	check(scene.place_block(),"Stone block can be placed")
-	check(scene.world.get_cell(Vector2i(16,33))==3,"Placed stone uses stone tile id")
+	check(scene.world.get_cell(stone_target)==3,"Placed stone uses stone tile id")
 	scene.player.inventory[28]=1
 	scene.selected=28
-	scene.target=Vector2i(17,33)
-	scene.world.set_cell(scene.target,0)
+	var chest_target=Vector2i(build_x+2,scene.world.surfaces[build_x+2]-2)
+	scene.target=chest_target
+	scene.world.set_cell(chest_target,0)
 	check(scene.place_block(),"Chest can be placed")
-	check(scene.world.get_cell(Vector2i(17,33))==28,"Chest uses storage block id")
+	check(scene.world.get_cell(chest_target)==28,"Chest uses storage block id")
 	check(scene.has_method("show_chest") and scene.has_method("spill_chest"),"Chest storage handlers exist")
 	check(scene.has_method("apply_online_drop") and scene.has_method("resolve_online_drop_pickup"),"Multiplayer shared drop handlers exist")
 	check(is_instance_valid(scene.chat_panel) and is_instance_valid(scene.chat_input),"Multiplayer chat UI exists")
 	scene.show_inventory()
 	check(scene.modal,"Inventory opens")
 	scene.show_craft()
-	check(scene.menu_box.get_child_count()>3,"Craft menu builds")
+	check(scene.menu_box.get_child_count()>=3,"Craft menu builds")
+	var craft_root=scene.menu_box.get_child(scene.menu_box.get_child_count()-1)
+	check(craft_root is HBoxContainer and craft_root.get_child_count()>=2,"Craft menu layout has sidebar and recipes")
 	scene.resume()
 	scene.spawn_mob()
 	await physics_frame
