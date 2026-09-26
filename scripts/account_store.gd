@@ -26,6 +26,10 @@ static func _read() -> Dictionary:
 	return {"version":VERSION,"last_user":"","users":{}}
 
 static func _write(data:Dictionary) -> Error:
+	var user_dir=ProjectSettings.globalize_path("user://")
+	var dir_error=DirAccess.make_dir_recursive_absolute(user_dir)
+	if dir_error!=OK:
+		return dir_error
 	var abs_path=ProjectSettings.globalize_path(PATH)
 	var abs_bak=ProjectSettings.globalize_path(BACKUP_PATH)
 	if FileAccess.file_exists(PATH):
