@@ -52,6 +52,14 @@ func run() -> void:
 		tiers[tier]=true
 		check(world.get_cell(cell)==28,"Dungeon chest is a real world chest block")
 	check(tiers.has("common") and tiers.has("rare") and tiers.has("dungeon") and tiers.has("boss"),"All chest tiers generate")
+	for dungeon in world.dungeons:
+		check(Array(dungeon.get("mob_spawns",[])).size()>=2,"Dungeon contains dedicated enemy encounter positions")
+		check(Array(dungeon.get("mob_kinds",[])).size()>=2,"Dungeon defines its own enemy mix")
+	var animation_cell:Vector2i=world.dungeon_chests[0].get("cell",Vector2i(-1,-1))
+	world.set_chest_open(animation_cell,true)
+	world._process(0.2)
+	check(world.chest_open_value(animation_cell)>0.0,"Dungeon chest lid has an open animation")
+	world.set_chest_open(animation_cell,false)
 
 	for raw_key in world.dungeon_secret_cells:
 		var parts=str(raw_key).split(",")
@@ -118,6 +126,13 @@ func run() -> void:
 	scene.dungeon_miniboss_defeated[dungeon_id]=true
 	check(not scene.dungeon_chest_locked(boss_cell),"Guardian chest unlocks after miniboss defeat")
 	check(scene.serialize_chests().has(scene.chest_key(boss_cell)),"Dungeon chest contents participate in normal chest save system")
+	check(scene.has_method("spawn_dungeon_enemy") and scene.has_method("update_dungeon_encounters"),"Dungeon encounter and miniboss handlers are integrated")
+	check(scene.save_world(),"Dungeon world saves successfully")
+	var dungeon_save=saves.read_save()
+	check(bool(dungeon_save.get("dungeon_generated",false)),"Save records dungeon generation state")
+	check(Dictionary(dungeon_save.get("chests",{})).has(scene.chest_key(boss_cell)),"Dungeon chest contents persist in save")
+	check(Dictionary(dungeon_save.get("chest_metadata",{})).has(scene.chest_key(boss_cell)),"Dungeon chest rarity/source metadata persists in save")
+	check(bool(Dictionary(dungeon_save.get("dungeon_miniboss_defeated",{})).get(dungeon_id,false)),"Miniboss defeated state persists in save")
 
 	scene.player.inventory[37]=1
 	scene.player.inventory[38]=1
