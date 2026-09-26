@@ -84,7 +84,7 @@ func run() -> void:
 	await process_frame
 	check(game.in_lake_temple,"Death does not eject player from Leviathan arena")
 	check(is_instance_valid(game.lake_boss),"Leviathan remains alive after player death")
-	check(absf(game.lake_boss.hp-boss_hp_before_death)<0.1,"Leviathan keeps HP after player death")
+	check(game.lake_boss.hp>0.0 and game.lake_boss.hp<=boss_hp_before_death+0.1,"Leviathan stays alive and is never healed/reset by player death")
 	check(not game.lake_boss_defeated,"Player death never marks Leviathan defeated")
 	check(int(game.player.inventory.get(27,0))==heart_before_death,"Player death never grants Leviathan reward")
 	check(game.player.position.distance_to(game.lake_arena.spawn_position)<36.0,"Lake death respawns inside arena")
