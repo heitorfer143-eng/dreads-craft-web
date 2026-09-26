@@ -1129,6 +1129,21 @@ func show_login() -> void:
 		login_root.show()
 		login_user.call_deferred("grab_focus")
 
+func finish_account_login(user:String,password:String="",sync_cloud:bool=false) -> void:
+	current_account=user.strip_edges()
+	online_player_name=current_account
+	Saves.set_account(current_account)
+	Accounts.remember_user(current_account)
+	if password!="" and not Accounts.has_accounts():
+		Accounts.create_account(current_account,password)
+	login_password.clear()
+	if sync_cloud and is_instance_valid(cloud) and cloud.is_authenticated():
+		set_web_login_feedback("Sincronizando seus mundos...")
+		login_feedback.text="Sincronizando seus mundos..."
+		await sync_account_worlds()
+	hide_web_login_overlay()
+	show_main()
+
 func attempt_login() -> void:
 	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
 		return
