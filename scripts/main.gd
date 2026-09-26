@@ -4318,6 +4318,7 @@ func ensure_lake_boss() -> void:
 		return
 	lake_boss=LakeBoss.new()
 	lake_boss.player=player
+	lake_boss.set_arena_bounds(lake_arena.arena_size,lake_arena.floor_y)
 	lake_boss.position=lake_arena.boss_position
 	enemies.add_child(lake_boss)
 	lake_boss.defeated.connect(on_lake_boss_defeated)
@@ -4351,8 +4352,8 @@ func enter_lake_temple(skip_intro:bool=false) -> void:
 	player.velocity=Vector2.ZERO
 	player.max_fall_speed=0
 	player.set_water_state(lake_arena.is_in_water(player.position),lake_arena.is_in_water(player.position+Vector2(0,-38)))
-	player.set_world_bounds(0.0,1280.0,0.0,720.0)
-	player.camera.position=Vector2(0,-120)
+	player.set_world_bounds(0.0,lake_arena.arena_size.x,0.0,lake_arena.arena_size.y)
+	player.camera.position=Vector2(0,-145)
 	player.camera.reset_smoothing()
 	mining_held=false
 	progress=0

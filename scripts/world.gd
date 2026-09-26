@@ -17,10 +17,10 @@ const SNOW_END_X = 292
 const LAKE_MIN_CENTER_X = 120
 const LAKE_MAX_CENTER_X = 150
 var lake_center_x := 130
-var lake_width := 24
-var lake_depth := 8
-var lake_start_x := 118
-var lake_end_x := 142
+var lake_width := 48
+var lake_depth := 16
+var lake_start_x := 106
+var lake_end_x := 154
 var lake_water_y := 35
 var lake_generated := false
 var desert_start_x := 350
@@ -42,6 +42,15 @@ const DECOR_INDEX = {
 	"ivy":15, "lantern":16, "notice":17, "small_crate":18, "log":19,
 	"stump":20, "hay_pile":21, "hay_bale":22, "white_flower":23, "tall_grass":24
 }
+const DECOR_ROLE_SCALE = {
+	"tree":1.12,"pine":1.10,"shrub":0.74,"flowers":0.66,"fence":0.82,
+	"lampadao":0.92,"poste":0.88,"banner_red":0.88,"sign":0.78,"bench":0.96,
+	"well":1.02,"crates":0.78,"barrels":0.74,"vase":0.62,"plants":0.68,
+	"ivy":0.76,"lantern":0.72,"notice":0.82,"small_crate":0.60,"log":0.78,
+	"stump":0.70,"hay_pile":0.80,"hay_bale":0.82,"white_flower":0.62,"tall_grass":0.68
+}
+const LAKE_TEMPLE_SIZE = Vector2(420,220)
+const LAKE_TEMPLE_DOOR_SIZE = Vector2(96,132)
 var purity_realm := false
 
 func _ready() -> void:
@@ -266,8 +275,8 @@ func configure_lake(seed_value:int) -> void:
 	noise.seed=seed_value
 	noise.frequency=0.027
 
-	lake_width=rng.randi_range(20,28)
-	lake_depth=rng.randi_range(7,11)
+	lake_width=rng.randi_range(44,52)
+	lake_depth=rng.randi_range(14,18)
 
 	# Choose a seeded low-slope stretch between the two mine entrances.
 	# This keeps the water physically inside its banks instead of hanging in open air.
@@ -275,7 +284,7 @@ func configure_lake(seed_value:int) -> void:
 	var best_score=999999
 	for attempt in range(16):
 		var candidate=rng.randi_range(LAKE_MIN_CENTER_X,LAKE_MAX_CENTER_X)
-		var start=clampi(candidate-int(lake_width/2),108,164-lake_width)
+		var start=clampi(candidate-int(lake_width/2),100,174-lake_width)
 		var finish=start+lake_width
 		var left_height=_natural_surface_height(start-1,noise)
 		var right_height=_natural_surface_height(finish+1,noise)
@@ -286,7 +295,7 @@ func configure_lake(seed_value:int) -> void:
 			best_center=int((start+finish)/2)
 
 	lake_center_x=best_center
-	lake_start_x=clampi(lake_center_x-int(lake_width/2),108,164-lake_width)
+	lake_start_x=clampi(lake_center_x-int(lake_width/2),100,174-lake_width)
 	lake_end_x=lake_start_x+lake_width
 	lake_center_x=int((lake_start_x+lake_end_x)/2)
 	var left_bank=_natural_surface_height(lake_start_x-1,noise)
@@ -545,7 +554,7 @@ func lake_shore_spawn() -> Vector2:
 	return Vector2(x*TILE+TILE/2.0,surfaces[x]*TILE-2)
 
 func is_near_lake_temple(pos:Vector2) -> bool:
-	return is_lake_zone(int(pos.x/TILE)) and pos.distance_to(lake_temple_position())<118.0
+	return is_lake_zone(int(pos.x/TILE)) and pos.distance_to(lake_temple_position())<190.0
 
 func is_point_in_lake_water(pos:Vector2) -> bool:
 	if purity_realm:
@@ -725,13 +734,17 @@ func _draw() -> void:
 func _decor_base(x:int) -> Vector2:
 	return Vector2(x*TILE+TILE/2.0,surfaces[x]*TILE)
 
-func _draw_decor_sprite(base:Vector2,key:String,scale:float=1.0) -> void:
+func decor_scale_for(key:String) -> float:
+	return float(DECOR_ROLE_SCALE.get(key,0.76))
+
+func _draw_decor_sprite(base:Vector2,key:String,modifier:float=1.0) -> void:
 	if decor_atlas==null or not DECOR_INDEX.has(key):
 		return
 	var index=int(DECOR_INDEX[key])
 	var column=index%5
 	var row=int(index/5)
 	var source=Rect2(Vector2(column*int(DECOR_CELL.x),row*int(DECOR_CELL.y)),DECOR_CELL)
+	var scale=decor_scale_for(key)*clampf(modifier,0.85,1.15)
 	var draw_size=DECOR_CELL*scale*2.0
 	var destination=Rect2(base+Vector2(-draw_size.x*0.5,-draw_size.y),draw_size)
 	draw_texture_rect_region(decor_atlas,destination,source)
@@ -766,33 +779,103 @@ func draw_surface_decor(left:int,right:int) -> void:
 		if code>10:
 			continue
 		match code:
-			0: _draw_decor_sprite(base,"shrub",0.72)
-			1: _draw_decor_sprite(base,"flowers",0.70)
-			2: _draw_decor_sprite(base,"tall_grass",0.70)
-			3: _draw_decor_sprite(base,"log",0.74)
-			4: _draw_decor_sprite(base,"stump",0.70)
-			5: _draw_decor_sprite(base,"hay_pile",0.72)
-			6: _draw_decor_sprite(base,"white_flower",0.68)
-			7: _draw_decor_sprite(base,"plants",0.70)
-			8: _draw_decor_sprite(base,"crates",0.63)
-			9: _draw_decor_sprite(base,"barrels",0.60)
-			10: _draw_decor_sprite(base,"small_crate",0.58)
+			0: _draw_decor_sprite(base,"shrub",0.96)
+			1: _draw_decor_sprite(base,"flowers",0.94)
+			2: _draw_decor_sprite(base,"tall_grass",0.94)
+			3: _draw_decor_sprite(base,"log",0.96)
+			4: _draw_decor_sprite(base,"stump",0.95)
+			5: _draw_decor_sprite(base,"hay_pile",0.96)
+			6: _draw_decor_sprite(base,"white_flower",0.92)
+			7: _draw_decor_sprite(base,"plants",0.95)
+			8: _draw_decor_sprite(base,"crates",0.94)
+			9: _draw_decor_sprite(base,"barrels",0.94)
+			10: _draw_decor_sprite(base,"small_crate",0.92)
 
 func draw_village_decor(left:int,right:int) -> void:
 	if surfaces.size()<67:
 		return
 	# Exact art from the supplied decoration sheet; no procedural substitutes.
 	var props=[
-		[5,"tree",0.90],[8,"notice",0.78],[11,"flowers",0.70],[14,"lampadao",0.82],
-		[26,"barrels",0.62],[29,"crates",0.65],[31,"poste",0.78],
-		[40,"bench",0.82],[44,"well",0.82],[47,"flowers",0.72],
-		[56,"lantern",0.76],[59,"banner_red",0.78],[62,"vase",0.62],[65,"pine",0.88]
+		[5,"tree",1.00],[8,"notice",0.98],[11,"flowers",0.95],[14,"lampadao",1.00],
+		[26,"barrels",0.98],[29,"crates",0.98],[31,"poste",1.00],
+		[40,"bench",1.04],[44,"well",1.00],[47,"flowers",0.95],
+		[56,"lantern",0.98],[59,"banner_red",1.00],[62,"vase",0.96],[65,"pine",1.00]
 	]
 	for data in props:
 		var x=int(data[0])
 		if x<left or x>=right or x<0 or x>=surfaces.size():
 			continue
 		_draw_decor_sprite(_decor_base(x),str(data[1]),float(data[2]))
+
+func _draw_lake_trident(center:Vector2,scale:float,color:Color) -> void:
+	var width=maxf(2.0,4.0*scale)
+	draw_line(center+Vector2(0,34)*scale,center+Vector2(0,-34)*scale,color,width)
+	draw_line(center+Vector2(0,-10)*scale,center+Vector2(-20,-26)*scale,color,width)
+	draw_line(center+Vector2(-20,-26)*scale,center+Vector2(-20,-9)*scale,color,width)
+	draw_line(center+Vector2(0,-10)*scale,center+Vector2(20,-26)*scale,color,width)
+	draw_line(center+Vector2(20,-26)*scale,center+Vector2(20,-9)*scale,color,width)
+
+func _draw_lake_chain(a:Vector2,b:Vector2,links:int) -> void:
+	for i in range(links):
+		var f=float(i)/float(maxi(1,links-1))
+		var p=a.lerp(b,f)+Vector2(0,sin(f*PI)*8)
+		draw_arc(p,4,0,TAU,8,Color("2a252b"),2)
+
+func _draw_lake_temple(temple:Vector2) -> void:
+	var cyan=Color("32cbe9")
+	var stone=Color("252d3b")
+	var stone_hi=Color("465467")
+	var width=LAKE_TEMPLE_SIZE.x
+	var height=LAKE_TEMPLE_SIZE.y
+	var left=temple.x-width*0.5
+	var top=temple.y-height
+	# Main symmetrical silhouette.
+	draw_rect(Rect2(left+38,top+54,width-76,height-54),stone)
+	draw_rect(Rect2(left+20,top+48,54,height-48),Color("2a3342"))
+	draw_rect(Rect2(left+width-74,top+48,54,height-48),Color("2a3342"))
+	draw_rect(Rect2(left+12,top+42,width-24,14),stone_hi)
+	draw_rect(Rect2(left+30,top+32,58,18),stone_hi)
+	draw_rect(Rect2(left+width-88,top+32,58,18),stone_hi)
+	# Broken crown and central crest.
+	draw_polygon(PackedVector2Array([
+		Vector2(temple.x-116,top+55),Vector2(temple.x-76,top+12),Vector2(temple.x-36,top+42),
+		Vector2(temple.x,top-18),Vector2(temple.x+38,top+42),Vector2(temple.x+78,top+8),
+		Vector2(temple.x+116,top+55)
+	]),PackedColorArray([stone,stone,stone,stone,stone,stone,stone]))
+	draw_polygon(PackedVector2Array([
+		Vector2(temple.x,top+25),Vector2(temple.x-38,top+54),Vector2(temple.x-24,top+96),
+		Vector2(temple.x+24,top+96),Vector2(temple.x+38,top+54)
+	]),PackedColorArray([Color("29364a"),Color("29364a"),Color("29364a"),Color("29364a"),Color("29364a")]))
+	_draw_lake_trident(Vector2(temple.x,top+63),0.56,Color("9aafba"))
+	# Proportional entrance: large enough to be important, still believable for the player.
+	var door_pos=Vector2(temple.x-LAKE_TEMPLE_DOOR_SIZE.x*0.5,temple.y-LAKE_TEMPLE_DOOR_SIZE.y)
+	draw_rect(Rect2(door_pos,LAKE_TEMPLE_DOOR_SIZE),Color("0d1420"))
+	draw_arc(Vector2(temple.x,door_pos.y+3),LAKE_TEMPLE_DOOR_SIZE.x*0.5,PI,TAU,28,stone_hi,5)
+	draw_line(Vector2(temple.x,door_pos.y+10),Vector2(temple.x,temple.y-12),cyan,3)
+	_draw_lake_trident(Vector2(temple.x,temple.y-58),0.65,cyan)
+	# Columns, chains and banners.
+	for px in [left+54,left+122,left+width-122,left+width-54]:
+		draw_rect(Rect2(px-13,top+70,26,height-70),Color("303949"))
+		draw_rect(Rect2(px-19,top+66,38,9),stone_hi)
+		draw_rect(Rect2(px-19,temple.y-10,38,10),stone_hi)
+	_draw_lake_chain(Vector2(left+54,top+76),Vector2(temple.x-82,top+112),12)
+	_draw_lake_chain(Vector2(left+width-54,top+76),Vector2(temple.x+82,top+112),12)
+	for bx in [left+7,left+width-39]:
+		draw_rect(Rect2(bx,top+88,32,76),Color("15344a"))
+		draw_polygon(PackedVector2Array([Vector2(bx,top+164),Vector2(bx+16,top+188),Vector2(bx+32,top+164)]),PackedColorArray([Color("15344a"),Color("15344a"),Color("15344a")]))
+		_draw_lake_trident(Vector2(bx+16,top+126),0.28,Color("93aeba"))
+	# Cyan braziers.
+	for fx in [temple.x-112,temple.x+112]:
+		draw_circle(Vector2(fx,temple.y-60),16,Color("2dd7f02b"))
+		draw_polygon(PackedVector2Array([
+			Vector2(fx-8,temple.y-50),Vector2(fx-5,temple.y-66),Vector2(fx,temple.y-82),
+			Vector2(fx+6,temple.y-65),Vector2(fx+8,temple.y-50)
+		]),PackedColorArray([cyan,cyan,Color("9af2ff"),cyan,cyan]))
+		draw_rect(Rect2(fx-11,temple.y-50,22,6),Color("161c26"))
+	# Algae and coral-like accents.
+	for ax in [left+42,left+102,temple.x-54,temple.x+62,left+width-98,left+width-40]:
+		draw_line(Vector2(ax,top+54),Vector2(ax-3,top+92),Color("1d5d4d"),4)
+		draw_line(Vector2(ax+5,top+58),Vector2(ax+10,top+101),Color("287661"),3)
 
 func draw_lake(left:int,right:int) -> void:
 	var visible_left=maxi(left,lake_start_x-2)
@@ -809,24 +892,18 @@ func draw_lake(left:int,right:int) -> void:
 		var depth=maxf(0.0,floor_y-water_top)
 		if depth<=0:
 			continue
-		draw_rect(Rect2(px,water_top,TILE,depth),Color("172846c8"))
-		draw_rect(Rect2(px,water_top,TILE,4),Color("7b99c9dd"))
-		var wave_y=water_top+6.0+sin(time*2.1+float(x)*0.8)*2.0
-		draw_line(Vector2(px+3,wave_y),Vector2(px+TILE-4,wave_y),Color("9bb6dd77"),2)
-	for x in [lake_start_x+3,lake_start_x+7,lake_end_x-7,lake_end_x-3]:
+		draw_rect(Rect2(px,water_top,TILE,depth),Color("102d49d8"))
+		draw_rect(Rect2(px,water_top,TILE,5),Color("6fa9cadd"))
+		var wave_y=water_top+7.0+sin(time*2.1+float(x)*0.8)*2.0
+		draw_line(Vector2(px+3,wave_y),Vector2(px+TILE-4,wave_y),Color("8ec4dd77"),2)
+		# Sparse vertical light bands make the enlarged lake read as deep water.
+		if (x-lake_start_x)%6==0:
+			draw_rect(Rect2(px+11,water_top+18,8,maxf(0.0,depth-26)),Color("3e8aa00c"))
+	for x in [lake_start_x+4,lake_start_x+10,lake_end_x-10,lake_end_x-4]:
 		if x>=visible_left and x<visible_right:
 			var px=float(x*TILE+16)
-			draw_line(Vector2(px,water_top+18),Vector2(px-3,water_top-24),Color("1c271f"),4)
-			draw_line(Vector2(px+5,water_top+16),Vector2(px+10,water_top-13),Color("334037"),3)
+			draw_line(Vector2(px,water_top+20),Vector2(px-5,water_top-34),Color("183329"),5)
+			draw_line(Vector2(px+7,water_top+18),Vector2(px+12,water_top-20),Color("285143"),3)
 	if lake_center_x>=visible_left and lake_center_x<visible_right:
-		var temple=lake_temple_position()
-		var glow=Color("a05cff")
-		draw_rect(Rect2(temple.x-120,temple.y-88,240,88),Color("28283a"))
-		draw_rect(Rect2(temple.x-145,temple.y-100,38,100),Color("343548"))
-		draw_rect(Rect2(temple.x+107,temple.y-100,38,100),Color("343548"))
-		draw_rect(Rect2(temple.x-152,temple.y-108,304,12),Color("4b3b66"))
-		draw_rect(Rect2(temple.x-48,temple.y-68,96,68),Color("141522"))
-		draw_rect(Rect2(temple.x-36,temple.y-56,72,56),Color("0b0d16"))
-		draw_rect(Rect2(temple.x-7,temple.y-48,14,34),glow)
-		draw_polygon(PackedVector2Array([Vector2(temple.x,temple.y-96),Vector2(temple.x-15,temple.y-75),Vector2(temple.x,temple.y-63),Vector2(temple.x+15,temple.y-75)]),PackedColorArray([glow,glow,glow,glow]))
-		draw_string(ThemeDB.fallback_font,Vector2(temple.x-94,temple.y-114),"TEMPLO SUBMERSO",HORIZONTAL_ALIGNMENT_CENTER,188,11,Color("b9a2d9"))
+		_draw_lake_temple(lake_temple_position())
+
