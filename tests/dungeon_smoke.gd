@@ -30,12 +30,19 @@ func connected(world,start:Vector2i,goal:Vector2i) -> bool:
 
 func run() -> void:
 	var DungeonSystem=load("res://scripts/dungeon_system.gd")
+	var DungeonArt=load("res://scripts/dungeon_art.gd")
 	var Items=load("res://scripts/items.gd")
 	var World=load("res://scripts/world.gd")
 	var world=World.new()
 	root.add_child(world)
 	world.generate(42019)
 	await process_frame
+
+	check(DungeonArt.encoded_data().length()==40260,"Generated dungeon art atlas data is complete")
+	check(DungeonArt.atlas()!=null,"Generated dungeon WebP atlas decodes at runtime")
+	check(DungeonArt.atlas().get_size()==Vector2(256,256),"Generated dungeon atlas keeps expected dimensions")
+	for art_name in ["guardian_idle","guardian_attack1","dungeon_crypt_facade","dungeon_tower_facade","dungeon_desert_facade","dungeon_water_gate","chest_common_closed","chest_rare_open","chest_dungeon_closed","chest_boss_sealed","ancient_sword","resistance_amulet","explorer_boots","map_fragment","crypt_key","dungeon_relic"]:
+		check(DungeonArt.texture(art_name)!=null,"Generated dungeon asset exists: "+art_name)
 
 	check(world.dungeons.size()==3,"Exactly three exploration dungeons generate")
 	var kinds:Dictionary={}
@@ -55,10 +62,12 @@ func run() -> void:
 	for dungeon in world.dungeons:
 		check(Array(dungeon.get("mob_spawns",[])).size()>=2,"Dungeon contains dedicated enemy encounter positions")
 		check(Array(dungeon.get("mob_kinds",[])).size()>=2,"Dungeon defines its own enemy mix")
+		check(Vector2i(dungeon.get("entrance",Vector2i(-1,-1))).x>=0,"Dungeon exposes a facade entrance anchor")
 	var animation_cell:Vector2i=world.dungeon_chests[0].get("cell",Vector2i(-1,-1))
 	world.set_chest_open(animation_cell,true)
 	world._process(0.2)
 	check(world.chest_open_value(animation_cell)>0.0,"Dungeon chest lid has an open animation")
+	check(float(world.chest_burst_time.get(world._cell_key(animation_cell),0.0))>0.0,"Opening generated chest triggers loot burst effect")
 	world.set_chest_open(animation_cell,false)
 
 	for raw_key in world.dungeon_secret_cells:
@@ -113,6 +122,19 @@ func run() -> void:
 	await physics_frame
 	await physics_frame
 	scene.resume()
+	for art_item_id in [36,37,38,39,40,41]:
+		check(scene.item_display_texture(art_item_id)!=null,"Exclusive item uses generated in-game art: "+str(art_item_id))
+	var guardian=load("res://scripts/mob.gd").new()
+	guardian.kind="undead_knight"
+	guardian.player=scene.player
+	guardian.set_dungeon_miniboss("art_smoke","Guardião Visual")
+	scene.enemies.add_child(guardian)
+	await process_frame
+	check(is_instance_valid(guardian.guardian_aura),"Dungeon guardian uses generated purple aura asset")
+	check(guardian.sprite.sprite_frames.has_animation("attack"),"Dungeon guardian uses generated attack animation")
+	check(guardian.sprite.sprite_frames.has_animation("death"),"Dungeon guardian uses generated death pose")
+	guardian.queue_free()
+	await process_frame
 	check(scene.chest_inventories.size()>=12,"Dungeon chest contents are initialized")
 	check(scene.chest_metadata.size()>=12,"Dungeon chest rarity/source metadata is initialized")
 	var boss_entry:Dictionary={}
@@ -124,7 +146,9 @@ func run() -> void:
 	var dungeon_id=str(boss_entry.get("dungeon_id",""))
 	check(scene.dungeon_chest_locked(boss_cell),"Guardian chest starts locked")
 	scene.dungeon_miniboss_defeated[dungeon_id]=true
+	scene.world.set_chest_unsealed(boss_cell,true)
 	check(not scene.dungeon_chest_locked(boss_cell),"Guardian chest unlocks after miniboss defeat")
+	check(bool(scene.world.chest_unsealed.get(scene.world._cell_key(boss_cell),false)),"Guardian chest switches from sealed art after defeat")
 	check(scene.serialize_chests().has(scene.chest_key(boss_cell)),"Dungeon chest contents participate in normal chest save system")
 	check(scene.has_method("spawn_dungeon_enemy") and scene.has_method("update_dungeon_encounters"),"Dungeon encounter and miniboss handlers are integrated")
 	check(scene.save_world(),"Dungeon world saves successfully")

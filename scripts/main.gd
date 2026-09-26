@@ -23,6 +23,7 @@ const SoulProjectile = preload("res://scripts/soul_projectile.gd")
 const LakeBoss = preload("res://scripts/lake_leviathan.gd")
 const LakeArena = preload("res://scripts/lake_arena.gd")
 const DungeonSystem = preload("res://scripts/dungeon_system.gd")
+const DungeonArt = preload("res://scripts/dungeon_art.gd")
 
 var in_purity=false
 var in_purity_realm=false
@@ -2819,6 +2820,9 @@ func initialize_dungeon_chests() -> void:
 				tier
 			)
 		world.set_chest_visual_tier(cell,tier)
+		if tier=="boss":
+			var dungeon_id=str(entry.get("dungeon_id",""))
+			world.set_chest_unsealed(cell,bool(dungeon_miniboss_defeated.get(dungeon_id,false)))
 
 func dungeon_chest_locked(cell:Vector2i) -> bool:
 	var meta:Dictionary=chest_metadata.get(chest_key(cell),{})
@@ -2891,6 +2895,7 @@ func show_chest(cell:Vector2i) -> void:
 	if active_chest_cell.x>=0 and active_chest_cell!=cell:
 		world.set_chest_open(active_chest_cell,false)
 	active_chest_cell=cell
+	world.set_chest_unsealed(cell,true)
 	world.set_chest_open(cell,true)
 	var key=chest_key(cell)
 	if not chest_inventories.has(key):
@@ -3990,6 +3995,12 @@ func npc_face_texture(path: String, role: String="") -> Texture2D:
 	return load(path)
 
 func item_display_texture(id:int, craft:bool=false) -> Texture2D:
+	if not craft:
+		var generated_name=DungeonArt.item_texture_name(id)
+		if generated_name!="":
+			var generated_texture=DungeonArt.texture(generated_name)
+			if generated_texture!=null:
+				return generated_texture
 	var path=Items.CRAFT_ICONS.get(id,Items.ICONS.get(id,"res://assets/items/dirt.png")) if craft else Items.ICONS.get(id,"res://assets/items/dirt.png")
 	return load(path) if ResourceLoader.exists(path) else null
 
@@ -4557,6 +4568,9 @@ func spawn_dungeon_enemy(dungeon:Dictionary,cell:Vector2i,kind:String,miniboss:b
 		var death_pos=mob.position
 		if miniboss:
 			dungeon_miniboss_defeated[dungeon_id]=true
+			var boss_chest:Vector2i=dungeon.get("boss_chest",Vector2i(-1,-1))
+			if boss_chest.x>=0 and is_instance_valid(world):
+				world.set_chest_unsealed(boss_chest,true)
 			status.text="GUARDIÃO DERROTADO · o Baú do Guardião foi desbloqueado."
 			message_time=5
 			spawn_ground_drop(14,1,death_pos+Vector2(-12,-8))

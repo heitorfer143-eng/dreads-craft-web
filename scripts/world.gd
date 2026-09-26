@@ -2,6 +2,7 @@ extends Node2D
 
 const Items = preload("res://scripts/items.gd")
 const DungeonSystem = preload("res://scripts/dungeon_system.gd")
+const DungeonArt = preload("res://scripts/dungeon_art.gd")
 const TILE = 32
 const WIDTH = 640
 const HEIGHT = 96
@@ -59,6 +60,8 @@ var dungeon_secret_cells:Dictionary={}
 var chest_visual_tiers:Dictionary={}
 var chest_open_targets:Dictionary={}
 var chest_open_amount:Dictionary={}
+var chest_unsealed:Dictionary={}
+var chest_burst_time:Dictionary={}
 
 func _ready() -> void:
 	texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
@@ -283,6 +286,7 @@ func _generate_crypt(rng:RandomNumberGenerator) -> void:
 	_register_dungeon_chest(Vector2i(room_c.position.x+6,room_c.end.y-2),id,"crypt","boss",104)
 	dungeons.append({
 		"id":id,"kind":"crypt","rect":Rect2i(x-2,y-5,36,22),
+		"entrance":Vector2i(entry_x,surface_y),
 		"center":Vector2i(room_b.position.x+5,room_b.position.y+4),
 		"mob_spawns":[Vector2i(room_a.position.x+5,room_a.end.y-2),Vector2i(room_b.position.x+3,room_b.end.y-2)],
 		"mob_kinds":["corrupted_skeleton","dark_slime"],
@@ -323,6 +327,7 @@ func _generate_tower(rng:RandomNumberGenerator) -> void:
 	_register_dungeon_chest(Vector2i(x+7,ground-16),id,"tower","boss",204)
 	dungeons.append({
 		"id":id,"kind":"tower","rect":Rect2i(x-2,top-2,19,ground-top+11),
+		"entrance":Vector2i(center,ground-1),
 		"center":Vector2i(center,ground-8),
 		"mob_spawns":[Vector2i(x+4,ground-1),Vector2i(x+10,ground-6)],
 		"mob_kinds":["corrupted_skeleton","wolf"],
@@ -368,6 +373,7 @@ func _generate_desert_ruin(rng:RandomNumberGenerator) -> void:
 	_register_dungeon_chest(Vector2i(center,ground-1),id,"desert_ruin","boss",304)
 	dungeons.append({
 		"id":id,"kind":"desert_ruin","rect":Rect2i(x-2,top,25,ground-top+12),
+		"entrance":Vector2i(center,ground-1),
 		"center":Vector2i(center,ground-4),
 		"mob_spawns":[Vector2i(x+5,ground-1),Vector2i(x+16,ground-1)],
 		"mob_kinds":["dark_slime","corrupted_skeleton"],
@@ -424,6 +430,12 @@ func set_chest_open(cell:Vector2i,opened:bool) -> void:
 	chest_open_targets[key]=opened
 	if not chest_open_amount.has(key):
 		chest_open_amount[key]=0.0
+	if opened:
+		chest_burst_time[key]=0.62
+	queue_redraw()
+
+func set_chest_unsealed(cell:Vector2i,unsealed:bool=true) -> void:
+	chest_unsealed[_cell_key(cell)]=unsealed
 	queue_redraw()
 
 func chest_open_value(cell:Vector2i) -> float:
@@ -875,6 +887,13 @@ func _process(_delta: float) -> void:
 		if not is_equal_approx(updated,current):
 			chest_open_amount[key]=updated
 			chest_anim_changed=true
+	for burst_key in chest_burst_time.keys():
+		var remaining=float(chest_burst_time.get(burst_key,0.0))-_delta
+		if remaining<=0.0:
+			chest_burst_time.erase(burst_key)
+		else:
+			chest_burst_time[burst_key]=remaining
+			chest_anim_changed=true
 	if chest_anim_changed:
 		queue_redraw()
 	if camera and not purity_realm and not surfaces.is_empty():
@@ -930,24 +949,43 @@ func _draw() -> void:
 				var chest_cell=Vector2i(x,y)
 				var chest_key=_cell_key(chest_cell)
 				var tier=str(chest_visual_tiers.get(chest_key,"common"))
-				var accent=Color("d0934d")
-				if tier=="rare": accent=Color("6ca8ff")
-				elif tier=="dungeon": accent=Color("b06bd0")
-				elif tier=="boss": accent=Color("f0b85f")
-				var open_amount=chest_open_value(chest_cell)
-				var lid_offset=-6.0*open_amount
-				# Animated medieval chest. Dungeon tiers get a distinct metal/rune accent.
-				draw_rect(Rect2(pos+Vector2(2,17),Vector2(28,13)),Color("2b1b18"))
-				draw_rect(Rect2(pos+Vector2(3,18),Vector2(26,11)),Color("744225"))
-				draw_rect(Rect2(pos+Vector2(2,28),Vector2(28,3)),Color("1c1415"))
-				draw_rect(Rect2(pos+Vector2(3,10+lid_offset),Vector2(26,8)),Color("a56632"))
-				draw_rect(Rect2(pos+Vector2(3,16+lid_offset),Vector2(26,3)),accent)
-				draw_rect(Rect2(pos+Vector2(14,16),Vector2(5,8)),accent.lightened(0.18))
-				draw_rect(Rect2(pos+Vector2(15,18),Vector2(3,3)),Color("3a3030"))
+				var open_amount=clampf(chest_open_value(chest_cell),0.0,1.0)
+				var sealed=tier=="boss" and not bool(chest_unsealed.get(chest_key,false))
+				var closed_name=DungeonArt.chest_texture_name(tier,false,sealed)
+				var open_name=DungeonArt.chest_texture_name(tier,true,false)
+				var closed_texture=DungeonArt.texture(closed_name)
+				var open_texture=DungeonArt.texture(open_name)
+				if closed_texture!=null and open_texture!=null:
+					var closed_size=closed_texture.get_size()*2.0
+					var open_size=open_texture.get_size()*2.0
+					var closed_rect=Rect2(pos+Vector2(TILE*0.5-closed_size.x*0.5,TILE-closed_size.y),closed_size)
+					var open_rect=Rect2(pos+Vector2(TILE*0.5-open_size.x*0.5,TILE-open_size.y),open_size)
+					if open_amount<1.0:
+						draw_texture_rect(closed_texture,closed_rect,false,Color(1,1,1,1.0-open_amount))
+					if open_amount>0.0:
+						draw_texture_rect(open_texture,open_rect,false,Color(1,1,1,open_amount))
+					var burst=float(chest_burst_time.get(chest_key,0.0))
+					if burst>0.0:
+						var burst_texture=DungeonArt.texture("chest_loot_burst")
+						if burst_texture!=null:
+							var burst_size=burst_texture.get_size()*2.8
+							var burst_alpha=clampf(burst/0.62,0.0,1.0)
+							draw_texture_rect(burst_texture,Rect2(pos+Vector2(TILE*0.5-burst_size.x*0.5,TILE-burst_size.y-8),burst_size),false,Color(1,1,1,burst_alpha))
+				else:
+					# Safe fallback for devices that cannot decode the generated WebP atlas.
+					draw_rect(Rect2(pos+Vector2(2,9),Vector2(28,21)),Color("2b1b18"))
+					draw_rect(Rect2(pos+Vector2(3,10),Vector2(26,8)),Color("a56632"))
+					draw_rect(Rect2(pos+Vector2(3,18),Vector2(26,11)),Color("744225"))
 			elif texture:
 				draw_texture_rect(texture,Rect2(pos,Vector2(TILE,TILE)),false)
 			else:
 				draw_rect(Rect2(pos,Vector2(TILE,TILE)),Items.COLORS.get(id,Color.GRAY))
+			var dungeon_cell=Vector2i(x,y)
+			if dungeon_secret_cells.has(_cell_key(dungeon_cell)):
+				var wall_name="dungeon_wall_sandstone" if id in [29,30,31] else "dungeon_wall_stone"
+				var secret_texture=DungeonArt.texture(wall_name)
+				if secret_texture!=null:
+					draw_texture_rect(secret_texture,Rect2(pos,Vector2(TILE,TILE)),false)
 			if is_snow_biome(x):
 				# Strong, unmistakable snow biome treatment. This is render-only, so old
 				# saves instantly gain the biome without rewriting their terrain data.
@@ -984,8 +1022,38 @@ func _draw() -> void:
 				var tint=Color("ffffff") if x<100 else Color("d8c0db") if x<220 else Color("d9e2ef")
 				draw_rect(Rect2(pos,Vector2(TILE,TILE)),tint*Color(1,1,1,0.08))
 	if not purity_realm:
+		draw_dungeon_facades(left,right)
 		draw_surface_decor(left,right)
 		draw_village_decor(left,right)
+
+
+func draw_dungeon_facades(left:int,right:int) -> void:
+	for dungeon in dungeons:
+		var entrance:Vector2i=dungeon.get("entrance",Vector2i(-1,-1))
+		if entrance.x<left-20 or entrance.x>right+20:
+			continue
+		var kind=str(dungeon.get("kind",""))
+		var texture_name=""
+		var target_width=320.0
+		if kind=="crypt":
+			texture_name="dungeon_crypt_facade"
+			target_width=340.0
+		elif kind=="tower":
+			texture_name="dungeon_tower_facade"
+			target_width=420.0
+		elif kind=="desert_ruin":
+			texture_name="dungeon_desert_facade"
+			target_width=520.0
+		if texture_name=="":
+			continue
+		var facade=DungeonArt.texture(texture_name)
+		if facade==null:
+			continue
+		var native=facade.get_size()
+		var factor=target_width/maxf(1.0,native.x)
+		var draw_size=native*factor
+		var ground=Vector2(entrance.x*TILE+TILE*0.5,(entrance.y+1)*TILE)
+		draw_texture_rect(facade,Rect2(ground+Vector2(-draw_size.x*0.5,-draw_size.y),draw_size),false)
 
 
 func _decor_base(x:int) -> Vector2:
@@ -1079,6 +1147,13 @@ func _draw_lake_chain(a:Vector2,b:Vector2,links:int) -> void:
 		draw_arc(p,4,0,TAU,8,Color("2a252b"),2)
 
 func _draw_lake_temple(temple:Vector2) -> void:
+	var generated_gate=DungeonArt.texture("dungeon_water_gate")
+	if generated_gate!=null:
+		var native=generated_gate.get_size()
+		var width=390.0
+		var size=native*(width/maxf(1.0,native.x))
+		draw_texture_rect(generated_gate,Rect2(Vector2(temple.x-size.x*0.5,temple.y-size.y),size),false)
+		return
 	var cyan=Color("32cbe9")
 	var stone=Color("252d3b")
 	var stone_hi=Color("465467")

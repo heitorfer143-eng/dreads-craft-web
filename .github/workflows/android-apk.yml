@@ -52,6 +52,7 @@ jobs:
           godot --headless --script scripts/tools/extract_mob_pngs.gd
           godot --headless --editor --quit
           godot --headless --check-only --script scripts/dungeon_system.gd
+          godot --headless --check-only --script scripts/dungeon_art.gd
           godot --headless --check-only --script scripts/world.gd
           godot --headless --check-only --script scripts/main.gd
           godot --headless --script tests/smoke.gd

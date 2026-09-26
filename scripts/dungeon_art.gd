@@ -66,9 +66,10 @@ static func texture(name:String) -> AtlasTexture:
 	var base=atlas()
 	if base==null or not REGIONS.has(name):
 		return null
+	var source:Rect2i=REGIONS[name]
 	var result=AtlasTexture.new()
 	result.atlas=base
-	result.region=Rect2(REGIONS[name])
+	result.region=Rect2(Vector2(source.position),Vector2(source.size))
 	result.filter_clip=true
 	_textures[name]=result
 	return result

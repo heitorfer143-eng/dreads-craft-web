@@ -10,6 +10,7 @@ RUN mkdir -p assets/mobs/generated && \
 # Parse-check the scripts changed by this update before integration tests.
 RUN godot --headless --check-only --script scripts/items.gd && \
     godot --headless --check-only --script scripts/dungeon_system.gd && \
+    godot --headless --check-only --script scripts/dungeon_art.gd && \
     godot --headless --check-only --script scripts/account_store.gd && \
     godot --headless --check-only --script scripts/cloud_client.gd && \
     godot --headless --check-only --script scripts/player_history.gd && \

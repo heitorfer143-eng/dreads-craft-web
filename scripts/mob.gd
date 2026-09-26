@@ -2,6 +2,7 @@ extends CharacterBody2D
 
 signal killed
 const Sprites = preload("res://scripts/sprites.gd")
+const DungeonArt = preload("res://scripts/dungeon_art.gd")
 var player: CharacterBody2D
 var kind = "skeleton"
 var hp = 48.0
@@ -20,6 +21,7 @@ var despawn_distance:=1800.0
 var is_dungeon_miniboss:=false
 var dungeon_id:=""
 var elite_name:=""
+var guardian_aura:Sprite2D
 
 func _ready() -> void:
 	collision_layer=4
@@ -34,12 +36,30 @@ func _ready() -> void:
 		body_size=Vector2(46,62)
 	elif kind=="polar_bear":
 		body_size=Vector2(76,54)
+	if is_dungeon_miniboss:
+		body_size=Vector2(58,72)
 	shape.size=body_size
 	var collider=CollisionShape2D.new()
 	collider.shape=shape
 	collider.position=Vector2(0,-body_size.y/2.0)
 	add_child(collider)
-	sprite=Sprites.make(kind)
+	if is_dungeon_miniboss and DungeonArt.atlas()!=null:
+		guardian_aura=Sprite2D.new()
+		guardian_aura.texture=DungeonArt.texture("guardian_aura")
+		guardian_aura.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+		guardian_aura.position=Vector2(0,-42)
+		guardian_aura.scale=Vector2(2.05,2.05)
+		guardian_aura.modulate=Color(1,1,1,0.68)
+		guardian_aura.z_index=-1
+		add_child(guardian_aura)
+		sprite=AnimatedSprite2D.new()
+		sprite.sprite_frames=DungeonArt.guardian_frames()
+		sprite.animation="idle"
+		sprite.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+		sprite.position=Vector2(0,-43)
+		sprite.scale=Vector2(1.95,1.95)
+	else:
+		sprite=Sprites.make(kind)
 	add_child(sprite)
 	if kind=="wolf":
 		hp=32
@@ -65,7 +85,8 @@ func _ready() -> void:
 		hp*=2.8
 		damage*=1.45
 		despawn_distance=4200.0
-		sprite.scale*=1.16
+		if guardian_aura==null:
+			sprite.scale*=1.16
 	queue_redraw()
 
 func set_dungeon_miniboss(id:String,name:String) -> void:
@@ -90,6 +111,10 @@ func _physics_process(delta: float) -> void:
 		return
 	attack_timer=maxf(0,attack_timer-delta)
 	hit_flash=maxf(0,hit_flash-delta)
+	if is_instance_valid(guardian_aura):
+		var pulse=1.0+sin(Time.get_ticks_msec()/150.0)*0.045
+		guardian_aura.scale=Vector2(2.05,2.05)*pulse
+		guardian_aura.modulate.a=0.58+sin(Time.get_ticks_msec()/190.0)*0.10
 	var direction=signf(player.position.x-position.x)
 	var speed=58.0 if kind=="polar_bear" else 105.0 if kind=="wolf" else 48.0 if kind=="undead_knight" else 72.0 if kind=="corrupted_skeleton" else 64.0
 	velocity.x=direction*speed+knockback.x
@@ -133,10 +158,15 @@ func hit(amount: float, force: float=240.0) -> void:
 	if hp<=0:
 		death_timer=.45
 		sprite.play("death")
+		if is_dungeon_miniboss and DungeonArt.atlas()!=null:
+			sprite.position=Vector2(0,-20)
+			if is_instance_valid(guardian_aura):
+				guardian_aura.hide()
 		killed.emit()
 
 func _draw() -> void:
-	if is_dungeon_miniboss:
+	if is_dungeon_miniboss and not is_instance_valid(guardian_aura):
+		# Fallback only if the generated art atlas fails to decode.
 		draw_circle(Vector2(0,-31),38,Color("8e58b526"))
 		draw_arc(Vector2(0,-31),32,0,TAU,28,Color("d39cff99"),3)
 		draw_polygon(PackedVector2Array([Vector2(-11,-76),Vector2(-5,-88),Vector2(0,-79),Vector2(6,-90),Vector2(12,-76)]),PackedColorArray([Color("d7b866"),Color("d7b866"),Color("d7b866"),Color("d7b866"),Color("d7b866")]))
