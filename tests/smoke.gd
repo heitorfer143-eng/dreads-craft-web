@@ -305,6 +305,8 @@ func run() -> void:
 	check(not scene.compass_frame.visible,"Compass is hidden outside multiplayer")
 	scene.start_world(true,42019)
 	await physics_frame
+	scene.resume()
+	await physics_frame
 	Input.action_press("jump")
 	for frame in 5:
 		await physics_frame
