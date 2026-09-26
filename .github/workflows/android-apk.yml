@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main, update/generated-dungeon-art]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
