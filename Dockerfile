@@ -10,6 +10,12 @@ RUN mkdir -p assets/mobs/generated && \
 # Parse-check the scripts changed by this update before integration tests.
 RUN godot --headless --check-only --script scripts/items.gd && \
     godot --headless --check-only --script scripts/account_store.gd && \
+    godot --headless --check-only --script scripts/player_history.gd && \
+    godot --headless --check-only --script scripts/player.gd && \
+    godot --headless --check-only --script scripts/mob.gd && \
+    godot --headless --check-only --script scripts/npc.gd && \
+    godot --headless --check-only --script scripts/mel.gd && \
+    godot --headless --check-only --script scripts/multiplayer_client.gd && \
     godot --headless --check-only --script scripts/world.gd && \
     godot --headless --check-only --script scripts/main.gd
 
