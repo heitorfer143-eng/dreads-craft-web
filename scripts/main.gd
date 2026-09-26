@@ -6,6 +6,7 @@ const Mob = preload("res://scripts/mob.gd")
 const Items = preload("res://scripts/items.gd")
 const Saves = preload("res://scripts/save_game.gd")
 const Accounts = preload("res://scripts/account_store.gd")
+const PlayerHistory = preload("res://scripts/player_history.gd")
 const Backdrop = preload("res://scripts/backdrop.gd")
 const LobbyBackdrop = preload("res://scripts/lobby_backdrop.gd")
 const NPC = preload("res://scripts/npc.gd")
@@ -34,6 +35,7 @@ var boss_title: Label
 var portal_button: Button
 var lake_boss: Node2D
 var lake_boss_defeated := false
+var lake_reward_claimed := false
 var lake_announced := false
 var lake_discovered := false
 var in_lake_temple := false
@@ -141,6 +143,10 @@ var login_user:LineEdit
 var login_password:LineEdit
 var login_feedback:Label
 var current_account:=""
+var equipped_armor:Dictionary={"head":0,"chest":0,"legs":0,"feet":0}
+var compass_panel:Panel
+var compass_label:Label
+var history_host_session_logged:=false
 var desert_announced:=false
 const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16,28,29,30,31]
 const LOBBY_TIPS = [
@@ -173,6 +179,8 @@ func _ready() -> void:
 	online.game=self
 	online.failed.connect(on_multiplayer_failed)
 	online.room_ready.connect(on_multiplayer_room_ready)
+	online.player_joined.connect(on_online_player_joined)
+	online.player_left.connect(on_online_player_left)
 	add_child(online)
 	show_login()
 	get_tree().auto_accept_quit=false
@@ -402,6 +410,20 @@ func build_ui() -> void:
 	time_label.size=Vector2(170,28)
 	clock_frame.add_child(time_label)
 
+	compass_panel=Panel.new()
+	compass_panel.name="MultiplayerCompass"
+	compass_panel.size=Vector2(176,28)
+	compass_panel.add_theme_stylebox_override("panel",compact_panel_style(0.82,Color("6f5a72"),4))
+	compass_panel.hide()
+	hud.add_child(compass_panel)
+	compass_label=label("",9)
+	compass_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	compass_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	compass_label.position=Vector2(4,3)
+	compass_label.size=Vector2(168,22)
+	compass_label.add_theme_color_override("font_color",Color("e5d5b6"))
+	compass_panel.add_child(compass_label)
+
 	action_box=HBoxContainer.new()
 	action_box.add_theme_constant_override("separation",5)
 	hud.add_child(action_box)
@@ -544,6 +566,9 @@ func layout() -> void:
 		clock_frame.scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
 		clock_frame.position=Vector2((size.x-138)/2.0,6) if mobile_layout else Vector2((size.x-184)/2.0,10)
 		clock_frame.size=Vector2(184,38)
+	if is_instance_valid(compass_panel):
+		compass_panel.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		compass_panel.position=Vector2((size.x-144.0)/2.0,40.0) if mobile_layout else Vector2((size.x-176.0)/2.0,51.0)
 	if is_instance_valid(action_box):
 		# Keep the familiar top-right inventory/crafting/menu/fullscreen buttons
 		# on mobile too; the previous lake build accidentally hid the whole strip.
@@ -958,6 +983,8 @@ func show_main() -> void:
 		chat_panel.hide()
 	if is_instance_valid(chat_button):
 		chat_button.hide()
+	if is_instance_valid(compass_panel):
+		compass_panel.hide()
 	if is_instance_valid(player):
 		player.input_locked=false
 	if is_instance_valid(boss_panel):
@@ -1329,12 +1356,90 @@ func show_multiplayer(error_text:String="") -> void:
 	menu_box.add_child(button("VOLTAR",show_main))
 	layout()
 
+func compass_arrow_for_delta(delta:Vector2) -> String:
+	if delta.length()<12.0:
+		return "◆"
+	if absf(delta.x)>=absf(delta.y):
+		return "→" if delta.x>=0.0 else "←"
+	return "↓" if delta.y>=0.0 else "↑"
+
+func update_multiplayer_compass() -> void:
+	if not is_instance_valid(compass_panel) or not is_instance_valid(compass_label):
+		return
+	if not multiplayer_active or not is_instance_valid(online) or not is_instance_valid(player):
+		compass_panel.hide()
+		return
+	var markers:Array[String]=[]
+	for remote_id in online.remote_players.keys():
+		var remote=online.remote_players[remote_id]
+		if not is_instance_valid(remote) or str(remote.zone)!=current_online_zone():
+			continue
+		var delta=remote.target_position-player.position
+		markers.append("%s %s" % [compass_arrow_for_delta(delta),str(remote.player_name).left(8)])
+		if markers.size()>=3:
+			break
+	if markers.is_empty():
+		compass_panel.hide()
+		return
+	compass_label.text="  ".join(markers)
+	compass_panel.show()
+
+func record_multiplayer_history(event_type:String,player_name:String,player_id:String="") -> void:
+	if current_account=="" or not is_instance_valid(online):
+		return
+	PlayerHistory.record(current_account,event_type,online.room_code,world_name,player_name,player_id)
+
+func close_host_history_session() -> void:
+	if not history_host_session_logged:
+		return
+	record_multiplayer_history("leave",online_player_name,online.local_id if is_instance_valid(online) else "")
+	history_host_session_logged=false
+
+func on_online_player_joined(player_id:String,player_name:String) -> void:
+	if multiplayer_host:
+		record_multiplayer_history("join",player_name,player_id)
+	append_multiplayer_chat("SISTEMA",player_name+" entrou na sala.")
+
+func on_online_player_left(player_id:String,player_name:String) -> void:
+	if multiplayer_host:
+		record_multiplayer_history("leave",player_name,player_id)
+	append_multiplayer_chat("SISTEMA",player_name+" saiu da sala.")
+
+func show_multiplayer_history() -> void:
+	clear_menu("HISTÓRICO DE JOGADORES","multiplayer_history")
+	var entries=PlayerHistory.list_for(current_account)
+	if entries.is_empty():
+		menu_box.add_child(label("Ainda não há entradas registradas nesta conta.",13))
+	else:
+		var title=label("Entradas e saídas salvas localmente · últimos registros",12)
+		title.add_theme_color_override("font_color",Color("b9a8c6"))
+		menu_box.add_child(title)
+		var start=maxi(0,entries.size()-60)
+		for index in range(entries.size()-1,start-1,-1):
+			var entry:Dictionary=entries[index]
+			var verb="entrou" if str(entry.get("event",""))=="join" else "saiu"
+			var line="%s %s — %s %s · %s [%s]" % [
+				str(entry.get("player","Jogador")),
+				verb,
+				str(entry.get("date","")),
+				str(entry.get("time","")).left(5),
+				str(entry.get("world","Mundo")),
+				str(entry.get("room",""))
+			]
+			menu_box.add_child(label(line,11))
+	menu_box.add_child(button("VOLTAR",show_pause))
+	layout()
+
 func start_multiplayer_session(seed_value:int, online_world_name:String, is_host:bool) -> void:
 	multiplayer_active=true
 	multiplayer_host=is_host
 	world_name=online_world_name
 	difficulty=1
 	start_world(false,seed_value)
+	history_host_session_logged=false
+	if is_host:
+		record_multiplayer_history("join",online_player_name,online.local_id if is_instance_valid(online) else "")
+		history_host_session_logged=true
 	chat_messages.clear()
 	if is_instance_valid(chat_log):
 		chat_log.text=""
@@ -1425,10 +1530,13 @@ func on_multiplayer_failed(message:String) -> void:
 		show_multiplayer(message)
 
 func leave_multiplayer() -> void:
+	close_host_history_session()
 	if is_instance_valid(online):
 		online.disconnect_room(false)
 	multiplayer_active=false
 	multiplayer_host=false
+	if is_instance_valid(compass_panel):
+		compass_panel.hide()
 	show_main()
 
 func current_online_zone() -> String:
@@ -1446,11 +1554,14 @@ func apply_online_block(cell:Vector2i,id:int) -> void:
 	world.set_cell(cell,id)
 
 func on_multiplayer_disconnected() -> void:
+	close_host_history_session()
 	multiplayer_active=false
 	if is_instance_valid(chat_panel):
 		chat_panel.hide()
 	if is_instance_valid(chat_button):
 		chat_button.hide()
+	if is_instance_valid(compass_panel):
+		compass_panel.hide()
 	if is_instance_valid(player):
 		player.input_locked=false
 	if active:
@@ -1737,6 +1848,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	boss=null
 	lake_boss=null
 	lake_boss_defeated=false
+	lake_reward_claimed=false
 	lake_announced=false
 	lake_discovered=false
 	in_lake_temple=false
@@ -1751,6 +1863,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	polar_bear_defeated=false
 	snow_announced=false
 	desert_announced=false
+	equipped_armor={"head":0,"chest":0,"legs":0,"feet":0}
 	chest_inventories.clear()
 	reset_quest_progress()
 	if is_instance_valid(boss_panel):
@@ -1769,6 +1882,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	add_child(player)
 	player.set_form(current_form)
 	player.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
+	player.set_armor_reduction(0.0)
 	player.died.connect(on_player_died)
 	if creative:
 		for id in Items.NAMES:
@@ -2055,6 +2169,8 @@ func show_pause() -> void:
 		hint.add_theme_color_override("font_color",Color("baa9c5"))
 		menu_box.add_child(hint)
 		menu_box.add_child(button("CONTINUAR",resume))
+		if multiplayer_host:
+			menu_box.add_child(button("HISTÓRICO DE JOGADORES",show_multiplayer_history))
 		menu_box.add_child(button("CONFIGURAÇÕES",func(): show_settings(false)))
 		menu_box.add_child(button("SAIR DA SALA",leave_multiplayer))
 		return
@@ -2090,7 +2206,7 @@ func sync_hotbar_from_inventory() -> void:
 	# Newly collected/crafted/dropped items automatically occupy the first free slot.
 	for raw_id in Items.NAMES:
 		var id=int(raw_id)
-		if id==1 or int(player.inventory.get(id,0))<=0 or hotbar.has(id):
+		if id==1 or Items.is_armor(id) or int(player.inventory.get(id,0))<=0 or hotbar.has(id):
 			continue
 		var empty=hotbar.find(0)
 		if empty<0:
@@ -2380,15 +2496,94 @@ func show_chest(cell:Vector2i) -> void:
 		menu_box.add_child(row)
 	menu_box.add_child(button("FECHAR",resume))
 
+func refresh_player_armor() -> void:
+	if is_instance_valid(player):
+		player.set_armor_reduction(Items.armor_reduction(equipped_armor))
+
+func equip_armor_item(item_id:int) -> bool:
+	if not is_instance_valid(player) or not Items.is_armor(item_id):
+		return false
+	var slot=Items.armor_slot(item_id)
+	if slot=="":
+		return false
+	if not player.creative and int(player.inventory.get(item_id,0))<=0:
+		return false
+	var previous=int(equipped_armor.get(slot,0))
+	if previous==item_id:
+		return true
+	if previous>0 and not player.creative:
+		player.inventory[previous]=int(player.inventory.get(previous,0))+1
+	if not player.creative:
+		player.inventory[item_id]=int(player.inventory.get(item_id,0))-1
+	equipped_armor[slot]=item_id
+	refresh_player_armor()
+	refresh_hud()
+	return true
+
+func unequip_armor_slot(slot:String) -> bool:
+	if slot not in ["head","chest","legs","feet"]:
+		return false
+	var item_id=int(equipped_armor.get(slot,0))
+	if item_id<=0:
+		return false
+	if not player.creative:
+		player.inventory[item_id]=int(player.inventory.get(item_id,0))+1
+	equipped_armor[slot]=0
+	refresh_player_armor()
+	refresh_hud()
+	return true
+
 func show_inventory() -> void:
 	if not active:
 		return
 	clear_menu("Inventário","inventory")
-	var subtitle=label("Itens coletados · Q também dropa 1 item no PC",14)
+	var subtitle=label("Itens coletados · armadura equipada fica fora da hotbar",14)
 	subtitle.add_theme_color_override("font_color",Color("b8a5c5"))
 	menu_box.add_child(subtitle)
-	for id in Items.NAMES:
-		if id==1 or (not player.creative and player.inventory.get(id,0)<=0):
+
+	var equipment=PanelContainer.new()
+	equipment.add_theme_stylebox_override("panel",compact_panel_style(0.90,Color("3e8fa6"),8))
+	menu_box.add_child(equipment)
+	var equipment_row=HBoxContainer.new()
+	equipment_row.add_theme_constant_override("separation",12)
+	equipment.add_child(equipment_row)
+	var armor_preview=TextureRect.new()
+	if ResourceLoader.exists("res://assets/armor/avarita_full.png"):
+		armor_preview.texture=load("res://assets/armor/avarita_full.png")
+	armor_preview.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+	armor_preview.custom_minimum_size=Vector2(92,132)
+	armor_preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	armor_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	equipment_row.add_child(armor_preview)
+	var equipment_box=VBoxContainer.new()
+	equipment_box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	equipment_box.add_theme_constant_override("separation",5)
+	equipment_row.add_child(equipment_box)
+	var defense=Items.armor_reduction(equipped_armor)
+	var defense_label=label("ARMADURA · redução de dano %d%%" % int(round(defense*100.0)),13)
+	defense_label.add_theme_color_override("font_color",Color("7edfff"))
+	equipment_box.add_child(defense_label)
+	var slot_names={"head":"Cabeça","chest":"Peitoral","legs":"Pernas","feet":"Pés"}
+	for slot_name in ["head","chest","legs","feet"]:
+		var equipped_id=int(equipped_armor.get(slot_name,0))
+		var slot_row=HBoxContainer.new()
+		slot_row.add_theme_constant_override("separation",6)
+		equipment_box.add_child(slot_row)
+		var slot_text="%s: %s" % [slot_names[slot_name],Items.NAMES.get(equipped_id,"Vazio") if equipped_id>0 else "Vazio"]
+		var slot_label=label(slot_text,11)
+		slot_label.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		slot_row.add_child(slot_label)
+		var remove_btn=button("REMOVER",func():
+			unequip_armor_slot(slot_name)
+			show_inventory()
+		)
+		remove_btn.custom_minimum_size=Vector2(92,34)
+		remove_btn.disabled=equipped_id<=0
+		slot_row.add_child(remove_btn)
+
+	for raw_id in Items.NAMES:
+		var id=int(raw_id)
+		if id==1 or (not player.creative and int(player.inventory.get(id,0))<=0):
 			continue
 		var line=HBoxContainer.new()
 		line.add_theme_constant_override("separation",8)
@@ -2397,6 +2592,10 @@ func show_inventory() -> void:
 
 		var amount="LIVRE" if player.creative else str(player.inventory.get(id,0))
 		var row=button("%s    %s" % [Items.NAMES[id],amount],func():
+			if Items.is_armor(id):
+				equip_armor_item(id)
+				show_inventory()
+				return
 			selected=id
 			if not hotbar.has(id):
 				var empty_slot=hotbar.find(0)
@@ -2410,14 +2609,22 @@ func show_inventory() -> void:
 			row.alignment=HORIZONTAL_ALIGNMENT_LEFT
 		line.add_child(row)
 
-		var drop_button=button("DROPAR 1",func():
-			selected=id
-			drop_selected_item(1)
-			show_inventory()
-		)
-		drop_button.custom_minimum_size=Vector2(126,54)
-		drop_button.disabled=player.creative or int(player.inventory.get(id,0))<=0 or in_purity
-		line.add_child(drop_button)
+		if Items.is_armor(id):
+			var equip_btn=button("EQUIPAR",func():
+				equip_armor_item(id)
+				show_inventory()
+			)
+			equip_btn.custom_minimum_size=Vector2(126,54)
+			line.add_child(equip_btn)
+		else:
+			var drop_button=button("DROPAR 1",func():
+				selected=id
+				drop_selected_item(1)
+				show_inventory()
+			)
+			drop_button.custom_minimum_size=Vector2(126,54)
+			drop_button.disabled=player.creative or int(player.inventory.get(id,0))<=0 or in_purity
+			line.add_child(drop_button)
 	menu_box.add_child(button("FECHAR",resume))
 
 func near_table() -> bool:
@@ -3119,8 +3326,11 @@ func eat() -> void:
 
 func _process(delta: float) -> void:
 	if not active:
+		if is_instance_valid(compass_panel):
+			compass_panel.hide()
 		animate_lobby(delta)
 		return
+	update_multiplayer_compass()
 	if modal:
 		return
 	update_purity_hud()
@@ -3286,6 +3496,7 @@ func spawn_mel() -> void:
 	mel.setup(player,mel_tamed)
 	var x=26
 	mel.position=Vector2(x*32+16,world.surfaces[x]*32-2)
+	mel.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	mel.interacted.connect(func(_dog): show_mel_dialogue())
 	add_child(mel)
 
@@ -3463,6 +3674,7 @@ func spawn_world_npcs() -> void:
 		"Ferro é bom. Diamante é melhor. Avarita não pertence a uma lâmina."
 	],player)
 	npc.position=Vector2(15*32+16,world.surfaces[15]*32-2)
+	npc.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	npc.interacted.connect(func(who): show_npc_dialogue(who))
 	npcs.add_child(npc)
 	var monk=NPC.new()
@@ -3472,6 +3684,7 @@ func spawn_world_npcs() -> void:
 		"O portal responde a nove diamantes e uma Avarita."
 	],player)
 	monk.position=Vector2(48*32+16,world.surfaces[48]*32-2)
+	monk.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	monk.interacted.connect(func(who): show_npc_dialogue(who))
 	npcs.add_child(monk)
 
@@ -3777,7 +3990,7 @@ func ensure_polar_bear() -> void:
 	bear.kind="polar_bear"
 	bear.player=player
 	bear.difficulty_level=maxi(2,difficulty)
-	bear.set_world_bounds(0.0,float(world.world_width()*32))
+	bear.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	bear.position=Vector2(spawn.x*32+16,spawn.y*32-2)
 	bear.killed.connect(func():
 		polar_bear_defeated=true
@@ -3813,7 +4026,7 @@ func spawn_mob() -> void:
 	mob.kind="undead_knight" if roll>.76 else "corrupted_skeleton" if roll>.38 else "dark_slime"
 	mob.player=player
 	mob.difficulty_level=difficulty
-	mob.set_world_bounds(0.0,float(world.world_width()*32))
+	mob.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	mob.position=Vector2(cell*32,world.surfaces[cell]*32-2)
 	mob.killed.connect(func():
 		var death_pos=mob.position
@@ -3921,6 +4134,8 @@ func leave_lake_temple(on_death:bool=false) -> void:
 	update_purity_hud()
 
 func on_lake_boss_defeated() -> void:
+	if lake_boss_defeated and lake_reward_claimed:
+		return
 	lake_boss_defeated=true
 	lake_boss=null
 	# Victory is a safe state. The menu is modal, so main._process() stops updating
@@ -3931,11 +4146,13 @@ func on_lake_boss_defeated() -> void:
 	player.hurt_time=1.5
 	player.velocity=Vector2.ZERO
 	player.set_water_state(false,false)
-	if int(player.inventory.get(27,0))<=0:
-		player.inventory[27]=1
 	forms_unlocked["fox"]=true
-	player.inventory[14]=int(player.inventory.get(14,0))+3
-	player.inventory[25]=int(player.inventory.get(25,0))+4
+	if not lake_reward_claimed:
+		if int(player.inventory.get(27,0))<=0:
+			player.inventory[27]=1
+		player.inventory[14]=int(player.inventory.get(14,0))+3
+		player.inventory[25]=int(player.inventory.get(25,0))+4
+		lake_reward_claimed=true
 	clear_menu("LEVIATÃ DO LAGO ABISSAL DERROTADO","lake_victory")
 	var victory=label("O coração da criatura ainda pulsa entre as ruínas inundadas.",16)
 	victory.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -3966,7 +4183,7 @@ func save_world() -> bool:
 		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":10,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"chests":serialize_chests()}
+	var data={"version":11,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"chests":serialize_chests(),"equipment":equipped_armor.duplicate(true),"lake_reward_claimed":lake_reward_claimed}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -4014,6 +4231,14 @@ func load_world() -> void:
 	player.inventory.clear()
 	for id in data.inventory:
 		player.inventory[int(id)]=int(data.inventory[id])
+	equipped_armor={"head":0,"chest":0,"legs":0,"feet":0}
+	var saved_equipment=data.get("equipment",{})
+	if saved_equipment is Dictionary:
+		for slot_name in ["head","chest","legs","feet"]:
+			var armor_id=int(saved_equipment.get(slot_name,0))
+			if armor_id==0 or (Items.is_armor(armor_id) and Items.armor_slot(armor_id)==slot_name):
+				equipped_armor[slot_name]=armor_id
+	refresh_player_armor()
 	clock=float(data.clock)
 	day=int(data.day)
 	difficulty=int(data.difficulty)
@@ -4025,6 +4250,7 @@ func load_world() -> void:
 	night_kills=int(data.get("night_kills",0))
 	polar_bear_defeated=bool(data.get("polar_bear_defeated",false))
 	lake_boss_defeated=bool(data.get("lake_boss_defeated",false))
+	lake_reward_claimed=bool(data.get("lake_reward_claimed",lake_boss_defeated))
 	lake_discovered=bool(data.get("lake_discovered",false))
 	lake_announced=lake_discovered
 	forms_unlocked={"spike":true,"fox":false}
@@ -4492,9 +4718,11 @@ func on_player_died() -> void:
 		player.set_water_state(false,false)
 		call_deferred("_finish_lake_respawn")
 		if is_instance_valid(lake_boss):
-			lake_boss.hp=lake_boss.max_hp
+			var remaining_boss_hp=maxf(1.0,lake_boss.hp)
+			lake_boss.position=lake_arena.boss_position
 			lake_boss.state="recover"
 			lake_boss.timer=1.25
+			lake_boss.hp=remaining_boss_hp
 		status.text="VOCÊ CAIU · recupere sua mochila e tente o Leviatã novamente." if not lake_boss_defeated else "VOCÊ CAIU · sua mochila continua dentro do templo."
 		message_time=4
 		refresh_hud()
