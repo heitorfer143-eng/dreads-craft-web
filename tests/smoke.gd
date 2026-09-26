@@ -24,7 +24,7 @@ func run() -> void:
 	check(scene.login_root.find_child("LoginReference",true,false)!=null,"Requested Dreads Craft artwork is the single login background")
 	check(scene.login_root.find_child("LoginGuest",true,false)!=null,"Guest button hotspot exists on the reference layout")
 	var login_source=FileAccess.get_file_as_string("res://scripts/main.gd")
-	check("LOGIN_REFERENCE_WEBP_BASE64" in login_source and "dc-login-stage" in login_source,"Reference artwork is embedded for native and web login")
+	check(ResourceLoader.exists("res://assets/backgrounds/login_reference.jpg") and "dc-login-stage" in login_source,"Requested reference artwork is bundled for native and web login")
 	check(not "dc-login-card" in login_source,"Old popup login markup is gone")
 	check("previous.remove()" in login_source,"Web login removes stale overlays before rendering")
 	var web_preset=FileAccess.get_file_as_string("res://export_presets.cfg")
