@@ -263,6 +263,24 @@ func run() -> void:
 	scene.world.set_cell(stone_target,0)
 	check(scene.place_block(),"Stone block can be placed")
 	check(scene.world.get_cell(stone_target)==3,"Placed stone uses stone tile id")
+	# Regression: the old invisible wall ended at column 320 even after the world
+	# grew to 640 columns. Targeting and placement must use the real world width.
+	var far_build_x=400
+	var far_ground=scene.world.surfaces[far_build_x]
+	scene.player.position=Vector2((far_build_x-2)*32+16,far_ground*32-2)
+	scene.player.velocity=Vector2.ZERO
+	scene.player.inventory[3]=maxi(2,int(scene.player.inventory.get(3,0)))
+	scene.selected=3
+	var far_target=Vector2i(far_build_x,far_ground-2)
+	scene.world.set_cell(far_target,0)
+	scene.touch_aim=Vector2(far_target*32+Vector2i(16,16))-scene.player.position
+	scene.target=Vector2i(-1,-1)
+	check(scene.world_cell_in_bounds(far_target),"Column 400 is inside the current 640-column world")
+	scene.set_touch_place_target()
+	check(scene.target==far_target,"Build targeting works beyond the legacy x=320 boundary")
+	check(scene.place_block(),"Player can place blocks beyond the old invisible wall")
+	check(scene.world.get_cell(far_target)==3,"Block persists beyond the old x=320 boundary")
+	check(not scene.world_cell_in_bounds(Vector2i(scene.world.world_width(),far_ground-2)),"Placement still rejects cells outside the finite world")
 	scene.player.inventory[28]=1
 	scene.selected=28
 	var chest_target=Vector2i(build_x+2,scene.world.surfaces[build_x+2]-2)

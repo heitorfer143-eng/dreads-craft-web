@@ -3256,6 +3256,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			var offset=1 if event.button_index==MOUSE_BUTTON_WHEEL_DOWN else -1
 			cycle_hotbar(offset)
 
+func world_cell_in_bounds(cell:Vector2i) -> bool:
+	if not is_instance_valid(world):
+		return false
+	return cell.x>=0 and cell.x<world.world_width() and cell.y>=0 and cell.y<World.HEIGHT-1
+
 func set_touch_action_target() -> void:
 	if not is_instance_valid(player) or in_structure!="" or in_purity or not is_instance_valid(world):
 		return
@@ -3282,7 +3287,7 @@ func set_touch_action_target() -> void:
 			if dx==0 and dy==0:
 				continue
 			var cell=center+Vector2i(dx,dy)
-			if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+			if not world_cell_in_bounds(cell):
 				continue
 			if world.get_cell(cell) in [0,16]:
 				continue
@@ -3312,7 +3317,7 @@ func set_touch_action_target() -> void:
 				if dx==0 and dy==0:
 					continue
 				var cell=center+Vector2i(dx,dy)
-				if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+				if not world_cell_in_bounds(cell):
 					continue
 				if world.get_cell(cell) in [0,16]:
 					continue
@@ -3342,7 +3347,7 @@ func set_touch_place_target() -> void:
 	var origin=player.position-Vector2(0,24)
 	# First respect the exact empty cell touched by the player.
 	var desired=Vector2i(floor((player.position+touch_aim).x/32.0),floor((player.position+touch_aim).y/32.0))
-	if desired.x>=0 and desired.x<world.world_width() and desired.y>=0 and desired.y<95:
+	if world_cell_in_bounds(desired):
 		var desired_center=Vector2(desired*32+Vector2i(16,16))
 		var desired_area=Rect2(Vector2(desired)*32,Vector2(32,32))
 		if world.get_cell(desired)==0 and origin.distance_to(desired_center)<=170.0 and not player.body_rect().intersects(desired_area):
@@ -3350,14 +3355,14 @@ func set_touch_place_target() -> void:
 			return
 
 	# If the touch is on a solid block, place on the closest empty face of it.
-	if desired.x>=0 and desired.x<320 and desired.y>=0 and desired.y<95 and world.get_cell(desired) not in [0,16]:
+	if world_cell_in_bounds(desired) and world.get_cell(desired) not in [0,16]:
 		var choices=[Vector2i.UP,Vector2i.DOWN,Vector2i.LEFT,Vector2i.RIGHT]
 		var best=Vector2i(-1,-1)
 		var best_score=999999.0
 		var touch_world=player.position+touch_aim
 		for offset in choices:
 			var cell=desired+offset
-			if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+			if not world_cell_in_bounds(cell):
 				continue
 			if world.get_cell(cell)!=0:
 				continue
@@ -3384,7 +3389,7 @@ func set_touch_place_target() -> void:
 		feet+Vector2i(0,-2)
 	]
 	for cell in fallback:
-		if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+		if not world_cell_in_bounds(cell):
 			continue
 		if world.get_cell(cell)!=0:
 			continue
@@ -3402,7 +3407,7 @@ func update_target() -> void:
 	if origin.distance_to(mouse)>144:
 		return
 	var cell=Vector2i(floor(mouse.x/32),floor(mouse.y/32))
-	if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95:
+	if not world_cell_in_bounds(cell):
 		return
 	var count=maxi(1,int(origin.distance_to(mouse)/4))
 	for step in range(1,count):
@@ -3415,7 +3420,7 @@ func update_target() -> void:
 	target=cell
 
 func place_block() -> bool:
-	if in_purity or target.x<0 or world.get_cell(target)!=0 or selected not in PLACEABLE_BLOCKS:
+	if in_purity or not world_cell_in_bounds(target) or world.get_cell(target)!=0 or selected not in PLACEABLE_BLOCKS:
 		return false
 	if not in_purity and world.is_village_protected(target) and not player.creative:
 		status.text="A vila é uma zona protegida: não é possível construir aqui."
@@ -4759,7 +4764,7 @@ func resolve_place_target() -> void:
 	var best_score=999999.0
 	for offset in [Vector2i.UP,Vector2i.DOWN,Vector2i.LEFT,Vector2i.RIGHT]:
 		var cell=source+offset
-		if cell.x<0 or cell.x>=320 or cell.y<0 or cell.y>=95 or world.get_cell(cell)!=0:
+		if not world_cell_in_bounds(cell) or world.get_cell(cell)!=0:
 			continue
 		var area=Rect2(Vector2(cell)*32,Vector2(32,32))
 		if player.body_rect().intersects(area):
