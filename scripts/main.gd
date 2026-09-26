@@ -922,7 +922,7 @@ func setup_web_login_overlay() -> void:
 	style.textContent=`
 		#dreads-native-login{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden;font-family:Arial,sans-serif;touch-action:manipulation}
 		#dreads-native-login *{box-sizing:border-box}
-		#dc-login-stage{position:relative;width:max(100vw,177.7777778vh);height:max(100vh,56.25vw);flex:0 0 auto;background-image:url("/login_reference.jpg?v=7");background-position:center;background-size:100% 100%;background-repeat:no-repeat;overflow:hidden}
+		#dc-login-stage{position:relative;width:max(100vw,177.7777778vh);height:max(100vh,56.25vw);flex:0 0 auto;background-image:url("/login_reference.jpg?v=7");background-position:center;background-size:100% 100%;background-repeat:no-repeat;overflow:hidden;image-rendering:pixelated}
 		#dc-login-stage input{position:absolute;height:5.0%;padding:0 1%;border:1px solid #986b3b;border-radius:6px;background:rgba(9,7,12,.98);color:#f3e6d5;font-size:clamp(12px,1.05vw,18px);outline:none;-webkit-user-select:text;user-select:text}
 		#dc-login-stage input:focus{border-color:#d8a055;box-shadow:0 0 0 2px rgba(216,160,85,.20)}
 		#dreads-login-user{left:38.2%;top:44.7%;width:22.3%}
@@ -1100,7 +1100,7 @@ func show_login() -> void:
 	background.texture=login_reference_texture()
 	background.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	background.stretch_mode=TextureRect.STRETCH_SCALE
-	background.texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR
+	background.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	background.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	stage.add_child(background)
 
