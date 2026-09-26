@@ -22,6 +22,7 @@ const DeathBackpack = preload("res://scripts/death_backpack.gd")
 const SoulProjectile = preload("res://scripts/soul_projectile.gd")
 const LakeBoss = preload("res://scripts/lake_leviathan.gd")
 const LakeArena = preload("res://scripts/lake_arena.gd")
+const DungeonSystem = preload("res://scripts/dungeon_system.gd")
 
 var in_purity=false
 var in_purity_realm=false
@@ -141,6 +142,12 @@ var compass_frame:Panel
 var compass_label:Label
 var history_local_join_recorded:=false
 var chest_inventories:Dictionary={}
+var chest_metadata:Dictionary={}
+var active_chest_cell:=Vector2i(-1,-1)
+var dungeon_miniboss_defeated:Dictionary={}
+var dungeon_discovered:Dictionary={}
+var dungeon_encounter_spawned:Dictionary={}
+var dungeon_timer:=0.0
 var armor_equipment:Dictionary={"head":0,"chest":0,"legs":0,"feet":0}
 var login_root:Control
 var login_user:LineEdit
@@ -662,6 +669,9 @@ func clear_menu(title: String, kind: String) -> void:
 func resume() -> void:
 	if pause_kind=="craft":
 		craft_override=false
+	if pause_kind=="chest" and active_chest_cell.x>=0 and is_instance_valid(world):
+		world.set_chest_open(active_chest_cell,false)
+		active_chest_cell=Vector2i(-1,-1)
 	if not active:
 		return
 	modal=false
@@ -2219,6 +2229,12 @@ func start_world(creative: bool, seed_value: int) -> void:
 	snow_announced=false
 	desert_announced=false
 	chest_inventories.clear()
+	chest_metadata.clear()
+	dungeon_miniboss_defeated.clear()
+	dungeon_discovered.clear()
+	dungeon_encounter_spawned.clear()
+	dungeon_timer=0.0
+	active_chest_cell=Vector2i(-1,-1)
 	armor_equipment={"head":0,"chest":0,"legs":0,"feet":0}
 	reset_quest_progress()
 	if is_instance_valid(boss_panel):
@@ -2230,6 +2246,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	world=World.new()
 	add_child(world)
 	world.generate(seed_value)
+	initialize_dungeon_chests()
 	player=Player.new()
 	player.creative=creative
 	player.spawn_position=Vector2(12*32+16,35*32-2)
@@ -2741,11 +2758,15 @@ func show_transformations() -> void:
 	menu_box.add_child(button("FECHAR",resume))
 	layout()
 
+
 func chest_key(cell:Vector2i) -> String:
 	return "%d,%d" % [cell.x,cell.y]
 
 func serialize_chests() -> Dictionary:
 	return chest_inventories.duplicate(true)
+
+func serialize_chest_metadata() -> Dictionary:
+	return chest_metadata.duplicate(true)
 
 func restore_chests(raw) -> void:
 	chest_inventories.clear()
@@ -2761,6 +2782,50 @@ func restore_chests(raw) -> void:
 			if count>0:
 				inv[int(item_id)]=count
 		chest_inventories[str(key)]=inv
+
+func restore_chest_metadata(raw) -> void:
+	chest_metadata.clear()
+	if not raw is Dictionary:
+		return
+	for raw_key in raw:
+		var data=raw[raw_key]
+		if data is Dictionary:
+			chest_metadata[str(raw_key)]=data.duplicate(true)
+
+func initialize_dungeon_chests() -> void:
+	if not is_instance_valid(world):
+		return
+	for raw_entry in world.dungeon_chests:
+		if not raw_entry is Dictionary:
+			continue
+		var entry:Dictionary=raw_entry
+		var cell:Vector2i=entry.get("cell",Vector2i(-1,-1))
+		if cell.x<0:
+			continue
+		var key=chest_key(cell)
+		var tier=str(entry.get("tier","common"))
+		if not chest_metadata.has(key):
+			chest_metadata[key]={
+				"tier":tier,
+				"dungeon_id":str(entry.get("dungeon_id","")),
+				"kind":str(entry.get("kind","crypt")),
+				"seed":int(entry.get("seed",world.world_seed)),
+				"generated":true
+			}
+		if not chest_inventories.has(key):
+			chest_inventories[key]=DungeonSystem.generate_loot(
+				int(entry.get("seed",world.world_seed)),
+				str(entry.get("kind","crypt")),
+				tier
+			)
+		world.set_chest_visual_tier(cell,tier)
+
+func dungeon_chest_locked(cell:Vector2i) -> bool:
+	var meta:Dictionary=chest_metadata.get(chest_key(cell),{})
+	if str(meta.get("tier",""))!="boss":
+		return false
+	var dungeon_id=str(meta.get("dungeon_id",""))
+	return dungeon_id!="" and not bool(dungeon_miniboss_defeated.get(dungeon_id,false))
 
 func spill_chest(cell:Vector2i) -> void:
 	var key=chest_key(cell)
@@ -2778,6 +2843,7 @@ func spill_chest(cell:Vector2i) -> void:
 		else:
 			spawn_ground_drop(item_id,count,pos)
 	chest_inventories.erase(key)
+	chest_metadata.erase(key)
 
 func chest_put_one(cell:Vector2i,item_id:int) -> void:
 	if not is_instance_valid(player) or player.creative:
@@ -2792,8 +2858,11 @@ func chest_put_one(cell:Vector2i,item_id:int) -> void:
 		message_time=2
 		return
 	player.inventory[item_id]=owned-1
+	if int(player.inventory.get(item_id,0))<=0:
+		player.inventory.erase(item_id)
 	stored[item_id]=int(stored.get(item_id,0))+1
 	chest_inventories[key]=stored
+	apply_exploration_bonuses()
 	show_chest(cell)
 
 func chest_take_one(cell:Vector2i,item_id:int) -> void:
@@ -2807,29 +2876,51 @@ func chest_take_one(cell:Vector2i,item_id:int) -> void:
 		stored.erase(item_id)
 	chest_inventories[key]=stored
 	player.inventory[item_id]=int(player.inventory.get(item_id,0))+1
+	apply_exploration_bonuses()
+	sync_hotbar_from_inventory()
 	show_chest(cell)
 
 func show_chest(cell:Vector2i) -> void:
 	if not active or not is_instance_valid(world) or world.get_cell(cell)!=28:
 		return
-	clear_menu("Baú","chest")
+	if dungeon_chest_locked(cell):
+		var meta:Dictionary=chest_metadata.get(chest_key(cell),{})
+		status.text="BAÚ SELADO · derrote o guardião de "+DungeonSystem.dungeon_name(str(meta.get("kind","crypt")))+"."
+		message_time=4
+		return
+	if active_chest_cell.x>=0 and active_chest_cell!=cell:
+		world.set_chest_open(active_chest_cell,false)
+	active_chest_cell=cell
+	world.set_chest_open(cell,true)
 	var key=chest_key(cell)
 	if not chest_inventories.has(key):
 		chest_inventories[key]={}
 	var stored:Dictionary=chest_inventories[key]
-	var caption=label("ARMAZENADO · %d/18 tipos" % stored.size(),13)
-	caption.add_theme_color_override("font_color",Color("d6b77b"))
+	var meta:Dictionary=chest_metadata.get(key,{})
+	var tier=str(meta.get("tier","common"))
+	clear_menu(DungeonSystem.chest_name(tier),"chest")
+	var rarity=DungeonSystem.highest_rarity(stored)
+	var caption=label("ARMAZENADO · %d/18 tipos · %s" % [stored.size(),rarity.to_upper()],13)
+	caption.add_theme_color_override("font_color",DungeonSystem.rarity_color(rarity))
 	menu_box.add_child(caption)
+	if meta.has("kind"):
+		var source=label("Origem: "+DungeonSystem.dungeon_name(str(meta.get("kind","crypt"))),11)
+		source.add_theme_color_override("font_color",Color("a99bb4"))
+		menu_box.add_child(source)
 	if stored.is_empty():
 		menu_box.add_child(label("O baú está vazio.",12))
 	else:
-		for raw_id in stored.keys():
+		var sorted_ids=stored.keys()
+		sorted_ids.sort_custom(func(a,b): return int(a)<int(b))
+		for raw_id in sorted_ids:
 			var item_id=int(raw_id)
+			var item_rarity=DungeonSystem.rarity_of(item_id)
 			var line=HBoxContainer.new()
 			line.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 			line.add_theme_constant_override("separation",8)
-			var info=label("%s  x%d" % [Items.NAMES.get(item_id,"Item"),int(stored[raw_id])],13)
+			var info=label("%s  x%d · %s" % [Items.NAMES.get(item_id,"Item"),int(stored[raw_id]),item_rarity.to_upper()],13)
 			info.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+			info.add_theme_color_override("font_color",DungeonSystem.rarity_color(item_rarity))
 			line.add_child(info)
 			var take=button("RETIRAR 1",func(): chest_take_one(cell,item_id))
 			take.custom_minimum_size=Vector2(130,44)
@@ -3554,6 +3645,7 @@ func try_collect_ground_item(item_id:int,count:int) -> bool:
 	if not is_instance_valid(player) or item_id<=0 or count<=0 or not Items.NAMES.has(item_id):
 		return false
 	player.inventory[item_id]=int(player.inventory.get(item_id,0))+count
+	apply_exploration_bonuses()
 	sync_hotbar_from_inventory()
 	on_ground_item_picked(item_id,count)
 	return true
@@ -3693,6 +3785,7 @@ func _process(delta: float) -> void:
 		return
 	update_purity_hud()
 	update_multiplayer_compass()
+	update_dungeon_encounters(delta)
 	if not in_purity and not in_lake_temple and in_structure=="":
 		quest_entity_timer+=delta
 		if quest_entity_timer>=3.0:
@@ -3761,23 +3854,28 @@ func _process(delta: float) -> void:
 				status.text="Sem "+Items.mining_requirement_text(id)+" · o bloco quebra, mas não gera drop."
 				message_time=1
 		if (player.creative or in_purity_realm or not world.is_village_protected(target)) and (player.creative or progress>=Items.HARDNESS.get(id,1.0)):
-			if id==28:
-				spill_chest(target)
-			world.set_cell(target,0)
-			if multiplayer_active and is_instance_valid(online):
-				online.send_block_change(target,0)
-			if is_instance_valid(game_audio): game_audio.mine()
-			var drop=Items.drop_for_block(id,player.inventory)
-			if drop>0:
-				if in_purity_realm:
-					try_collect_ground_item(drop,1)
-				else:
-					var drop_position=Vector2(target.x*32+16,target.y*32+8)
-					if multiplayer_active and is_instance_valid(online):
-						online.send_drop_spawn(drop,1,drop_position)
+			if id==28 and dungeon_chest_locked(target) and not player.creative:
+				progress=0
+				status.text="O baú está selado pelo Guardião da Dungeon."
+				message_time=2.5
+			else:
+				if id==28:
+					spill_chest(target)
+				world.set_cell(target,0)
+				if multiplayer_active and is_instance_valid(online):
+					online.send_block_change(target,0)
+				if is_instance_valid(game_audio): game_audio.mine()
+				var drop=Items.drop_for_block(id,player.inventory)
+				if drop>0:
+					if in_purity_realm:
+						try_collect_ground_item(drop,1)
 					else:
-						spawn_ground_drop(drop,1,drop_position)
-			progress=0
+						var drop_position=Vector2(target.x*32+16,target.y*32+8)
+						if multiplayer_active and is_instance_valid(online):
+							online.send_drop_spawn(drop,1,drop_position)
+						else:
+							spawn_ground_drop(drop,1,drop_position)
+				progress=0
 			if is_instance_valid(device_controls) and device_controls.mobile and mining_held:
 				target=Vector2i(-1,-1)
 				set_touch_action_target()
@@ -4420,6 +4518,71 @@ func ensure_polar_bear() -> void:
 	)
 	enemies.add_child(bear)
 
+
+func _dungeon_miniboss_alive(dungeon_id:String) -> bool:
+	if not is_instance_valid(enemies):
+		return false
+	for mob in enemies.get_children():
+		if bool(mob.get("is_dungeon_miniboss")) and str(mob.get("dungeon_id"))==dungeon_id and not mob.is_queued_for_deletion():
+			return true
+	return false
+
+func spawn_dungeon_enemy(dungeon:Dictionary,cell:Vector2i,kind:String,miniboss:bool=false) -> void:
+	if not is_instance_valid(enemies) or not is_instance_valid(player):
+		return
+	var mob=Mob.new()
+	mob.kind=kind
+	mob.player=player
+	mob.difficulty_level=maxi(1,difficulty)
+	mob.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
+	var dungeon_id=str(dungeon.get("id","dungeon"))
+	if miniboss:
+		mob.set_dungeon_miniboss(dungeon_id,"Guardião de "+DungeonSystem.dungeon_name(str(dungeon.get("kind","crypt"))))
+		mob.despawn_distance=4200.0
+	mob.position=Vector2(cell.x*32+16,cell.y*32-2)
+	mob.killed.connect(func():
+		var death_pos=mob.position
+		if miniboss:
+			dungeon_miniboss_defeated[dungeon_id]=true
+			status.text="GUARDIÃO DERROTADO · o Baú do Guardião foi desbloqueado."
+			message_time=5
+			spawn_ground_drop(14,1,death_pos+Vector2(-12,-8))
+			spawn_ground_drop(39,1,death_pos+Vector2(12,-8))
+			save_world()
+		else:
+			spawn_ground_drop(23,1,death_pos)
+	)
+	enemies.add_child(mob)
+
+func update_dungeon_encounters(delta:float) -> void:
+	if in_purity or in_lake_temple or in_structure!="" or not is_instance_valid(world) or not is_instance_valid(player):
+		return
+	dungeon_timer+=delta
+	if dungeon_timer<1.25:
+		return
+	dungeon_timer=0.0
+	var player_cell=Vector2i(int(player.position.x/32.0),int(player.position.y/32.0))
+	var dungeon:Dictionary=world.dungeon_at_cell(player_cell)
+	if dungeon.is_empty():
+		return
+	var dungeon_id=str(dungeon.get("id",""))
+	var kind=str(dungeon.get("kind","crypt"))
+	if not bool(dungeon_discovered.get(dungeon_id,false)):
+		dungeon_discovered[dungeon_id]=true
+		status.text=DungeonSystem.dungeon_name(kind).to_upper()+" DESCOBERTA · procure salas secretas e baús."
+		message_time=5
+	var spawns:Array=dungeon.get("mob_spawns",[])
+	var kinds:Array=dungeon.get("mob_kinds",[])
+	for i in range(mini(spawns.size(),kinds.size())):
+		var key=dungeon_id+":mob:"+str(i)
+		if bool(dungeon_encounter_spawned.get(key,false)):
+			continue
+		dungeon_encounter_spawned[key]=true
+		spawn_dungeon_enemy(dungeon,spawns[i],str(kinds[i]),false)
+	if not bool(dungeon_miniboss_defeated.get(dungeon_id,false)) and not _dungeon_miniboss_alive(dungeon_id):
+		var boss_cell:Vector2i=dungeon.get("miniboss",player_cell)
+		spawn_dungeon_enemy(dungeon,boss_cell,"undead_knight",true)
+
 func spawn_mob() -> void:
 	if not is_instance_valid(player) or not is_instance_valid(world):
 		return
@@ -4596,7 +4759,7 @@ func save_world() -> bool:
 		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":11,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"armor_equipment":armor_equipment.duplicate(true),"chests":serialize_chests()}
+	var data={"version":12,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"armor_equipment":armor_equipment.duplicate(true),"chests":serialize_chests(),"chest_metadata":serialize_chest_metadata(),"dungeon_miniboss_defeated":dungeon_miniboss_defeated.duplicate(true),"dungeon_discovered":dungeon_discovered.duplicate(true),"dungeon_generated":true}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -4624,6 +4787,8 @@ func load_world() -> void:
 	# Older saves were 320 blocks wide. Extend them deterministically once to the
 	# current finite width, preserving every existing modified cell.
 	world.ensure_generated_to(World.WIDTH-1)
+	if not bool(data.get("dungeon_generated",false)):
+		world.repair_dungeons()
 	if int(data.get("lake_center_x",-1))>=0:
 		world.restore_lake_layout(
 			int(data.get("lake_center_x",world.lake_center_x)),
@@ -4707,11 +4872,24 @@ func load_world() -> void:
 			hotbar.resize(9)
 	selected=int(data.get("selected",0))
 	restore_chests(data.get("chests",{}))
+	restore_chest_metadata(data.get("chest_metadata",{}))
+	dungeon_miniboss_defeated.clear()
+	var loaded_dungeon_bosses=data.get("dungeon_miniboss_defeated",{})
+	if loaded_dungeon_bosses is Dictionary:
+		for dungeon_id in loaded_dungeon_bosses:
+			dungeon_miniboss_defeated[str(dungeon_id)]=bool(loaded_dungeon_bosses[dungeon_id])
+	dungeon_discovered.clear()
+	var loaded_dungeon_discovery=data.get("dungeon_discovered",{})
+	if loaded_dungeon_discovery is Dictionary:
+		for dungeon_id in loaded_dungeon_discovery:
+			dungeon_discovered[str(dungeon_id)]=bool(loaded_dungeon_discovery[dungeon_id])
+	initialize_dungeon_chests()
 	restore_ground_drops(data.get("dropped_items",[]))
 	restore_death_backpacks(data.get("death_backpacks",[]))
 	if monk_quest_done:
 		player.max_hp=maxf(player.max_hp,120.0)
 		player.hp=minf(player.hp,player.max_hp)
+	apply_exploration_bonuses()
 	if is_instance_valid(mel):
 		mel.set_tamed(mel_tamed)
 	ensure_required_quest_entities()
