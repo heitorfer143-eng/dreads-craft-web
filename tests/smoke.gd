@@ -228,23 +228,74 @@ func run() -> void:
 	check(absf(scene.player.position.x-saved_x)<1,"Save position roundtrip")
 	check(int(scene.player.inventory.get(29,0))==7,"Inventory survives logout/login")
 	check(scene.world.get_cell(modified_cell)==31,"Modified world survives reload")
-	scene.player.position.x=-200
+	var world_min_x=scene.player.world_min_x
+	var world_max_x=scene.player.world_max_x
+	var world_min_y=scene.player.world_min_y
+	var world_max_y=scene.player.world_max_y
+	scene.player.position=Vector2(world_min_x-200,600)
+	scene.player.velocity=Vector2(-2000,0)
 	await physics_frame
-	check(scene.player.position.x>=12.0,"Player cannot cross left boundary")
-	scene.player.position.x=scene.world.world_width()*32+200
+	check(scene.player.position.x>=world_min_x+12.0,"Player cannot cross left boundary")
+	scene.player.position=Vector2(world_max_x+200,600)
+	scene.player.velocity=Vector2(2000,0)
 	await physics_frame
-	check(scene.player.position.x<=scene.world.world_width()*32-12.0,"Player cannot cross right boundary")
+	check(scene.player.position.x<=world_max_x-12.0,"Player cannot cross right boundary")
+	scene.player.position=Vector2(600,world_min_y-200)
+	scene.player.velocity=Vector2(0,-2000)
+	await physics_frame
+	check(scene.player.position.y>=world_min_y+44.0,"Player cannot cross top boundary")
+	scene.player.position=Vector2(600,world_max_y+200)
+	scene.player.velocity=Vector2(0,2000)
+	await physics_frame
+	check(scene.player.position.y<=world_max_y-4.0,"Player cannot cross bottom boundary")
+	check(scene.player.camera.limit_left==int(world_min_x) and scene.player.camera.limit_right==int(world_max_x),"Camera horizontal limits match world bounds")
+	check(scene.player.camera.limit_top==int(world_min_y) and scene.player.camera.limit_bottom==int(world_max_y),"Camera vertical limits match world bounds")
 	var boundary_mob=load("res://scripts/mob.gd").new()
 	boundary_mob.kind="dark_slime"
 	boundary_mob.player=scene.player
-	boundary_mob.set_world_bounds(0.0,float(scene.world.world_width()*32))
-	boundary_mob.position=Vector2(scene.world.world_width()*32-17,scene.world.surfaces[scene.world.world_width()-2]*32-2)
+	boundary_mob.set_world_bounds(world_min_x,world_max_x,world_min_y,world_max_y)
+	boundary_mob.position=Vector2(world_max_x-17,scene.world.surfaces[scene.world.world_width()-2]*32-2)
 	boundary_mob.knockback=Vector2(1200,0)
 	scene.enemies.add_child(boundary_mob)
 	await physics_frame
 	await physics_frame
-	check(boundary_mob.position.x<=scene.world.world_width()*32-16.0,"Enemy knockback cannot cross right boundary")
+	check(boundary_mob.position.x<=world_max_x-16.0,"Enemy knockback cannot cross right boundary")
+	boundary_mob.position.y=world_min_y-100
+	await physics_frame
+	check(boundary_mob.position.y>=world_min_y+8.0,"Enemy cannot cross top boundary")
 	boundary_mob.queue_free()
+	var first_npc=scene.npcs.get_child(0)
+	first_npc.position=Vector2(world_max_x+400,world_min_y-300)
+	first_npc._process(0.0)
+	check(first_npc.position.x<=world_max_x-18.0 and first_npc.position.y>=world_min_y+first_npc.visual_height,"NPC respects world bounds")
+	scene.mel.position=Vector2(world_min_x-400,world_max_y+300)
+	await physics_frame
+	check(scene.mel.position.x>=world_min_x+12.0 and scene.mel.position.y<=world_max_y-2.0,"Mel respects world bounds")
+	var history=load("res://scripts/player_history.gd")
+	check(history.record(smoke_user,"join","A7K2P","Smoke Realm","Lucas","remote-1")==OK,"History records player join")
+	check(history.record(smoke_user,"leave","A7K2P","Smoke Realm","Lucas","remote-1")==OK,"History records player leave")
+	var persisted_history=history.list_for(smoke_user)
+	check(persisted_history.size()>=2,"Player history persists to disk")
+	check(str(persisted_history[persisted_history.size()-1].get("event",""))=="leave","Player leave survives history reload")
+	var remote_class=load("res://scripts/remote_player.gd")
+	var remote=remote_class.new()
+	remote.setup("Lucas",scene.player.position+Vector2(3200,0),1,"idle","world")
+	scene.add_child(remote)
+	scene.online.remote_players["smoke-remote"]=remote
+	scene.multiplayer_active=true
+	scene.update_multiplayer_compass()
+	check(scene.compass_frame.visible and "→" in scene.compass_label.text,"Compass points right to distant player")
+	remote.set_state(scene.player.position+Vector2(-3200,0),1,"idle","world")
+	scene.update_multiplayer_compass()
+	check("←" in scene.compass_label.text,"Compass updates when player moves left")
+	remote.set_state(scene.player.position+Vector2(0,-3200),1,"idle","world")
+	scene.update_multiplayer_compass()
+	check("↑" in scene.compass_label.text,"Compass updates vertically and works at long distance")
+	scene.online.remote_players.erase("smoke-remote")
+	remote.queue_free()
+	scene.multiplayer_active=false
+	scene.update_multiplayer_compass()
+	check(not scene.compass_frame.visible,"Compass is hidden outside multiplayer")
 	scene.start_world(true,42019)
 	await physics_frame
 	Input.action_press("jump")

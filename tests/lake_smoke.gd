@@ -76,11 +76,17 @@ func run() -> void:
 	check(game.lake_boss.hp<boss_hp_before_orb,"Soul Orb damages Leviathan inside submerged arena")
 	game.player.inventory[14]=2
 	game.player.inventory[3]=9
+	var boss_hp_before_death=game.lake_boss.hp
+	var heart_before_death=int(game.player.inventory.get(27,0))
 	game.player.hurt_time=0.0
 	game.player.take_damage(9999.0)
 	await process_frame
 	await process_frame
 	check(game.in_lake_temple,"Death does not eject player from Leviathan arena")
+	check(is_instance_valid(game.lake_boss),"Leviathan remains alive after player death")
+	check(absf(game.lake_boss.hp-boss_hp_before_death)<0.1,"Leviathan keeps HP after player death")
+	check(not game.lake_boss_defeated,"Player death never marks Leviathan defeated")
+	check(int(game.player.inventory.get(27,0))==heart_before_death,"Player death never grants Leviathan reward")
 	check(game.player.position.distance_to(game.lake_arena.spawn_position)<36.0,"Lake death respawns inside arena")
 	check(game.player.inventory.is_empty(),"Death removes carried inventory")
 	check(game.death_bags.get_child_count()==1,"Death creates one recoverable backpack")
@@ -103,6 +109,11 @@ func run() -> void:
 	check(game.player.hp==game.player.max_hp,"Leviathan victory fully heals player")
 	check(game.player.air==game.player.max_air and not game.player.submerged,"Victory clears drowning state")
 	check(int(game.player.inventory.get(27,0))==1,"Unique Abyssal Heart reward")
+	var diamond_after_victory=int(game.player.inventory.get(14,0))
+	var soul_after_victory=int(game.player.inventory.get(25,0))
+	var heart_after_victory=int(game.player.inventory.get(27,0))
+	game.on_lake_boss_defeated()
+	check(int(game.player.inventory.get(14,0))==diamond_after_victory and int(game.player.inventory.get(25,0))==soul_after_victory and int(game.player.inventory.get(27,0))==heart_after_victory,"Leviathan reward cannot duplicate")
 	check(bool(game.forms_unlocked.get("fox",false)),"Leviathan unlocks Fox form")
 	game.apply_form("fox")
 	check(game.current_form=="fox","Fox form can be selected after unlock")
