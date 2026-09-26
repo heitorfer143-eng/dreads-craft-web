@@ -3632,6 +3632,9 @@ func drop_selected_item(amount:int=1) -> void:
 		return
 	var qty=mini(maxi(1,amount),owned)
 	player.inventory[selected]=owned-qty
+	if int(player.inventory.get(selected,0))<=0:
+		player.inventory.erase(selected)
+	apply_exploration_bonuses()
 	var drop_pos=player.position+Vector2(player.face*30,-18)
 	if multiplayer_active and is_instance_valid(online):
 		online.send_drop_spawn(selected,qty,drop_pos)
@@ -3854,9 +3857,10 @@ func _process(delta: float) -> void:
 				status.text="Sem "+Items.mining_requirement_text(id)+" · o bloco quebra, mas não gera drop."
 				message_time=1
 		if (player.creative or in_purity_realm or not world.is_village_protected(target)) and (player.creative or progress>=Items.HARDNESS.get(id,1.0)):
-			if id==28 and dungeon_chest_locked(target) and not player.creative:
+			var dungeon_chest=chest_metadata.has(chest_key(target))
+			if id==28 and dungeon_chest and not player.creative:
 				progress=0
-				status.text="O baú está selado pelo Guardião da Dungeon."
+				status.text="Baús de dungeon são protegidos pelas ruínas e não podem ser quebrados."
 				message_time=2.5
 			else:
 				if id==28:
@@ -5304,6 +5308,7 @@ func on_player_died() -> void:
 			if amount>0:
 				lost[item_id]=amount
 		player.inventory.clear()
+		apply_exploration_bonuses()
 		hotbar=[0,0,0,0,0,0,0,0,0]
 		selected=0
 		spawn_death_backpack(lost,death_position,death_scope)
