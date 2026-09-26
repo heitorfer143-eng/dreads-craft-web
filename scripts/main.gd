@@ -2947,6 +2947,15 @@ func show_chest(cell:Vector2i) -> void:
 		menu_box.add_child(row)
 	menu_box.add_child(button("FECHAR",resume))
 
+func apply_exploration_bonuses() -> void:
+	if not is_instance_valid(player):
+		return
+	player.set_exploration_bonuses(
+		Items.exploration_speed_multiplier(player.inventory),
+		Items.passive_damage_reduction(player.inventory),
+		Items.exploration_max_hp_bonus(player.inventory)
+	)
+
 func armor_slot_title(slot:String) -> String:
 	return str({"head":"CABEÇA","chest":"PEITORAL","legs":"PERNAS","feet":"PÉS"}.get(slot,slot.to_upper()))
 
