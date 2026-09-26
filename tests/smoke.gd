@@ -20,6 +20,10 @@ func run() -> void:
 	check(scene.login_user.editable and scene.login_password.editable,"Login fields are editable")
 	check(scene.login_user.focus_mode==Control.FOCUS_ALL and scene.login_password.focus_mode==Control.FOCUS_ALL,"Login fields accept keyboard focus")
 	check(scene.login_root.z_index>=1000,"Login stays above gameplay/touch overlays")
+	var web_preset=FileAccess.get_file_as_string("res://export_presets.cfg")
+	check("html/experimental_virtual_keyboard=true" in web_preset,"Web export enables virtual keyboard")
+	check("html/focus_canvas_on_start=false" in web_preset,"Web canvas does not steal login focus on startup")
+	check(scene.has_method("setup_web_login_overlay") and scene.has_method("poll_web_login"),"Native browser login fallback exists")
 	var ui_user="ui_"+str(Time.get_ticks_usec())
 	scene.login_user.text=ui_user
 	scene.login_password.text="UiPass987!"

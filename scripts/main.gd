@@ -865,6 +865,96 @@ func animate_lobby(delta: float) -> void:
 			menu_tip_label.text="✦  "+LOBBY_TIPS[menu_tip_index]
 
 
+func web_login_enabled() -> bool:
+	return OS.has_feature("web")
+
+func setup_web_login_overlay() -> void:
+	if not web_login_enabled():
+		return
+	var js="""
+(() => {
+	let root=document.getElementById('dreads-native-login');
+	if (!root) {
+		root=document.createElement('div');
+		root.id='dreads-native-login';
+		root.innerHTML=`
+			<div class="dc-login-card">
+				<div class="dc-login-title">DREADS CRAFT</div>
+				<div class="dc-login-sub">CONTA LOCAL · SEU REINO, SEU PROGRESSO</div>
+				<label>Usuário</label>
+				<input id="dreads-login-user" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Digite seu usuário">
+				<label>Senha</label>
+				<input id="dreads-login-pass" type="password" maxlength="72" autocomplete="current-password" placeholder="Digite sua senha">
+				<div id="dreads-login-feedback"></div>
+				<button id="dreads-login-enter" type="button">ENTRAR</button>
+				<button id="dreads-login-create" type="button">CRIAR CONTA</button>
+				<div class="dc-login-note">Conta local deste dispositivo. A senha nunca é salva em texto puro.</div>
+			</div>`;
+		const style=document.createElement('style');
+		style.id='dreads-native-login-style';
+		style.textContent=`
+			#dreads-native-login{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;background:rgba(5,3,10,.24);font-family:Arial,sans-serif;color:#eee4d7;touch-action:manipulation}
+			#dreads-native-login *{box-sizing:border-box}
+			.dc-login-card{width:min(460px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;padding:20px;border:2px solid #9c6c48;border-radius:14px;background:rgba(13,9,18,.96);box-shadow:0 18px 60px rgba(0,0,0,.55)}
+			.dc-login-title{text-align:center;font-size:34px;font-weight:800;letter-spacing:2px;color:#f1d7ad;margin-bottom:4px}
+			.dc-login-sub{text-align:center;font-size:11px;color:#bca9c4;margin-bottom:18px}
+			.dc-login-card label{display:block;font-size:14px;margin:10px 0 6px}
+			.dc-login-card input{display:block;width:100%;height:48px;padding:0 14px;border:1px solid #806043;border-radius:7px;background:#0c0910;color:#fff;font-size:17px;outline:none;-webkit-user-select:text;user-select:text}
+			.dc-login-card input:focus{border-color:#d7a568;box-shadow:0 0 0 2px rgba(215,165,104,.22)}
+			.dc-login-card button{display:block;width:100%;height:50px;margin-top:10px;border:1px solid #8d5e48;border-radius:7px;background:#261722;color:#f6eadc;font-size:17px;font-weight:700}
+			.dc-login-card button:active{transform:translateY(1px);background:#3a2232}
+			#dreads-login-feedback{min-height:24px;margin-top:8px;text-align:center;color:#e5b9a8;font-size:13px}
+			.dc-login-note{text-align:center;color:#9f92a6;font-size:10px;margin-top:12px}
+			@media(max-height:620px){#dreads-native-login{align-items:flex-start;padding-top:8px}.dc-login-card{padding:12px}.dc-login-title{font-size:26px}.dc-login-sub{margin-bottom:8px}.dc-login-card input{height:42px}.dc-login-card button{height:43px}}
+		`;
+		document.head.appendChild(style);
+		document.body.appendChild(root);
+		document.getElementById('dreads-login-enter').addEventListener('click',()=>{window.dreadsLoginAction='login';});
+		document.getElementById('dreads-login-create').addEventListener('click',()=>{window.dreadsLoginAction='create';});
+		document.getElementById('dreads-login-pass').addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();window.dreadsLoginAction='login';}});
+	}
+	root.style.display='flex';
+	window.dreadsLoginAction='';
+	const user=document.getElementById('dreads-login-user');
+	if (user) setTimeout(()=>user.focus(),0);
+})();
+"""
+	JavaScriptBridge.eval(js,true)
+	JavaScriptBridge.eval("document.getElementById('dreads-login-user').value="+JSON.stringify(Accounts.last_user())+";",true)
+
+func hide_web_login_overlay() -> void:
+	if not web_login_enabled():
+		return
+	JavaScriptBridge.eval("const e=document.getElementById('dreads-native-login'); if(e)e.style.display='none'; window.dreadsLoginAction='';",true)
+
+func sync_login_from_web() -> void:
+	if not web_login_enabled():
+		return
+	var web_user=JavaScriptBridge.eval("(document.getElementById('dreads-login-user')||{}).value||''",true)
+	var web_pass=JavaScriptBridge.eval("(document.getElementById('dreads-login-pass')||{}).value||''",true)
+	if is_instance_valid(login_user):
+		login_user.text=str(web_user)
+	if is_instance_valid(login_password):
+		login_password.text=str(web_pass)
+
+func set_web_login_feedback(message:String) -> void:
+	if not web_login_enabled():
+		return
+	JavaScriptBridge.eval("const e=document.getElementById('dreads-login-feedback'); if(e)e.textContent="+JSON.stringify(message)+";",true)
+
+func poll_web_login() -> void:
+	if not web_login_enabled():
+		return
+	var action=str(JavaScriptBridge.eval("window.dreadsLoginAction||''",true))
+	if action=="":
+		return
+	JavaScriptBridge.eval("window.dreadsLoginAction='';",true)
+	sync_login_from_web()
+	if action=="create":
+		attempt_create_account()
+	elif action=="login":
+		attempt_login()
+
 func configure_login_field(field:LineEdit) -> void:
 	field.editable=true
 	field.focus_mode=Control.FOCUS_ALL
@@ -989,29 +1079,38 @@ func show_login() -> void:
 	note.add_theme_color_override("font_color",Color("9f92a6"))
 	box.add_child(note)
 	login_user.call_deferred("grab_focus")
+	setup_web_login_overlay()
 
 func attempt_login() -> void:
 	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
 		return
+	sync_login_from_web()
 	var result=Accounts.authenticate(login_user.text,login_password.text)
 	if not bool(result.get("ok",false)):
-		login_feedback.text=str(result.get("message","Falha no login."))
+		var message=str(result.get("message","Falha no login."))
+		login_feedback.text=message
+		set_web_login_feedback(message)
 		return
 	current_account=str(result.get("user",""))
 	Saves.set_account(current_account)
 	login_password.clear()
+	hide_web_login_overlay()
 	show_main()
 
 func attempt_create_account() -> void:
 	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
 		return
+	sync_login_from_web()
 	var result=Accounts.create_account(login_user.text,login_password.text)
 	if not bool(result.get("ok",false)):
-		login_feedback.text=str(result.get("message","Falha ao criar conta."))
+		var message=str(result.get("message","Falha ao criar conta."))
+		login_feedback.text=message
+		set_web_login_feedback(message)
 		return
 	current_account=str(result.get("user",""))
 	Saves.set_account(current_account)
 	login_password.clear()
+	hide_web_login_overlay()
 	show_main()
 
 func logout_account() -> void:
@@ -1023,6 +1122,7 @@ func logout_account() -> void:
 	show_login()
 
 func show_main() -> void:
+	hide_web_login_overlay()
 	active=false
 	modal=true
 	if is_instance_valid(login_root):
@@ -3352,6 +3452,7 @@ func eat() -> void:
 
 func _process(delta: float) -> void:
 	if not active:
+		poll_web_login()
 		animate_lobby(delta)
 		return
 	if modal:
