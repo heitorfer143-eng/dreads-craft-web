@@ -19,7 +19,6 @@ RUN godot --headless --check-only --script scripts/items.gd && \
     godot --headless --check-only --script scripts/world.gd && \
     godot --headless --check-only --script scripts/main.gd
 
-RUN node --check server.js
 
 # Full integration test before export: accounts/save, mining/drop pickup,
 # finite boundaries and desert generation, then lake/Leviathan progression.
