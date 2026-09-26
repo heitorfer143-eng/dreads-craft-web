@@ -129,9 +129,12 @@ func run() -> void:
 	check(int(scene.player.inventory.get(3,0))==stone_before+2,"Nearby drop is collected into inventory")
 	check(scene.drops.get_child_count()==drop_count_before,"Drop disappears only after collection")
 	# Player can settle onto native collision and turn independently from mouse.
-	for frame in 45:
+	var ground_x=72
+	scene.player.position=Vector2(ground_x*32+16,scene.world.surfaces[ground_x]*32-64)
+	scene.player.velocity=Vector2.ZERO
+	for frame in 75:
 		await physics_frame
-	check(scene.player.is_on_floor(),"Ground collision")
+	check(scene.player.is_on_floor(),"Ground collision at known terrain column")
 	Input.action_press("left")
 	for frame in 10:
 		await physics_frame
