@@ -34,7 +34,7 @@ var dirty_rows: Dictionary = {}
 var tile_textures: Dictionary = {}
 var decor_atlas: Texture2D
 var desert_decor: Dictionary = {}
-const DECOR_CELL = Vector2(96,64)
+const DECOR_CELL = Vector2(48,32)
 const DECOR_INDEX = {
 	"tree":0, "pine":1, "shrub":2, "flowers":3, "fence":4,
 	"lampadao":5, "poste":6, "banner_red":7, "sign":8, "bench":9,
@@ -560,9 +560,6 @@ func is_point_in_lake_water(pos:Vector2) -> bool:
 func lake_signature() -> String:
 	return "%d:%d:%d:%d" % [lake_center_x,lake_width,lake_depth,lake_water_y]
 
-func is_snow_biome(cell_x: int) -> bool:
-	return cell_x>=SNOW_START_X
-
 func snow_spawn_cell() -> Vector2i:
 	var x=int((SNOW_START_X+SNOW_END_X)/2)
 	return Vector2i(x,surfaces[x])
@@ -735,7 +732,7 @@ func _draw_decor_sprite(base:Vector2,key:String,scale:float=1.0) -> void:
 	var column=index%5
 	var row=int(index/5)
 	var source=Rect2(Vector2(column*int(DECOR_CELL.x),row*int(DECOR_CELL.y)),DECOR_CELL)
-	var draw_size=DECOR_CELL*scale
+	var draw_size=DECOR_CELL*scale*2.0
 	var destination=Rect2(base+Vector2(-draw_size.x*0.5,-draw_size.y),draw_size)
 	draw_texture_rect_region(decor_atlas,destination,source)
 
