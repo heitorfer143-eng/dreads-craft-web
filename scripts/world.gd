@@ -331,7 +331,11 @@ func _generate_tower(rng:RandomNumberGenerator) -> void:
 	})
 
 func _generate_desert_ruin(rng:RandomNumberGenerator) -> void:
-	var center=clampi(desert_center_cell()+rng.randi_range(-12,12),desert_start_x+18,desert_end_x-18)
+	# Keep the biome's canonical center untouched so the desert still reads as
+	# natural sand terrain; place the ruin deeper on one side of the region.
+	var side=-1 if rng.randi_range(0,1)==0 else 1
+	var offset=maxi(34,int((desert_end_x-desert_start_x)*0.26))
+	var center=clampi(desert_center_cell()+side*offset+rng.randi_range(-5,5),desert_start_x+18,desert_end_x-18)
 	var x=center-10
 	var ground=surfaces[center]
 	var top=maxi(8,ground-9)
