@@ -1394,8 +1394,7 @@ func show_main() -> void:
 	right.add_child(new_button)
 	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer))
 	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2))
-	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia e controles do PC.","res://assets/items/menu.png",func(): show_settings(true)))
-	right.add_child(lobby_button("SAIR DA CONTA","Voltar para a tela de login.","res://assets/items/menu.png",logout_account))
+	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia, controles e conta.","res://assets/items/menu.png",func(): show_settings(true)))
 	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit())
 	right.add_child(exit_button)
 
@@ -2069,6 +2068,21 @@ func show_settings(from_main: bool=false) -> void:
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_color_override("font_color",Color("9f91a7"))
 	menu_box.add_child(note)
+	if current_account!="":
+		var account_panel=PanelContainer.new()
+		account_panel.add_theme_stylebox_override("panel",panel_style(0.82,Color("5c4a67")))
+		account_panel.custom_minimum_size=Vector2(520,108)
+		menu_box.add_child(account_panel)
+		var account_box=VBoxContainer.new()
+		account_box.add_theme_constant_override("separation",8)
+		account_panel.add_child(account_box)
+		var account_label=label("CONTA · "+current_account,13)
+		account_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		account_label.add_theme_color_override("font_color",Color("d9c4e6"))
+		account_box.add_child(account_label)
+		var logout_button=button("SAIR DA CONTA",logout_account)
+		logout_button.custom_minimum_size=Vector2(0,48)
+		account_box.add_child(logout_button)
 	menu_box.add_child(button("VOLTAR",func():
 		if from_main or not active:
 			show_main()
