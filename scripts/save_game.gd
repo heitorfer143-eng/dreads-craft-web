@@ -92,6 +92,23 @@ static func _write_index(entries: Array) -> void:
 static func select_world(id: String) -> void:
 	active_id=id
 
+static func current_world_id() -> String:
+	return active_id
+
+static func read_world_by_id(id:String) -> Dictionary:
+	var previous=active_id
+	active_id=id
+	var data=read_save()
+	active_id=previous
+	return data
+
+static func import_world(id:String,data:Dictionary) -> Error:
+	var previous=active_id
+	active_id=id
+	var error=write(data.duplicate(true))
+	active_id=previous
+	return error
+
 static func write(data: Dictionary) -> Error:
 	if active_account=="":
 		return ERR_INVALID_PARAMETER

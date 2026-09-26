@@ -7,6 +7,7 @@ const Items = preload("res://scripts/items.gd")
 const Saves = preload("res://scripts/save_game.gd")
 const Accounts = preload("res://scripts/account_store.gd")
 const PlayerHistory = preload("res://scripts/player_history.gd")
+const CloudClient = preload("res://scripts/cloud_client.gd")
 const Backdrop = preload("res://scripts/backdrop.gd")
 const LobbyBackdrop = preload("res://scripts/lobby_backdrop.gd")
 const NPC = preload("res://scripts/npc.gd")
@@ -146,6 +147,9 @@ var login_user:LineEdit
 var login_password:LineEdit
 var login_feedback:Label
 var current_account:=""
+var cloud:Node
+var cloud_syncing:=false
+var cloud_last_error:=""
 var desert_announced:=false
 const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16,28,29,30,31]
 const LOBBY_TIPS = [
@@ -166,6 +170,9 @@ func _ready() -> void:
 	ui=CanvasLayer.new()
 	add_child(ui)
 	build_ui()
+	cloud=CloudClient.new()
+	cloud.name="CloudClient"
+	add_child(cloud)
 	game_audio=preload("res://scripts/game_audio.gd").new()
 	add_child(game_audio)
 	device_controls=preload("res://scripts/device_controls.gd").new()
@@ -787,9 +794,7 @@ func show_world_browser_v2() -> void:
 		play.custom_minimum_size=Vector2(105,44)
 		row.add_child(play)
 		var erase=button("EXCLUIR",func():
-			Saves.select_world(str(meta.get("id","")))
-			Saves.erase_save()
-			show_world_browser_v2()
+			delete_world_everywhere(str(meta.get("id","")))
 		)
 		erase.custom_minimum_size=Vector2(105,44)
 		erase.add_theme_color_override("font_color",Color("e7a6a6"))
@@ -1081,45 +1086,157 @@ func show_login() -> void:
 	login_user.call_deferred("grab_focus")
 	setup_web_login_overlay()
 
+func finish_account_login(user:String,password:String="",sync_cloud:bool=false) -> void:
+	current_account=user.strip_edges()
+	online_player_name=current_account
+	Saves.set_account(current_account)
+	Accounts.remember_user(current_account)
+	if password!="" and not Accounts.has_accounts():
+		Accounts.create_account(current_account,password)
+	login_password.clear()
+	if sync_cloud and is_instance_valid(cloud) and cloud.is_authenticated():
+		set_web_login_feedback("Sincronizando seus mundos...")
+		login_feedback.text="Sincronizando seus mundos..."
+		await sync_account_worlds()
+	hide_web_login_overlay()
+	show_main()
+
 func attempt_login() -> void:
 	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
 		return
 	sync_login_from_web()
-	var result=Accounts.authenticate(login_user.text,login_password.text)
+	var user=login_user.text.strip_edges()
+	var password=login_password.text
+	if is_instance_valid(cloud) and cloud.is_enabled():
+		login_feedback.text="Entrando na conta..."
+		set_web_login_feedback("Entrando na conta...")
+		login_cloud_account(user,password)
+		return
+	var result=Accounts.authenticate(user,password)
 	if not bool(result.get("ok",false)):
 		var message=str(result.get("message","Falha no login."))
 		login_feedback.text=message
 		set_web_login_feedback(message)
 		return
-	current_account=str(result.get("user",""))
-	Saves.set_account(current_account)
-	login_password.clear()
-	hide_web_login_overlay()
-	show_main()
+	await finish_account_login(str(result.get("user","")),password,false)
+
+func login_cloud_account(user:String,password:String) -> void:
+	var result=await cloud.login(user,password)
+	if bool(result.get("ok",false)):
+		await finish_account_login(str(result.get("user",user)),password,true)
+		return
+	# Automatic one-time migration of an account/worlds created before cloud saves.
+	var local=Accounts.authenticate(user,password)
+	if int(result.get("status",0))==401 and bool(local.get("ok",false)):
+		var migrated=await cloud.create_account(user,password)
+		if bool(migrated.get("ok",false)):
+			await finish_account_login(str(migrated.get("user",user)),password,true)
+			return
+	var message=str(result.get("message","Falha no login."))
+	if int(result.get("status",0))==0:
+		message="Servidor de contas indisponível. Tente novamente em alguns segundos."
+	login_feedback.text=message
+	set_web_login_feedback(message)
 
 func attempt_create_account() -> void:
 	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
 		return
 	sync_login_from_web()
-	var result=Accounts.create_account(login_user.text,login_password.text)
+	var user=login_user.text.strip_edges()
+	var password=login_password.text
+	if is_instance_valid(cloud) and cloud.is_enabled():
+		login_feedback.text="Criando sua conta online..."
+		set_web_login_feedback("Criando sua conta online...")
+		create_cloud_account(user,password)
+		return
+	var result=Accounts.create_account(user,password)
 	if not bool(result.get("ok",false)):
 		var message=str(result.get("message","Falha ao criar conta."))
 		login_feedback.text=message
 		set_web_login_feedback(message)
 		return
-	current_account=str(result.get("user",""))
-	Saves.set_account(current_account)
-	login_password.clear()
-	hide_web_login_overlay()
-	show_main()
+	await finish_account_login(str(result.get("user","")),password,false)
+
+func create_cloud_account(user:String,password:String) -> void:
+	var result=await cloud.create_account(user,password)
+	if not bool(result.get("ok",false)):
+		var message=str(result.get("message","Falha ao criar conta."))
+		login_feedback.text=message
+		set_web_login_feedback(message)
+		return
+	# Keep a local credential/cache only as offline migration backup; cloud is authoritative.
+	var local_created=Accounts.create_account(str(result.get("user",user)),password)
+	if not bool(local_created.get("ok",false)):
+		Accounts.remember_user(str(result.get("user",user)))
+	await finish_account_login(str(result.get("user",user)),password,true)
 
 func logout_account() -> void:
 	if active and not multiplayer_active:
 		save_world()
 	Accounts.logout()
+	if is_instance_valid(cloud):
+		cloud.clear_session()
 	Saves.clear_account()
 	current_account=""
+	online_player_name="Spike"
 	show_login()
+
+func sync_account_worlds() -> void:
+	if not is_instance_valid(cloud) or not cloud.is_authenticated() or cloud_syncing:
+		return
+	cloud_syncing=true
+	cloud_last_error=""
+	var remote_result=await cloud.list_worlds()
+	if not bool(remote_result.get("ok",false)):
+		cloud_last_error=str(remote_result.get("message","Não foi possível sincronizar os mundos."))
+		cloud_syncing=false
+		return
+	var remote_worlds:Array=remote_result.get("worlds",[])
+	var remote_by_id:Dictionary={}
+	for meta in remote_worlds:
+		if meta is Dictionary:
+			remote_by_id[str(meta.get("id",""))]=meta
+	var local_worlds=Saves.list_worlds()
+	var local_by_id:Dictionary={}
+	for meta in local_worlds:
+		if meta is Dictionary:
+			local_by_id[str(meta.get("id",""))]=meta
+	# Upload worlds that exist only locally, or whose local save is newer.
+	for id in local_by_id.keys():
+		var local_meta:Dictionary=local_by_id[id]
+		var remote_meta:Dictionary=remote_by_id.get(id,{})
+		if remote_meta.is_empty() or int(local_meta.get("saved_at",0))>int(remote_meta.get("saved_at",0)):
+			var data=Saves.read_world_by_id(str(id))
+			if not data.is_empty():
+				await cloud.save_world(str(id),data)
+	# Re-read metadata after uploads, then download missing/newer cloud worlds.
+	remote_result=await cloud.list_worlds()
+	if bool(remote_result.get("ok",false)):
+		remote_worlds=remote_result.get("worlds",[])
+	for meta in remote_worlds:
+		if not meta is Dictionary:
+			continue
+		var id=str(meta.get("id",""))
+		var local_meta:Dictionary=local_by_id.get(id,{})
+		if local_meta.is_empty() or int(meta.get("saved_at",0))>int(local_meta.get("saved_at",0)):
+			var loaded=await cloud.load_world(id)
+			if bool(loaded.get("ok",false)) and loaded.get("data",{}) is Dictionary:
+				Saves.import_world(id,loaded.get("data",{}))
+	cloud_syncing=false
+
+func upload_world_to_cloud(world_id:String,data:Dictionary) -> void:
+	if world_id=="" or not is_instance_valid(cloud) or not cloud.is_authenticated():
+		return
+	var result=await cloud.save_world(world_id,data)
+	if not bool(result.get("ok",false)):
+		cloud_last_error=str(result.get("message","Falha ao salvar na nuvem."))
+
+func delete_world_everywhere(world_id:String) -> void:
+	Saves.select_world(world_id)
+	Saves.erase_save()
+	if is_instance_valid(cloud) and cloud.is_authenticated():
+		await cloud.delete_world(world_id)
+	show_world_browser_v2()
 
 func show_main() -> void:
 	hide_web_login_overlay()
@@ -1174,7 +1291,7 @@ func show_main() -> void:
 	menu_title=label("DREADS CRAFT",42)
 	menu_title.add_theme_color_override("font_color",Color("f5eadf"))
 	title_box.add_child(menu_title)
-	var subtitle=label("REINO DO ABISMO",15)
+	var subtitle=label("REINO DO ABISMO · CONTA "+current_account,15)
 	subtitle.add_theme_color_override("font_color",Color("c89ee0"))
 	title_box.add_child(subtitle)
 	var build=PanelContainer.new()
@@ -1371,14 +1488,17 @@ func show_multiplayer(error_text:String="") -> void:
 	var identity_box=VBoxContainer.new()
 	identity_box.add_theme_constant_override("separation",7)
 	identity.add_child(identity_box)
-	var name_title=label("SEU NOME",12)
+	var name_title=label("IDENTIDADE DA CONTA",12)
 	name_title.add_theme_color_override("font_color",Color("d9c4e6"))
 	identity_box.add_child(name_title)
-	var name_edit=multiplayer_line_edit("Nome do jogador",online_player_name,"Digite seu nome")
-	name_edit.text_changed.connect(func(value):
-		online_player_name=value.strip_edges()
-	)
-	identity_box.add_child(multiplayer_input_row(name_edit,"Digite seu nome"))
+	online_player_name=current_account if current_account!="" else "Spike"
+	var account_name=label("Jogando como  "+online_player_name,17)
+	account_name.add_theme_color_override("font_color",Color("f1d7ad"))
+	identity_box.add_child(account_name)
+	var account_note=label("Este é o seu nome de usuário da conta e será exibido para os outros jogadores.",10)
+	account_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	account_note.add_theme_color_override("font_color",Color("a995b7"))
+	identity_box.add_child(account_note)
 
 	var columns=VBoxContainer.new() if mobile else HBoxContainer.new()
 	columns.add_theme_constant_override("separation",14)
@@ -1427,10 +1547,10 @@ func show_multiplayer(error_text:String="") -> void:
 	create_box.add_child(multiplayer_input_row(online_seed_edit,"Seed do mundo multiplayer"))
 
 	var create_btn=button("CRIAR SALA ONLINE",func():
-		online_player_name=name_edit.text.strip_edges()
+		online_player_name=current_account if current_account!="" else "Spike"
 		online_world_name=world_edit.text.strip_edges()
 		if online_player_name=="":
-			show_multiplayer("Digite o nome do jogador.")
+			show_multiplayer("Entre em uma conta primeiro.")
 			return
 		if online_world_name=="":
 			show_multiplayer("Digite o nome do mundo.")
@@ -1482,10 +1602,10 @@ func show_multiplayer(error_text:String="") -> void:
 	join_box.add_child(multiplayer_input_row(room_edit,"Código da sala",true))
 
 	var join_btn=button("ENTRAR PELO CÓDIGO",func():
-		online_player_name=name_edit.text.strip_edges()
+		online_player_name=current_account if current_account!="" else "Spike"
 		online_room_code_entry=room_edit.text.strip_edges().to_upper()
 		if online_player_name=="":
-			show_multiplayer("Digite o nome do jogador.")
+			show_multiplayer("Entre em uma conta primeiro.")
 			return
 		if online_room_code_entry.length()!=5:
 			show_multiplayer("Digite o código completo de 5 caracteres.")
@@ -4319,6 +4439,8 @@ func save_world() -> bool:
 		status.text="Não foi possível salvar o mundo. Código %d" % error
 		message_time=8
 		return false
+	if is_instance_valid(cloud) and cloud.is_authenticated():
+		upload_world_to_cloud(Saves.current_world_id(),data.duplicate(true))
 	return true
 
 func load_world() -> void:

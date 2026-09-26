@@ -29,6 +29,9 @@ func run() -> void:
 	scene.login_password.text="UiPass987!"
 	scene.attempt_create_account()
 	check(scene.current_account==ui_user,"Create-account UI path works")
+	check(scene.online_player_name==ui_user,"Account username becomes multiplayer identity")
+	check(ResourceLoader.exists("res://scripts/cloud_client.gd"),"Cloud account client exists")
+	check(scene.has_method("sync_account_worlds") and scene.has_method("upload_world_to_cloud"),"Cloud world sync handlers exist")
 	scene.logout_account()
 	await process_frame
 	var smoke_user="smoke_"+str(Time.get_ticks_usec())

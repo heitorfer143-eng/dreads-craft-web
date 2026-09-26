@@ -103,6 +103,14 @@ static func authenticate(username:String,password:String) -> Dictionary:
 	_write(data)
 	return {"ok":true,"message":"Login realizado.","user":user}
 
+static func remember_user(username:String) -> void:
+	var user=_normalize_username(username)
+	if user=="":
+		return
+	var data=_read()
+	data["last_user"]=user
+	_write(data)
+
 static func logout() -> void:
 	active_user=""
 

@@ -3,9 +3,12 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { WebSocketServer } = require("ws");
+const { CloudStore } = require("./cloud_store");
 
 const PORT = process.env.PORT || 8080;
 const ROOT = path.join(__dirname, "public");
+const DATA_ROOT = process.env.DREADS_DATA_DIR || path.join(__dirname, "data");
+const cloudStore = new CloudStore(DATA_ROOT);
 const rooms = new Map();
 const WORLD_WIDTH_CELLS = 640;
 const WORLD_HEIGHT_CELLS = 96;
@@ -41,12 +44,101 @@ function headers(res, code=200, type="text/plain; charset=utf-8") {
   });
 }
 
+function jsonHeaders(res, code=200) {
+  res.writeHead(code, {
+    "Content-Type":"application/json; charset=utf-8",
+    "Cache-Control":"no-store",
+    "X-Content-Type-Options":"nosniff",
+    "Referrer-Policy":"no-referrer"
+  });
+}
+
+function sendJson(res, code, value) {
+  jsonHeaders(res, code);
+  res.end(JSON.stringify(value));
+}
+
+function readJsonBody(req, maxBytes=10*1024*1024) {
+  return new Promise((resolve, reject) => {
+    let size=0, chunks=[];
+    req.on("data", chunk => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        reject(Object.assign(new Error("payload too large"), { status: 413 }));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      if (!chunks.length) return resolve({});
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
+      catch { reject(Object.assign(new Error("invalid json"), { status: 400 })); }
+    });
+    req.on("error", reject);
+  });
+}
+
+function bearer(req) {
+  const raw=String(req.headers.authorization || "");
+  return raw.startsWith("Bearer ") ? raw.slice(7).trim() : "";
+}
+
+async function handleApi(req,res,pathname) {
+  try {
+    if (req.method==="POST" && pathname==="/api/account/create") {
+      const body=await readJsonBody(req, 64*1024);
+      const result=cloudStore.createAccount(body.username,body.password);
+      return sendJson(res,result.status,result);
+    }
+    if (req.method==="POST" && pathname==="/api/account/login") {
+      const body=await readJsonBody(req, 64*1024);
+      const result=cloudStore.login(body.username,body.password);
+      return sendJson(res,result.status,result);
+    }
+    const session=cloudStore.auth(bearer(req));
+    if (!session) return sendJson(res,401,{ok:false,message:"Sessão inválida. Entre novamente."});
+    if (req.method==="GET" && pathname==="/api/account/me") {
+      return sendJson(res,200,{ok:true,user:session.display});
+    }
+    if (req.method==="GET" && pathname==="/api/worlds") {
+      return sendJson(res,200,{ok:true,worlds:cloudStore.listWorlds(session.key)});
+    }
+    const match=pathname.match(/^\/api\/worlds\/([A-Za-z0-9_-]{1,80})$/);
+    if (match) {
+      const worldId=match[1];
+      if (req.method==="GET") {
+        const result=cloudStore.loadWorld(session.key,worldId);
+        return sendJson(res,result.status,result);
+      }
+      if (req.method==="PUT") {
+        const body=await readJsonBody(req);
+        const result=cloudStore.saveWorld(session.key,session.display,worldId,body.data);
+        return sendJson(res,result.status,result);
+      }
+      if (req.method==="DELETE") {
+        const result=cloudStore.deleteWorld(session.key,worldId);
+        return sendJson(res,result.status,result);
+      }
+    }
+    return sendJson(res,404,{ok:false,message:"Endpoint não encontrado."});
+  } catch (err) {
+    const status=Number(err && err.status) || 500;
+    return sendJson(res,status,{ok:false,message:status===500?"Erro interno do servidor.":String(err.message||"Requisição inválida.")});
+  }
+}
+
 const serverHttp = http.createServer((req,res)=>{
-  if (req.url === "/health") {
+  const pathname = decodeURIComponent((req.url || "/").split("?")[0]);
+  if (pathname.startsWith("/api/")) {
+    handleApi(req,res,pathname);
+    return;
+  }
+  if (pathname === "/health") {
     headers(res,200,"application/json");
     return res.end(JSON.stringify({ok:true,rooms:rooms.size}));
   }
-  let reqPath = decodeURIComponent((req.url || "/").split("?")[0]);
+  let reqPath = pathname;
   if (reqPath === "/") reqPath = "/index.html";
   const safe = path.normalize(reqPath).replace(/^([.][.][/\\])+/, "");
   let file = path.join(ROOT, safe);
