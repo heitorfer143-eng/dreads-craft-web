@@ -140,6 +140,8 @@ func _handle(data:Dictionary) -> void:
 			game.start_multiplayer_session(int(data.get("seed",0)),str(data.get("world_name","Reino Online")),host)
 		for p in data.get("players",[]):
 			_spawn_remote(p)
+			if is_instance_valid(game) and game.has_method("on_online_player_joined"):
+				game.on_online_player_joined(p)
 		if is_instance_valid(game) and is_instance_valid(game.world):
 			for block in data.get("blocks",[]):
 				game.apply_online_block(Vector2i(int(block.get("x",0)),int(block.get("y",0))),int(block.get("id",0)))
@@ -148,8 +150,13 @@ func _handle(data:Dictionary) -> void:
 		room_ready.emit(room_code,int(data.get("seed",0)),str(data.get("world_name","Reino Online")),host)
 		return
 	if type=="join":
-		_spawn_remote(data.get("player",{}))
+		var joined=data.get("player",{})
+		_spawn_remote(joined)
+		if is_instance_valid(game) and game.has_method("on_online_player_joined"):
+			game.on_online_player_joined(joined)
 	elif type=="leave":
+		if is_instance_valid(game) and game.has_method("on_online_player_left"):
+			game.on_online_player_left(data)
 		var id=str(data.get("id",""))
 		if remote_players.has(id):
 			if is_instance_valid(remote_players[id]):

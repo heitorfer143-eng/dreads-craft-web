@@ -6,6 +6,7 @@ const Mob = preload("res://scripts/mob.gd")
 const Items = preload("res://scripts/items.gd")
 const Saves = preload("res://scripts/save_game.gd")
 const Accounts = preload("res://scripts/account_store.gd")
+const PlayerHistory = preload("res://scripts/player_history.gd")
 const Backdrop = preload("res://scripts/backdrop.gd")
 const LobbyBackdrop = preload("res://scripts/lobby_backdrop.gd")
 const NPC = preload("res://scripts/npc.gd")
@@ -135,6 +136,9 @@ var chat_input: LineEdit
 var chat_button: Button
 var chat_close_button: Button
 var chat_messages:Array=[]
+var compass_frame:Panel
+var compass_label:Label
+var history_local_join_recorded:=false
 var chest_inventories:Dictionary={}
 var login_root:Control
 var login_user:LineEdit
@@ -486,6 +490,20 @@ func build_ui() -> void:
 	)
 	chat_panel.add_child(chat_input)
 
+	compass_frame=Panel.new()
+	compass_frame.name="MultiplayerCompass"
+	compass_frame.size=Vector2(176,24)
+	compass_frame.add_theme_stylebox_override("panel",compact_panel_style(0.86,Color("6f557d"),7))
+	compass_frame.hide()
+	hud.add_child(compass_frame)
+	compass_label=label("• aguardando",9)
+	compass_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	compass_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	compass_label.position=Vector2(5,2)
+	compass_label.size=Vector2(166,20)
+	compass_label.add_theme_color_override("font_color",Color("eadfc7"))
+	compass_frame.add_child(compass_label)
+
 	menu=PanelContainer.new()
 	menu.add_theme_stylebox_override("panel",panel_style(0.975,Color("9a7757")))
 	ui.add_child(menu)
@@ -563,6 +581,9 @@ func layout() -> void:
 		var stat_scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
 		air_frame.scale=stat_scale
 		air_frame.position=Vector2(6,80) if mobile_layout else Vector2(12,104)
+	if is_instance_valid(compass_frame):
+		compass_frame.scale=Vector2(0.86,0.86) if mobile_layout else Vector2.ONE
+		compass_frame.position=Vector2((size.x-compass_frame.size.x*compass_frame.scale.x)/2.0,48.0 if mobile_layout else 54.0)
 	if is_instance_valid(chat_panel):
 		chat_panel.size=Vector2(minf(380.0,size.x-24.0),156.0 if mobile_layout else 176.0)
 		chat_panel.position=Vector2(12.0,maxf(92.0,size.y-chat_panel.size.y-(106.0 if mobile_layout else 78.0)))
@@ -958,6 +979,8 @@ func show_main() -> void:
 		chat_panel.hide()
 	if is_instance_valid(chat_button):
 		chat_button.hide()
+	if is_instance_valid(compass_frame):
+		compass_frame.hide()
 	if is_instance_valid(player):
 		player.input_locked=false
 	if is_instance_valid(boss_panel):
@@ -1343,9 +1366,75 @@ func start_multiplayer_session(seed_value:int, online_world_name:String, is_host
 	if is_instance_valid(chat_button):
 		chat_button.text="CHAT"
 		chat_button.show()
+	if is_instance_valid(compass_frame):
+		compass_frame.show()
+	if multiplayer_host and current_account!="":
+		PlayerHistory.record(current_account,"join",online.room_code,world_name,online_player_name,online.local_id)
+		history_local_join_recorded=true
 	status.text="ONLINE · SALA "+online.room_code
 	message_time=5
 	layout()
+
+func _record_local_multiplayer_leave() -> void:
+	if not history_local_join_recorded:
+		return
+	if multiplayer_host and current_account!="" and is_instance_valid(online):
+		PlayerHistory.record(current_account,"leave",online.room_code,world_name,online_player_name,online.local_id)
+	history_local_join_recorded=false
+
+func on_online_player_joined(data:Dictionary) -> void:
+	if not multiplayer_host or current_account=="" or not is_instance_valid(online):
+		return
+	PlayerHistory.record(current_account,"join",online.room_code,world_name,str(data.get("name","Jogador")),str(data.get("id","")))
+
+func on_online_player_left(data:Dictionary) -> void:
+	if not multiplayer_host or current_account=="" or not is_instance_valid(online):
+		return
+	PlayerHistory.record(current_account,"leave",online.room_code,world_name,str(data.get("name","Jogador")),str(data.get("id","")))
+
+func show_player_history() -> void:
+	clear_menu("HISTÓRICO DE JOGADORES","player_history")
+	var entries=PlayerHistory.list_for(current_account)
+	var subtitle=label("Entradas e saídas registradas neste dispositivo para a sua conta.",11)
+	subtitle.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	subtitle.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	menu_box.add_child(subtitle)
+	if entries.is_empty():
+		menu_box.add_child(label("Nenhum jogador registrado ainda.",13))
+	else:
+		var first=maxi(0,entries.size()-60)
+		for i in range(entries.size()-1,first-1,-1):
+			var entry:Dictionary=entries[i]
+			var verb="entrou" if str(entry.get("event",""))=="join" else "saiu"
+			var line="%s %s — %s %s · sala %s" % [str(entry.get("player","Jogador")),verb,str(entry.get("date","")),str(entry.get("time","")),str(entry.get("room",""))]
+			var row=label(line,11)
+			row.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+			menu_box.add_child(row)
+	menu_box.add_child(button("VOLTAR",show_pause))
+
+func update_multiplayer_compass() -> void:
+	if not multiplayer_active or not is_instance_valid(online) or not is_instance_valid(player) or not is_instance_valid(compass_frame):
+		if is_instance_valid(compass_frame):
+			compass_frame.hide()
+		return
+	compass_frame.show()
+	var markers:Array[String]=[]
+	var zone=current_online_zone()
+	for id in online.remote_players.keys():
+		var remote=online.remote_players[id]
+		if not is_instance_valid(remote) or str(remote.zone)!=zone:
+			continue
+		var delta_pos=Vector2(remote.target_position)-player.position
+		var arrow="→"
+		if absf(delta_pos.x)>=absf(delta_pos.y):
+			arrow="←" if delta_pos.x<0 else "→"
+		else:
+			arrow="↑" if delta_pos.y<0 else "↓"
+		var dist=maxi(0,int(round(delta_pos.length()/32.0)))
+		markers.append("%s %s %dm" % [arrow,str(remote.player_name).left(7),dist])
+		if markers.size()>=3:
+			break
+	compass_label.text=" · ".join(markers) if not markers.is_empty() else "• aguardando jogador"
 
 func on_multiplayer_room_ready(code:String,_seed:int,_online_world_name:String,_host:bool) -> void:
 	if active:
@@ -1425,6 +1514,7 @@ func on_multiplayer_failed(message:String) -> void:
 		show_multiplayer(message)
 
 func leave_multiplayer() -> void:
+	_record_local_multiplayer_leave()
 	if is_instance_valid(online):
 		online.disconnect_room(false)
 	multiplayer_active=false
@@ -1432,6 +1522,8 @@ func leave_multiplayer() -> void:
 	show_main()
 
 func current_online_zone() -> String:
+	if in_lake_temple:
+		return "lake_temple"
 	if in_purity:
 		return "purity"
 	if in_structure!="":
@@ -1446,6 +1538,7 @@ func apply_online_block(cell:Vector2i,id:int) -> void:
 	world.set_cell(cell,id)
 
 func on_multiplayer_disconnected() -> void:
+	_record_local_multiplayer_leave()
 	multiplayer_active=false
 	if is_instance_valid(chat_panel):
 		chat_panel.hide()
@@ -1768,7 +1861,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	player.position=player.spawn_position
 	add_child(player)
 	player.set_form(current_form)
-	player.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
+	player.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
 	player.died.connect(on_player_died)
 	if creative:
 		for id in Items.NAMES:
@@ -1779,10 +1872,11 @@ func start_world(creative: bool, seed_value: int) -> void:
 		hotbar=[0,0,0,0,0,0,0,0,0]
 		selected=0
 	world.camera=player.camera
-	player.camera.limit_left=0
-	player.camera.limit_right=world.world_width()*32
-	player.camera.limit_top=0
-	player.camera.limit_bottom=World.HEIGHT*32
+	player.camera.limit_left=World.WORLD_MIN_X
+	player.camera.limit_right=World.WORLD_MAX_X
+	player.camera.limit_top=World.WORLD_MIN_Y
+	player.camera.limit_bottom=World.WORLD_MAX_Y
+	player.camera.limit_smoothed=false
 	sky.camera=player.camera
 	enemies=Node2D.new()
 	add_child(enemies)
@@ -2055,6 +2149,8 @@ func show_pause() -> void:
 		hint.add_theme_color_override("font_color",Color("baa9c5"))
 		menu_box.add_child(hint)
 		menu_box.add_child(button("CONTINUAR",resume))
+		if multiplayer_host:
+			menu_box.add_child(button("HISTÓRICO DE JOGADORES",show_player_history))
 		menu_box.add_child(button("CONFIGURAÇÕES",func(): show_settings(false)))
 		menu_box.add_child(button("SAIR DA SALA",leave_multiplayer))
 		return
@@ -3124,6 +3220,7 @@ func _process(delta: float) -> void:
 	if modal:
 		return
 	update_purity_hud()
+	update_multiplayer_compass()
 	if in_lake_temple:
 		mining_held=false
 		if is_instance_valid(lake_arena):
@@ -3284,7 +3381,7 @@ func spawn_mel() -> void:
 		return
 	mel=Mel.new()
 	mel.setup(player,mel_tamed)
-	mel.set_world_bounds(0.0,float(world.world_width()*32))
+	mel.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
 	var x=26
 	mel.position=Vector2(x*32+16,world.surfaces[x]*32-2)
 	mel.interacted.connect(func(_dog): show_mel_dialogue())
@@ -3463,6 +3560,7 @@ func spawn_world_npcs() -> void:
 		"Minha bancada pode criar ferramentas e armas melhores.",
 		"Ferro é bom. Diamante é melhor. Avarita não pertence a uma lâmina."
 	],player)
+	npc.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
 	npc.position=Vector2(15*32+16,world.surfaces[15]*32-2)
 	npc.interacted.connect(func(who): show_npc_dialogue(who))
 	npcs.add_child(npc)
@@ -3472,6 +3570,7 @@ func spawn_world_npcs() -> void:
 		"Se encontrar Avarita, não tente transformá-la em arma.",
 		"O portal responde a nove diamantes e uma Avarita."
 	],player)
+	monk.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
 	monk.position=Vector2(48*32+16,world.surfaces[48]*32-2)
 	monk.interacted.connect(func(who): show_npc_dialogue(who))
 	npcs.add_child(monk)
@@ -3778,7 +3877,7 @@ func ensure_polar_bear() -> void:
 	bear.kind="polar_bear"
 	bear.player=player
 	bear.difficulty_level=maxi(2,difficulty)
-	bear.set_world_bounds(0.0,float(world.world_width()*32))
+	bear.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
 	bear.position=Vector2(spawn.x*32+16,spawn.y*32-2)
 	bear.killed.connect(func():
 		polar_bear_defeated=true
@@ -3814,7 +3913,7 @@ func spawn_mob() -> void:
 	mob.kind="undead_knight" if roll>.76 else "corrupted_skeleton" if roll>.38 else "dark_slime"
 	mob.player=player
 	mob.difficulty_level=difficulty
-	mob.set_world_bounds(0.0,float(world.world_width()*32))
+	mob.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
 	mob.position=Vector2(cell*32,world.surfaces[cell]*32-2)
 	mob.killed.connect(func():
 		var death_pos=mob.position
@@ -3922,6 +4021,8 @@ func leave_lake_temple(on_death:bool=false) -> void:
 	update_purity_hud()
 
 func on_lake_boss_defeated() -> void:
+	if lake_boss_defeated:
+		return
 	lake_boss_defeated=true
 	lake_boss=null
 	# Victory is a safe state. The menu is modal, so main._process() stops updating
@@ -4493,9 +4594,12 @@ func on_player_died() -> void:
 		player.set_water_state(false,false)
 		call_deferred("_finish_lake_respawn")
 		if is_instance_valid(lake_boss):
-			lake_boss.hp=lake_boss.max_hp
+			# Death only resets the encounter position/state. Boss HP is preserved.
+			lake_boss.position=lake_arena.boss_position
 			lake_boss.state="recover"
 			lake_boss.timer=1.25
+			lake_boss.orbs.clear()
+			lake_boss.wave_hit=true
 		status.text="VOCÊ CAIU · recupere sua mochila e tente o Leviatã novamente." if not lake_boss_defeated else "VOCÊ CAIU · sua mochila continua dentro do templo."
 		message_time=4
 		refresh_hud()
