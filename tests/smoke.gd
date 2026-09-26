@@ -155,10 +155,13 @@ func run() -> void:
 	check(scene.player.velocity.y<0,"Jump")
 	Input.action_release("jump")
 	# Placement uses target cell and blocks overlap.
+	scene.player.position=Vector2(12*32+16,scene.world.surfaces[12]*32-2)
+	scene.player.velocity=Vector2.ZERO
+	scene.player.inventory[2]=3
 	scene.selected=2
 	scene.target=Vector2i(15,33)
 	scene.world.set_cell(scene.target,0)
-	var count=scene.player.inventory[2]
+	var count=int(scene.player.inventory.get(2,0))
 	check(scene.place_block(),"Place empty target")
 	check(scene.world.get_cell(scene.target)==2,"Target changed")
 	check(scene.player.inventory[2]==count-1,"Placement consumed item")
