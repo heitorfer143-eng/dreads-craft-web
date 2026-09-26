@@ -9,9 +9,11 @@ static var active_user:=""
 static func _normalize_username(raw:String) -> String:
 	var clean=raw.strip_edges().to_lower()
 	var out=""
-	for ch in clean:
-		if ch in "abcdefghijklmnopqrstuvwxyz0123456789_-":
-			out+=ch
+	for i in clean.length():
+		var code=clean.unicode_at(i)
+		var allowed=(code>=97 and code<=122) or (code>=48 and code<=57) or code==95 or code==45
+		if allowed:
+			out+=char(code)
 	return out.left(20)
 
 static func _read() -> Dictionary:
