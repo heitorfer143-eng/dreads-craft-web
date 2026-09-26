@@ -120,9 +120,11 @@ func _physics_process(delta: float) -> void:
 	if not is_equal_approx(clamped_x,position.x):
 		position.x=clamped_x
 		velocity.x=0.0
-	position.y=maxf(position.y,world_min_y+8.0)
-	if position.y>world_max_y:
-		respawn()
+	var clamped_y=clampf(position.y,world_min_y+44.0,world_max_y-4.0)
+	if not is_equal_approx(clamped_y,position.y):
+		position.y=clamped_y
+		velocity.y=0.0
+		max_fall_speed=0.0
 
 	sprite.flip_h=face<0
 	var animation="attack" if attack_time>0 else "hurt" if hurt_time>0 else "jump" if not is_on_floor() else "walk" if absf(velocity.x)>1 else "idle"
@@ -161,6 +163,8 @@ func set_world_bounds(min_x:float,max_x:float,min_y:float,max_y:float) -> void:
 		camera.limit_right=int(max_x)
 		camera.limit_top=int(min_y)
 		camera.limit_bottom=int(max_y)
+		camera.limit_smoothed=false
+		camera.reset_smoothing()
 
 func set_form(form_id:String) -> void:
 	current_form="fox" if form_id=="fox" else "spike"

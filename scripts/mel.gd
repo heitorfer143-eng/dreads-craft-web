@@ -13,14 +13,18 @@ var base_scale:=0.46
 var quest_marker:=""
 var world_min_x:=0.0
 var world_max_x:=320.0*32.0
+var world_min_y:=0.0
+var world_max_y:=96.0*32.0
 
 func setup(target: CharacterBody2D, is_tamed: bool=false) -> void:
 	player=target
 	tamed=is_tamed
 
-func set_world_bounds(min_x:float,max_x:float) -> void:
+func set_world_bounds(min_x:float,max_x:float,min_y:float=0.0,max_y:float=96.0*32.0) -> void:
 	world_min_x=min_x
 	world_max_x=max_x
+	world_min_y=min_y
+	world_max_y=max_y
 
 func _ready() -> void:
 	collision_layer=0
@@ -88,6 +92,7 @@ func _physics_process(delta: float) -> void:
 		global_position.x=clampf(global_position.x+wander_dir*42.0*delta,min_x,max_x)
 		sprite.flip_h=wander_dir<0
 	global_position.x=clampf(global_position.x,world_min_x+12.0,world_max_x-12.0)
+	global_position.y=clampf(global_position.y,world_min_y+36.0,world_max_y-2.0)
 	var moving=tamed and global_position.distance_to(player.position)>70.0 or not tamed
 	sprite.position=Vector2(0,-17+sin(anim_time*(8.0 if moving else 3.0))*1.0)
 	sprite.scale=Vector2(base_scale,base_scale)
