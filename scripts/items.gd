@@ -1,6 +1,6 @@
 extends RefCounted
 
-const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante", 23: "Osso", 24: "Waystone", 25: "Minério das Almas", 26: "Orbe das Almas", 27: "Coração Abissal", 28: "Baú", 29: "Areia", 30: "Arenito", 31: "Arenito trabalhado", 32: "Capacete de Avarita", 33: "Peitoral de Avarita", 34: "Calças de Avarita", 35: "Botas de Avarita"}
+const NAMES = {1: "Grama", 2: "Terra", 3: "Pedra", 4: "Madeira", 5: "Folhas", 6: "Carvão", 7: "Ferro", 8: "Tábuas", 9: "Bancada", 10: "Carne", 11: "Espada de ferro", 12: "Relíquia Vital", 13: "Picareta de madeira", 14: "Diamante", 15: "Avarita", 16: "Portal da Pureza", 17: "Picareta de pedra", 18: "Picareta de ferro", 19: "Picareta de diamante", 20: "Espada de madeira", 21: "Espada de pedra", 22: "Espada de diamante", 23: "Osso", 24: "Waystone", 25: "Minério das Almas", 26: "Orbe das Almas", 27: "Coração Abissal", 28: "Baú", 29: "Areia", 30: "Arenito", 31: "Arenito trabalhado", 32: "Capacete de Avarita", 33: "Peitoral de Avarita", 34: "Calças de Avarita", 35: "Botas de Avarita", 36: "Espada Antiga", 37: "Amuleto de Resistência", 38: "Botas do Explorador", 39: "Fragmento de Mapa", 40: "Chave de Cripta", 41: "Relíquia da Dungeon"}
 const COLORS = {1: Color("68765b"), 2: Color("594237"), 3: Color("575663"), 4: Color("79503b"), 5: Color("354838"), 6: Color("33323d"), 7: Color("9b7768"), 8: Color("a67b50"), 9: Color("bd9160"), 25: Color("f4fbff"), 29: Color("d9b76f"), 30: Color("b88750"), 31: Color("c9975c")}
 const HARDNESS = {1: 0.5, 2: 0.65, 3: 1.8, 4: 1.15, 5: 0.3, 6: 2.1, 7: 2.6, 8: 0.8, 9: 1.2, 14: 5.0, 15: 9.0, 16: 3.0, 25: 7.5, 28: 1.1, 29: 0.55, 30: 1.65, 31: 1.8}
 
@@ -38,7 +38,13 @@ const ICONS = {
 	32: "res://assets/armor/avarita_helmet.png",
 	33: "res://assets/armor/avarita_chest.png",
 	34: "res://assets/armor/avarita_legs.png",
-	35: "res://assets/armor/avarita_boots.png"
+	35: "res://assets/armor/avarita_boots.png",
+	36: "res://assets/items/ancient_sword.svg",
+	37: "res://assets/items/resistance_amulet.svg",
+	38: "res://assets/items/explorer_boots.svg",
+	39: "res://assets/items/map_fragment.svg",
+	40: "res://assets/items/crypt_key.svg",
+	41: "res://assets/items/dungeon_relic.svg"
 }
 
 const CRAFT_ICONS = {
@@ -121,7 +127,13 @@ const DETAILS = {
 	32: {"category":"armor", "desc":"Capacete forjado com cristais de Avarita.", "stats":["Defesa: 7%","Slot: Cabeça"]},
 	33: {"category":"armor", "desc":"Peitoral pesado de Avarita, núcleo defensivo do conjunto.", "stats":["Defesa: 16%","Slot: Peitoral"]},
 	34: {"category":"armor", "desc":"Proteção de pernas reforçada com Avarita.", "stats":["Defesa: 12%","Slot: Pernas"]},
-	35: {"category":"armor", "desc":"Botas blindadas de Avarita.", "stats":["Defesa: 7%","Slot: Pés"]}
+	35: {"category":"armor", "desc":"Botas blindadas de Avarita.", "stats":["Defesa: 7%","Slot: Pés"]},
+	36: {"category":"weapons", "desc":"Uma lâmina recuperada de ruínas antigas. Não pode ser fabricada.", "stats":["Dano de Ataque: 55","Crítico: 22%","Raridade: Épica"]},
+	37: {"category":"special", "desc":"Amuleto encontrado em dungeons. Enquanto estiver no inventário, reduz parte do dano recebido.", "stats":["Resistência passiva: 8%","Raridade: Épica"]},
+	38: {"category":"special", "desc":"Botas leves feitas para exploração. Enquanto estiverem no inventário, aumentam a velocidade de movimento.", "stats":["Velocidade: +15%","Raridade: Rara"]},
+	39: {"category":"special", "desc":"Parte de um mapa antigo encontrado em ruínas. Item de exploração e coleção.", "stats":["Raridade: Rara","Origem: Dungeons"]},
+	40: {"category":"special", "desc":"Chave antiga marcada com o selo de uma cripta.", "stats":["Raridade: Rara","Origem: Criptas"]},
+	41: {"category":"special", "desc":"Relíquia extremamente rara tomada de um guardião de dungeon.", "stats":["Vida máxima: +10","Raridade: Lendária"]}
 }
 
 static func recipe_category(id: int) -> String:
@@ -179,9 +191,18 @@ static func armor_reduction(equipment:Dictionary) -> float:
 		total+=float(ARMOR_REDUCTION.get(int(equipment.get(slot,0)),0.0))
 	return clampf(total,0.0,0.65)
 
-const SWORD_DAMAGE = {20: 14, 21: 20, 11: 28, 22: 42}
-const SWORD_CRIT_CHANCE = {20: 0.08, 21: 0.10, 11: 0.13, 22: 0.18}
-const SWORD_CRIT_MULT = {20: 1.50, 21: 1.55, 11: 1.65, 22: 1.80}
+const SWORD_DAMAGE = {20: 14, 21: 20, 11: 28, 22: 42, 36: 55}
+const SWORD_CRIT_CHANCE = {20: 0.08, 21: 0.10, 11: 0.13, 22: 0.18, 36: 0.22}
+const SWORD_CRIT_MULT = {20: 1.50, 21: 1.55, 11: 1.65, 22: 1.80, 36: 2.0}
+
+static func passive_damage_reduction(inventory:Dictionary) -> float:
+	return 0.08 if int(inventory.get(37,0))>0 else 0.0
+
+static func exploration_speed_multiplier(inventory:Dictionary) -> float:
+	return 1.15 if int(inventory.get(38,0))>0 else 1.0
+
+static func exploration_max_hp_bonus(inventory:Dictionary) -> float:
+	return 10.0 if int(inventory.get(41,0))>0 else 0.0
 
 static func mining_speed(inventory: Dictionary) -> float:
 	return 1.0 + best_pick(inventory) * 0.8
