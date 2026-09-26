@@ -7,6 +7,12 @@ RUN mkdir -p assets/mobs/generated && \
     godot --headless --script scripts/tools/extract_mob_pngs.gd && \
     godot --headless --editor --quit
 
+# Parse-check the scripts changed by this update before integration tests.
+RUN godot --headless --check-only --script scripts/items.gd && \
+    godot --headless --check-only --script scripts/account_store.gd && \
+    godot --headless --check-only --script scripts/world.gd && \
+    godot --headless --check-only --script scripts/main.gd
+
 # Full integration test before export: accounts/save, mining/drop pickup,
 # finite boundaries and desert generation, then lake/Leviathan progression.
 RUN godot --headless --script tests/smoke.gd
