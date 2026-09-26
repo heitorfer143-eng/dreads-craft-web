@@ -24,22 +24,19 @@ static func _read() -> Dictionary:
 	return {"version":VERSION,"last_user":"","users":{}}
 
 static func _write(data:Dictionary) -> Error:
-	var tmp=PATH+".tmp"
-	var file=FileAccess.open(tmp,FileAccess.WRITE)
-	if file==null:
-		return FileAccess.get_open_error()
-	file.store_string(JSON.stringify(data))
-	file.flush()
-	file.close()
 	var abs_path=ProjectSettings.globalize_path(PATH)
-	var abs_tmp=ProjectSettings.globalize_path(tmp)
 	var abs_bak=ProjectSettings.globalize_path(BACKUP_PATH)
 	if FileAccess.file_exists(PATH):
 		if FileAccess.file_exists(BACKUP_PATH):
 			DirAccess.remove_absolute(abs_bak)
 		DirAccess.copy_absolute(abs_path,abs_bak)
-		DirAccess.remove_absolute(abs_path)
-	return DirAccess.rename_absolute(abs_tmp,abs_path)
+	var file=FileAccess.open(PATH,FileAccess.WRITE)
+	if file==null:
+		return FileAccess.get_open_error()
+	file.store_string(JSON.stringify(data))
+	file.flush()
+	file.close()
+	return OK
 
 static func _hash_password(password:String,salt:String) -> String:
 	var digest=(salt+":"+password).to_utf8_buffer()
