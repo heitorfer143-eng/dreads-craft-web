@@ -6,6 +6,9 @@ var camera: Camera2D
 var clock=0.32
 var world_bg=preload("res://assets/backgrounds/dark_castles_generated.png")
 
+func _ready() -> void:
+	texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+
 func _process(_delta:float) -> void:
 	queue_redraw()
 

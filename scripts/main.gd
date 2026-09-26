@@ -3247,6 +3247,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				mining_held=true
 		elif event.button_index==MOUSE_BUTTON_RIGHT:
+			if interact_clicked_structure(get_global_mouse_position()):
+				get_viewport().set_input_as_handled()
+				return
 			update_target()
 			use_selected()
 		elif event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
@@ -4099,6 +4102,25 @@ func find_near_structure():
 				nearest=building
 	return nearest
 
+func structure_at_world_point(world_point:Vector2):
+	if not is_instance_valid(structures) or in_purity or in_structure!="":
+		return null
+	for building in structures.get_children():
+		if building.has_method("contains_world_point") and building.contains_world_point(world_point):
+			return building
+	return null
+
+func interact_clicked_structure(world_point:Vector2) -> bool:
+	var building=structure_at_world_point(world_point)
+	if building==null:
+		return false
+	if building.door_position().distance_to(player.global_position)<=155.0:
+		building.interact()
+	else:
+		status.text="Aproxime-se da porta de "+str(building.display_name)+" para entrar."
+		message_time=2.5
+	return true
+
 func interact_near_npc() -> void:
 	var npc=find_near_npc()
 	if npc!=null:
@@ -4126,6 +4148,10 @@ func interact_nearby() -> bool:
 	if not in_purity and is_instance_valid(world) and world.is_near_lake_temple(player.position):
 		enter_lake_temple()
 		return true
+	var building=find_near_structure()
+	if building!=null:
+		building.interact()
+		return true
 	var near_mel=find_near_mel()
 	if near_mel!=null:
 		near_mel.interact()
@@ -4133,10 +4159,6 @@ func interact_nearby() -> bool:
 	var npc=find_near_npc()
 	if npc!=null:
 		npc.interact()
-		return true
-	var building=find_near_structure()
-	if building!=null:
-		building.interact()
 		return true
 	return false
 

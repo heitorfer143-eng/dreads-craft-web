@@ -66,6 +66,20 @@ func _ready() -> void:
 	velocity=Vector2(randf_range(-55.0,55.0),-150.0)
 	z_index=8
 
+func _attempt_pickup() -> bool:
+	var game=get_parent().get_parent() if get_parent()!=null and get_parent().get_parent()!=null else null
+	if networked and network_id!="":
+		if not pickup_requested and game!=null and game.has_method("request_online_drop_pickup"):
+			pickup_requested=true
+			pickup_request_time=1.0
+			velocity=Vector2.ZERO
+			game.request_online_drop_pickup(network_id)
+		return false
+	if game!=null and game.has_method("try_collect_ground_item") and game.try_collect_ground_item(item_id,count):
+		queue_free()
+		return true
+	return false
+
 func _physics_process(delta:float) -> void:
 	age+=delta
 	lifetime-=delta
@@ -77,20 +91,40 @@ func _physics_process(delta:float) -> void:
 		queue_free()
 		return
 
-	var distance=INF
+	if pickup_requested:
+		velocity=Vector2.ZERO
+		if is_instance_valid(sprite):
+			sprite.position.y=-12.0+sin(age*5.0)*2.0
+		return
+
+	var target=Vector2.ZERO
+	var to_target=Vector2.ZERO
+	var target_distance=INF
 	var attracting=false
 	if pickup_delay<=0 and is_instance_valid(player):
-		distance=global_position.distance_to(player.global_position)
-		attracting=distance<MAGNET_RADIUS
+		target=player.global_position+Vector2(0,-24)
+		to_target=target-global_position
+		target_distance=to_target.length()
+		if target_distance<=COLLECT_RADIUS:
+			velocity=Vector2.ZERO
+			if _attempt_pickup():
+				return
+			# Full inventory/local rejection: stay still briefly instead of orbiting.
+			pickup_delay=0.16
+		else:
+			attracting=target_distance<MAGNET_RADIUS
 
 	if attracting:
-		var target=player.global_position+Vector2(0,-24)
-		var to_player=target-global_position
-		var speed=clampf(260.0+to_player.length()*3.0,260.0,720.0)
-		velocity=velocity.lerp(to_player.normalized()*speed,minf(1.0,delta*8.5))
+		var desired_speed=clampf(260.0+target_distance*3.0,260.0,720.0)
+		# Cap travel to 88% of the remaining distance this frame, so the drop can
+		# never shoot past the pickup point and start circling the player.
+		var no_overshoot_speed=(target_distance*0.88)/maxf(delta,0.001)
+		var speed=minf(desired_speed,no_overshoot_speed)
+		velocity=to_target.normalized()*speed
 	else:
 		velocity.y=minf(700.0,velocity.y+900.0*delta)
 		velocity.x=move_toward(velocity.x,0.0,110.0*delta)
+
 	move_and_slide()
 	if not attracting and is_on_floor():
 		velocity.y=0.0
@@ -98,16 +132,11 @@ func _physics_process(delta:float) -> void:
 	if is_instance_valid(sprite):
 		sprite.position.y=-12.0+sin(age*5.0)*2.0
 
-	if pickup_delay<=0 and is_instance_valid(player) and distance<COLLECT_RADIUS:
-		var game=get_parent().get_parent() if get_parent()!=null and get_parent().get_parent()!=null else null
-		if networked and network_id!="":
-			if not pickup_requested and game!=null and game.has_method("request_online_drop_pickup"):
-				pickup_requested=true
-				pickup_request_time=1.0
-				game.request_online_drop_pickup(network_id)
-			return
-		if game!=null and game.has_method("try_collect_ground_item") and game.try_collect_ground_item(item_id,count):
-			queue_free()
+	if pickup_delay<=0 and is_instance_valid(player):
+		var post_target=player.global_position+Vector2(0,-24)
+		if global_position.distance_to(post_target)<=COLLECT_RADIUS:
+			velocity=Vector2.ZERO
+			_attempt_pickup()
 
 func serialize() -> Dictionary:
 	return {

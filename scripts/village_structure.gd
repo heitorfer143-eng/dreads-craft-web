@@ -7,6 +7,7 @@ var player: CharacterBody2D
 var game: Node2D
 var sprite: Sprite2D
 var quest_marker:=""
+var visual_size:=Vector2(300,220)
 
 func configure(p_kind:String,p_name:String,p_texture:String,p_player:CharacterBody2D,p_game:Node2D) -> void:
 	kind=p_kind
@@ -23,6 +24,7 @@ func _ready() -> void:
 	var tex_size=sprite.texture.get_size()
 	var factor=desired_width/maxf(1.0,tex_size.x)
 	sprite.scale=Vector2(factor,factor)
+	visual_size=tex_size*factor
 	# Generated PNGs contain transparent breathing room. Compensate only for the
 	# known bottom padding so the visible masonry actually touches the ground.
 	var bottom_pad=12.0 if kind=="blacksmith" else 4.0 if kind=="chapel" else 0.0
@@ -45,6 +47,12 @@ func door_position() -> Vector2:
 
 func is_near() -> bool:
 	return is_instance_valid(player) and door_position().distance_to(player.global_position)<120.0
+
+func contains_world_point(point:Vector2) -> bool:
+	if not is_instance_valid(sprite):
+		return false
+	var top_left=global_position+sprite.position-visual_size*0.5
+	return Rect2(top_left,visual_size).grow(10.0).has_point(point)
 
 func interact() -> void:
 	if is_instance_valid(game):

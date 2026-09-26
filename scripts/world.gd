@@ -43,11 +43,11 @@ const DECOR_INDEX = {
 	"stump":20, "hay_pile":21, "hay_bale":22, "white_flower":23, "tall_grass":24
 }
 const DECOR_ROLE_SCALE = {
-	"tree":1.12,"pine":1.10,"shrub":0.74,"flowers":0.66,"fence":0.82,
-	"lampadao":0.92,"poste":0.88,"banner_red":0.88,"sign":0.78,"bench":0.96,
-	"well":1.02,"crates":0.78,"barrels":0.74,"vase":0.62,"plants":0.68,
-	"ivy":0.76,"lantern":0.72,"notice":0.82,"small_crate":0.60,"log":0.78,
-	"stump":0.70,"hay_pile":0.80,"hay_bale":0.82,"white_flower":0.62,"tall_grass":0.68
+	"tree":1.90,"pine":1.82,"shrub":0.86,"flowers":0.74,"fence":0.92,
+	"lampadao":1.05,"poste":1.02,"banner_red":1.00,"sign":0.96,"bench":1.16,
+	"well":1.22,"crates":0.94,"barrels":0.90,"vase":0.72,"plants":0.78,
+	"ivy":0.86,"lantern":0.82,"notice":0.96,"small_crate":0.72,"log":0.94,
+	"stump":0.86,"hay_pile":0.94,"hay_bale":0.98,"white_flower":0.70,"tall_grass":0.80
 }
 const LAKE_TEMPLE_SIZE = Vector2(420,220)
 const LAKE_TEMPLE_DOOR_SIZE = Vector2(96,132)
@@ -300,16 +300,16 @@ func configure_lake(seed_value:int) -> void:
 	lake_center_x=int((lake_start_x+lake_end_x)/2)
 	var left_bank=_natural_surface_height(lake_start_x-1,noise)
 	var right_bank=_natural_surface_height(lake_end_x+1,noise)
-	lake_water_y=clampi(maxi(left_bank,right_bank)+1,26,56)
+	lake_water_y=clampi(maxi(left_bank,right_bank)+3,28,58)
 	lake_generated=true
 
 func restore_lake_layout(center:int,width:int,depth:int) -> void:
 	if purity_realm:
 		return
-	lake_width=clampi(width,20,28)
-	lake_depth=clampi(depth,7,11)
+	lake_width=clampi(width,44,52)
+	lake_depth=clampi(depth,14,18)
 	lake_center_x=clampi(center,LAKE_MIN_CENTER_X,LAKE_MAX_CENTER_X)
-	lake_start_x=clampi(lake_center_x-int(lake_width/2),108,164-lake_width)
+	lake_start_x=clampi(lake_center_x-int(lake_width/2),100,174-lake_width)
 	lake_end_x=lake_start_x+lake_width
 	lake_center_x=int((lake_start_x+lake_end_x)/2)
 	lake_generated=true
@@ -324,7 +324,7 @@ func _anchor_lake_to_banks() -> void:
 	var right_bank=int(surfaces[right_x])
 	# Larger Y means lower terrain. One tile below the lower bank guarantees
 	# the water never renders above either shore.
-	lake_water_y=clampi(maxi(left_bank,right_bank)+1,26,56)
+	lake_water_y=clampi(maxi(left_bank,right_bank)+3,28,58)
 
 func lake_floor_depth(x:int) -> int:
 	if not is_lake_zone(x):
@@ -892,13 +892,20 @@ func draw_lake(left:int,right:int) -> void:
 		var depth=maxf(0.0,floor_y-water_top)
 		if depth<=0:
 			continue
-		draw_rect(Rect2(px,water_top,TILE,depth),Color("102d49d8"))
-		draw_rect(Rect2(px,water_top,TILE,5),Color("6fa9cadd"))
-		var wave_y=water_top+7.0+sin(time*2.1+float(x)*0.8)*2.0
-		draw_line(Vector2(px+3,wave_y),Vector2(px+TILE-4,wave_y),Color("8ec4dd77"),2)
-		# Sparse vertical light bands make the enlarged lake read as deep water.
-		if (x-lake_start_x)%6==0:
-			draw_rect(Rect2(px+11,water_top+18,8,maxf(0.0,depth-26)),Color("3e8aa00c"))
+		# Transparent water lets the real night sky/backdrop stay visible instead
+		# of turning the entire lake valley into a flat blue rectangle.
+		draw_rect(Rect2(px,water_top,TILE,depth),Color("123b586b"))
+		draw_rect(Rect2(px,water_top,TILE,6),Color("70c8e6d8"))
+		draw_rect(Rect2(px,water_top+6,TILE,minf(24.0,maxf(0.0,depth-6))),Color("3b8ca04a"))
+		var wave_y=water_top+8.0+sin(time*2.2+float(x)*0.72)*2.0
+		draw_line(Vector2(px+2,wave_y),Vector2(px+TILE-3,wave_y),Color("b7ecff99"),2)
+		# Gentle horizontal caustics instead of the old vertical blue bars.
+		if depth>54.0 and (x-lake_start_x)%3==0:
+			var caustic_y=water_top+38.0+fmod(float((x-lake_start_x)*19),maxf(20.0,depth-44.0))
+			draw_line(Vector2(px+6,caustic_y),Vector2(px+24,caustic_y+sin(time*1.7+x)*2.0),Color("62bdd34a"),1.5)
+		if depth>90.0 and (x+world_seed)%7==0:
+			var bubble_y=water_top+36.0+fmod(time*18.0+float((x*23)%70),maxf(28.0,depth-42.0))
+			draw_circle(Vector2(px+16,bubble_y),2.0,Color("b8ebf36a"))
 	for x in [lake_start_x+4,lake_start_x+10,lake_end_x-10,lake_end_x-4]:
 		if x>=visible_left and x<visible_right:
 			var px=float(x*TILE+16)

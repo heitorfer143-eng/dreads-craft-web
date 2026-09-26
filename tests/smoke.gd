@@ -68,6 +68,8 @@ func run() -> void:
 	check(ResourceLoader.exists("res://assets/decor/decor_atlas.png"),"Decoration atlas from supplied art exists")
 	check(load("res://assets/decor/decor_atlas.png")!=null,"Decoration atlas imports correctly")
 	check(scene.world.has_method("_draw_decor_sprite"),"World decorations render from sprite atlas")
+	check(scene.world.decor_scale_for("tree")>=1.8,"Large tree decoration uses multi-tile visual scale")
+	check(scene.world.decor_scale_for("bench")>scene.world.decor_scale_for("sign"),"Bench stays larger than sign")
 	var desert_x=scene.world.desert_center_cell()
 	check(scene.world.biome_at(desert_x)=="desert","Generated world contains a real desert region")
 	check(scene.world.get_cell(Vector2i(desert_x,scene.world.surfaces[desert_x]))==29,"Desert surface is sand")
@@ -82,6 +84,7 @@ func run() -> void:
 	check(scene.world.is_lake_zone(lake_center_a),"Seeded lake center is inside lake")
 	check(scene.world.lake_depth>=14 and scene.world.lake_depth<=18,"Seeded lake depth range")
 	check(scene.world.lake_width>=44 and scene.world.lake_width<=52,"Seeded lake width range")
+	check(scene.world.lake_water_y>=28,"Lake surface stays below the banks so sky remains visible")
 	check(scene.quest_states.size()>=6,"Six quest states exist")
 	check(scene.find_npc_by_role("ferreiro")!=null,"Borin quest giver always spawns")
 	var smoke_monk=scene.find_npc_by_role("monge")
@@ -115,6 +118,19 @@ func run() -> void:
 	check(load("res://assets/interiors/blacksmith.png")!=null,"Blacksmith PNG imports correctly")
 	check(load("res://assets/interiors/market.png")!=null,"Market PNG imports correctly")
 	check(load("res://assets/interiors/chapel.png")!=null,"Chapel PNG imports correctly")
+	for expected_kind in ["blacksmith","market","chapel"]:
+		var expected_building=null
+		for smoke_building in scene.structures.get_children():
+			if str(smoke_building.kind)==expected_kind:
+				expected_building=smoke_building
+				break
+		check(expected_building!=null,"Village structure exists: "+expected_kind)
+		scene.player.position=expected_building.door_position()
+		scene.player.velocity=Vector2.ZERO
+		check(scene.interact_nearby(),"Door interaction works: "+expected_kind)
+		check(scene.in_structure==expected_kind,"Correct building interior opens instead of another shop: "+expected_kind)
+		scene.exit_structure()
+		await physics_frame
 	var interior_class=load("res://scripts/interior.gd")
 	for interior_kind in ["blacksmith","market","chapel"]:
 		var room=interior_class.new()
@@ -179,6 +195,23 @@ func run() -> void:
 	check(items.craft(inventory,items.RECIPES[1],false,false),"Manual table")
 	check(inventory.get(9)==1,"Crafted table")
 	check(not items.craft(inventory,items.RECIPES[2],false,false),"Equipment needs table")
+	var drop_class=load("res://scripts/dropped_item.gd")
+	var magnet_probe=drop_class.new()
+	magnet_probe.setup(3,1,scene.player)
+	magnet_probe.pickup_delay=0.0
+	magnet_probe.position=scene.player.position+Vector2(120,-24)
+	scene.drops.add_child(magnet_probe)
+	await physics_frame
+	var first_distance=magnet_probe.global_position.distance_to(scene.player.global_position+Vector2(0,-24))
+	for magnet_frame in 8:
+		if not is_instance_valid(magnet_probe):
+			break
+		await physics_frame
+	if is_instance_valid(magnet_probe):
+		var later_distance=magnet_probe.global_position.distance_to(scene.player.global_position+Vector2(0,-24))
+		check(later_distance<first_distance,"Pickup magnet approaches player without orbiting away")
+		magnet_probe.queue_free()
+		await process_frame
 	var stone_before=int(scene.player.inventory.get(3,0))
 	var drop_count_before=scene.drops.get_child_count()
 	scene.spawn_ground_drop(3,2,scene.player.position+Vector2(76,-8))
