@@ -17,6 +17,16 @@ func run() -> void:
 	await process_frame
 	var accounts=load("res://scripts/account_store.gd")
 	var saves=load("res://scripts/save_game.gd")
+	check(scene.login_user.editable and scene.login_password.editable,"Login fields are editable")
+	check(scene.login_user.focus_mode==Control.FOCUS_ALL and scene.login_password.focus_mode==Control.FOCUS_ALL,"Login fields accept keyboard focus")
+	check(scene.login_root.z_index>=1000,"Login stays above gameplay/touch overlays")
+	var ui_user="ui_"+str(Time.get_ticks_usec())
+	scene.login_user.text=ui_user
+	scene.login_password.text="UiPass987!"
+	scene.attempt_create_account()
+	check(scene.current_account==ui_user,"Create-account UI path works")
+	scene.logout_account()
+	await process_frame
 	var smoke_user="smoke_"+str(Time.get_ticks_usec())
 	var smoke_password="TestPass987!"
 	var created=accounts.create_account(smoke_user,smoke_password)
@@ -119,6 +129,15 @@ func run() -> void:
 	check(items.drop_for_block(7,{13:1})==0 and items.drop_for_block(7,{17:1})==7,"Iron needs stone-tier pickaxe")
 	check(items.drop_for_block(14,{17:1})==0 and items.drop_for_block(14,{18:1})==14,"Diamond needs iron-tier pickaxe")
 	check(items.drop_for_block(15,{18:1})==0 and items.drop_for_block(15,{19:1})==15,"Avarita needs diamond-tier pickaxe")
+	check(items.is_armor(32) and items.armor_slot(32)=="head","Avarita helmet is armor")
+	check(absf(items.armor_reduction({"head":32,"chest":33,"legs":34,"feet":35})-0.42)<0.001,"Full Avarita set grants 42 percent defense")
+	check(ResourceLoader.exists("res://assets/armor/avarita_helmet.png") and ResourceLoader.exists("res://assets/armor/avarita_chest.png"),"Avarita armor PNG assets exist")
+	scene.player.inventory[32]=1
+	check(scene.equip_armor_item(32),"Avarita helmet equips from inventory")
+	check(int(scene.armor_equipment.get("head",0))==32 and not scene.player.inventory.has(32),"Equipped armor leaves inventory")
+	check(scene.player.armor_reduction>0.06,"Equipped armor reduces damage")
+	check(scene.unequip_armor_slot("head"),"Avarita helmet can be unequipped")
+	check(int(scene.player.inventory.get(32,0))==1,"Unequipped armor returns to inventory")
 	var inventory={4:1}
 	check(items.craft(inventory,items.RECIPES[0],false,false),"Manual planks")
 	check(items.craft(inventory,items.RECIPES[1],false,false),"Manual table")
@@ -221,6 +240,8 @@ func run() -> void:
 	# Save/account roundtrip preserves inventory and modified blocks.
 	var saved_x=scene.player.position.x
 	scene.player.inventory[29]=7
+	scene.player.inventory[32]=1
+	check(scene.equip_armor_item(32),"Equip armor before save")
 	var modified_cell=Vector2i(scene.world.desert_center_cell(),scene.world.surfaces[scene.world.desert_center_cell()]-2)
 	scene.world.set_cell(modified_cell,31)
 	check(scene.save_world(),"Save write")
@@ -231,6 +252,7 @@ func run() -> void:
 	scene.load_world()
 	check(absf(scene.player.position.x-saved_x)<1,"Save position roundtrip")
 	check(int(scene.player.inventory.get(29,0))==7,"Inventory survives logout/login")
+	check(int(scene.armor_equipment.get("head",0))==32 and scene.player.armor_reduction>0.06,"Armor equipment survives save reload")
 	check(scene.world.get_cell(modified_cell)==31,"Modified world survives reload")
 	var world_min_x=scene.player.world_min_x
 	var world_max_x=scene.player.world_max_x

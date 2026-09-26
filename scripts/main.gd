@@ -140,6 +140,7 @@ var compass_frame:Panel
 var compass_label:Label
 var history_local_join_recorded:=false
 var chest_inventories:Dictionary={}
+var armor_equipment:Dictionary={"head":0,"chest":0,"legs":0,"feet":0}
 var login_root:Control
 var login_user:LineEdit
 var login_password:LineEdit
@@ -864,20 +865,42 @@ func animate_lobby(delta: float) -> void:
 			menu_tip_label.text="✦  "+LOBBY_TIPS[menu_tip_index]
 
 
+func configure_login_field(field:LineEdit) -> void:
+	field.editable=true
+	field.focus_mode=Control.FOCUS_ALL
+	field.mouse_filter=Control.MOUSE_FILTER_STOP
+	field.virtual_keyboard_enabled=true
+	field.caret_blink=true
+	field.selecting_enabled=true
+	field.gui_input.connect(func(event):
+		if (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_LEFT):
+			field.grab_focus()
+	)
+
 func show_login() -> void:
 	active=false
 	modal=true
+	pause_kind="login"
 	if is_instance_valid(login_root):
 		login_root.queue_free()
 	login_root=Control.new()
+	login_root.name="LoginRoot"
 	login_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	login_root.mouse_filter=Control.MOUSE_FILTER_PASS
+	login_root.process_mode=Node.PROCESS_MODE_ALWAYS
+	login_root.z_index=2000
 	ui.add_child(login_root)
 	if is_instance_valid(lobby_root):
 		lobby_root.hide()
 	if is_instance_valid(menu_background):
 		menu_background.hide()
+	if is_instance_valid(menu):
+		menu.hide()
+	if is_instance_valid(hud):
+		hud.hide()
 	var background=TextureRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	background.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	if ResourceLoader.exists("res://assets/backgrounds/dreads_craft_cover.jpg"):
 		background.texture=load("res://assets/backgrounds/dreads_craft_cover.jpg")
 	background.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
@@ -887,56 +910,85 @@ func show_login() -> void:
 	var shade=ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.color=Color("08050dcc")
+	shade.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	login_root.add_child(shade)
 	var center=CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter=Control.MOUSE_FILTER_PASS
 	login_root.add_child(center)
+	var viewport=get_viewport_rect().size
+	var compact=viewport.y<620.0 or viewport.x<620.0
 	var card=PanelContainer.new()
-	card.custom_minimum_size=Vector2(460,500)
+	card.name="LoginCard"
+	card.custom_minimum_size=Vector2(clampf(viewport.x-24.0,300.0,460.0),clampf(viewport.y-20.0,320.0,500.0))
+	card.mouse_filter=Control.MOUSE_FILTER_PASS
 	card.add_theme_stylebox_override("panel",compact_panel_style(0.96,Color("9c6c48"),12))
 	center.add_child(card)
+	var scroll=ScrollContainer.new()
+	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+	scroll.follow_focus=true
+	card.add_child(scroll)
+	var margin=MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",22 if not compact else 14)
+	margin.add_theme_constant_override("margin_right",22 if not compact else 14)
+	margin.add_theme_constant_override("margin_top",18 if not compact else 10)
+	margin.add_theme_constant_override("margin_bottom",18 if not compact else 10)
+	margin.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	scroll.add_child(margin)
 	var box=VBoxContainer.new()
-	box.add_theme_constant_override("separation",12)
-	card.add_child(box)
-	var title=label("DREADS CRAFT",38)
+	box.name="LoginFields"
+	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation",7 if compact else 12)
+	margin.add_child(box)
+	var title=label("DREADS CRAFT",28 if compact else 38)
 	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color",Color("f1d7ad"))
 	box.add_child(title)
-	var sub=label("CONTA LOCAL · SEU REINO, SEU PROGRESSO",11)
+	var sub=label("CONTA LOCAL · SEU REINO, SEU PROGRESSO",10 if compact else 11)
 	sub.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_color_override("font_color",Color("bca9c4"))
 	box.add_child(sub)
-	box.add_child(label("Usuário",13))
+	box.add_child(label("Usuário",12 if compact else 13))
 	login_user=LineEdit.new()
+	login_user.name="LoginUsername"
 	login_user.placeholder_text="Digite seu usuário"
 	login_user.max_length=20
 	login_user.text=Accounts.last_user()
-	login_user.custom_minimum_size=Vector2(0,46)
+	login_user.custom_minimum_size=Vector2(0,40 if compact else 46)
+	configure_login_field(login_user)
 	box.add_child(login_user)
-	box.add_child(label("Senha",13))
+	box.add_child(label("Senha",12 if compact else 13))
 	login_password=LineEdit.new()
+	login_password.name="LoginPassword"
 	login_password.placeholder_text="Digite sua senha"
 	login_password.secret=true
 	login_password.max_length=72
-	login_password.custom_minimum_size=Vector2(0,46)
+	login_password.custom_minimum_size=Vector2(0,40 if compact else 46)
+	configure_login_field(login_password)
 	login_password.text_submitted.connect(func(_value): attempt_login())
 	box.add_child(login_password)
-	login_feedback=label("",12)
+	login_feedback=label("",11 if compact else 12)
+	login_feedback.name="LoginFeedback"
+	login_feedback.custom_minimum_size=Vector2(0,24)
 	login_feedback.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	login_feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	login_feedback.add_theme_color_override("font_color",Color("e5b9a8"))
 	box.add_child(login_feedback)
 	var enter=button("ENTRAR",attempt_login)
-	enter.custom_minimum_size=Vector2(0,54)
+	enter.name="LoginEnter"
+	enter.custom_minimum_size=Vector2(0,46 if compact else 54)
 	box.add_child(enter)
 	var create=button("CRIAR CONTA",attempt_create_account)
-	create.custom_minimum_size=Vector2(0,48)
+	create.name="LoginCreate"
+	create.custom_minimum_size=Vector2(0,42 if compact else 48)
 	box.add_child(create)
-	var note=label("Conta local deste dispositivo. A senha nunca é salva em texto puro.",10)
+	var note=label("Conta local deste dispositivo. A senha nunca é salva em texto puro.",9 if compact else 10)
 	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_color_override("font_color",Color("9f92a6"))
 	box.add_child(note)
+	login_user.call_deferred("grab_focus")
 
 func attempt_login() -> void:
 	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
@@ -1845,6 +1897,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	snow_announced=false
 	desert_announced=false
 	chest_inventories.clear()
+	armor_equipment={"head":0,"chest":0,"legs":0,"feet":0}
 	reset_quest_progress()
 	if is_instance_valid(boss_panel):
 		boss_panel.hide()
@@ -1861,6 +1914,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	player.position=player.spawn_position
 	add_child(player)
 	player.set_form(current_form)
+	apply_armor_equipment()
 	player.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
 	player.died.connect(on_player_died)
 	if creative:
@@ -2476,6 +2530,50 @@ func show_chest(cell:Vector2i) -> void:
 		menu_box.add_child(row)
 	menu_box.add_child(button("FECHAR",resume))
 
+func armor_slot_title(slot:String) -> String:
+	return str({"head":"CABEÇA","chest":"PEITORAL","legs":"PERNAS","feet":"PÉS"}.get(slot,slot.to_upper()))
+
+func apply_armor_equipment() -> void:
+	if is_instance_valid(player):
+		player.set_armor_equipment(armor_equipment)
+
+func equip_armor_item(id:int) -> bool:
+	if not Items.is_armor(id) or not is_instance_valid(player):
+		return false
+	var slot=Items.armor_slot(id)
+	if slot=="":
+		return false
+	if not player.creative and int(player.inventory.get(id,0))<=0:
+		return false
+	var old_id=int(armor_equipment.get(slot,0))
+	if old_id==id:
+		return true
+	if old_id>0 and not player.creative:
+		player.inventory[old_id]=int(player.inventory.get(old_id,0))+1
+	if not player.creative:
+		player.inventory[id]=int(player.inventory.get(id,0))-1
+		if int(player.inventory.get(id,0))<=0:
+			player.inventory.erase(id)
+	armor_equipment[slot]=id
+	apply_armor_equipment()
+	status.text="%s equipado · defesa total %d%%" % [Items.NAMES.get(id,"Armadura"),int(round(Items.armor_reduction(armor_equipment)*100.0))]
+	message_time=2.5
+	refresh_hud()
+	return true
+
+func unequip_armor_slot(slot:String) -> bool:
+	var old_id=int(armor_equipment.get(slot,0))
+	if old_id<=0 or not is_instance_valid(player):
+		return false
+	if not player.creative:
+		player.inventory[old_id]=int(player.inventory.get(old_id,0))+1
+	armor_equipment[slot]=0
+	apply_armor_equipment()
+	status.text="%s removido" % Items.NAMES.get(old_id,"Armadura")
+	message_time=2.0
+	refresh_hud()
+	return true
+
 func show_inventory() -> void:
 	if not active:
 		return
@@ -2483,6 +2581,32 @@ func show_inventory() -> void:
 	var subtitle=label("Itens coletados · Q também dropa 1 item no PC",14)
 	subtitle.add_theme_color_override("font_color",Color("b8a5c5"))
 	menu_box.add_child(subtitle)
+	var armor_panel=PanelContainer.new()
+	armor_panel.add_theme_stylebox_override("panel",compact_panel_style(0.72,Color("4e8aa0"),8))
+	menu_box.add_child(armor_panel)
+	var armor_box=VBoxContainer.new()
+	armor_box.add_theme_constant_override("separation",6)
+	armor_panel.add_child(armor_box)
+	var defense=label("ARMADURA DE AVARITA · DEFESA TOTAL %d%%" % int(round(Items.armor_reduction(armor_equipment)*100.0)),13)
+	defense.add_theme_color_override("font_color",Color("83e7ff"))
+	armor_box.add_child(defense)
+	var armor_row=HBoxContainer.new()
+	armor_row.add_theme_constant_override("separation",6)
+	armor_box.add_child(armor_row)
+	for slot in ["head","chest","legs","feet"]:
+		var equipped_id=int(armor_equipment.get(slot,0))
+		var slot_text=armor_slot_title(slot)+"\n"+(Items.NAMES.get(equipped_id,"Vazio") if equipped_id>0 else "Vazio")
+		var slot_button=button(slot_text,func(s=slot): 
+			if int(armor_equipment.get(s,0))>0:
+				unequip_armor_slot(s)
+				show_inventory()
+		)
+		slot_button.custom_minimum_size=Vector2(150,62)
+		slot_button.add_theme_font_size_override("font_size",10)
+		if equipped_id>0:
+			slot_button.icon=item_display_texture(equipped_id)
+			slot_button.expand_icon=true
+		armor_row.add_child(slot_button)
 	for id in Items.NAMES:
 		if id==1 or (not player.creative and player.inventory.get(id,0)<=0):
 			continue
@@ -2493,6 +2617,10 @@ func show_inventory() -> void:
 
 		var amount="LIVRE" if player.creative else str(player.inventory.get(id,0))
 		var row=button("%s    %s" % [Items.NAMES[id],amount],func():
+			if Items.is_armor(id):
+				if equip_armor_item(id):
+					show_inventory()
+				return
 			selected=id
 			if not hotbar.has(id):
 				var empty_slot=hotbar.find(0)
@@ -2506,13 +2634,21 @@ func show_inventory() -> void:
 			row.alignment=HORIZONTAL_ALIGNMENT_LEFT
 		line.add_child(row)
 
-		var drop_button=button("DROPAR 1",func():
-			selected=id
-			drop_selected_item(1)
-			show_inventory()
-		)
+		var drop_button:Button
+		if Items.is_armor(id):
+			drop_button=button("EQUIPAR",func():
+				if equip_armor_item(id):
+					show_inventory()
+			)
+			drop_button.disabled=(not player.creative and int(player.inventory.get(id,0))<=0)
+		else:
+			drop_button=button("DROPAR 1",func():
+				selected=id
+				drop_selected_item(1)
+				show_inventory()
+			)
+			drop_button.disabled=player.creative or int(player.inventory.get(id,0))<=0 or in_purity
 		drop_button.custom_minimum_size=Vector2(126,54)
-		drop_button.disabled=player.creative or int(player.inventory.get(id,0))<=0 or in_purity
 		line.add_child(drop_button)
 	menu_box.add_child(button("FECHAR",resume))
 
@@ -2659,6 +2795,7 @@ func show_craft() -> void:
 	sidebar.add_child(craft_category_button("▦  TODOS","all"))
 	sidebar.add_child(craft_category_button("⛏  FERRAMENTAS","tools"))
 	sidebar.add_child(craft_category_button("⚔  ARMAS","weapons"))
+	sidebar.add_child(craft_category_button("🛡  ARMADURAS","armor"))
 	sidebar.add_child(craft_category_button("◆  BLOCOS","blocks"))
 	sidebar.add_child(craft_category_button("✦  DECORAÇÃO","decoration"))
 	sidebar.add_child(craft_category_button("✧  ITENS ESPECIAIS","special"))
@@ -4068,7 +4205,7 @@ func save_world() -> bool:
 		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":10,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"chests":serialize_chests()}
+	var data={"version":11,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"armor_equipment":armor_equipment.duplicate(true),"chests":serialize_chests()}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -4116,6 +4253,14 @@ func load_world() -> void:
 	player.inventory.clear()
 	for id in data.inventory:
 		player.inventory[int(id)]=int(data.inventory[id])
+	armor_equipment={"head":0,"chest":0,"legs":0,"feet":0}
+	var loaded_armor=data.get("armor_equipment",{})
+	if loaded_armor is Dictionary:
+		for slot in ["head","chest","legs","feet"]:
+			var armor_id=int(loaded_armor.get(slot,0))
+			if armor_id==0 or (Items.is_armor(armor_id) and Items.armor_slot(armor_id)==slot):
+				armor_equipment[slot]=armor_id
+	apply_armor_equipment()
 	clock=float(data.clock)
 	day=int(data.day)
 	difficulty=int(data.difficulty)
@@ -4270,6 +4415,9 @@ func use_selected() -> void:
 		return
 	if selected==24:
 		use_waystone()
+		return
+	if Items.is_armor(selected):
+		equip_armor_item(selected)
 		return
 	if selected in PLACEABLE_BLOCKS:
 		if is_instance_valid(device_controls) and device_controls.mobile:

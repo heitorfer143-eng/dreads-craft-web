@@ -3,7 +3,7 @@ extends RefCounted
 const PATH = "user://dreads_world.json"
 const INDEX_PATH = "user://dreads_worlds.json"
 const WORLDS_DIR = "user://worlds"
-const SAVE_VERSION = 10
+const SAVE_VERSION = 11
 const VALID_BLOCK_IDS = [0,1,2,3,4,5,6,7,8,9,14,15,16,25,28,29,30,31]
 const MIN_WORLD_WIDTH = 320
 const MAX_WORLD_WIDTH = 8192
