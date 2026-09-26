@@ -258,7 +258,10 @@ func run() -> void:
 	boundary_mob.kind="dark_slime"
 	boundary_mob.player=scene.player
 	boundary_mob.set_world_bounds(world_min_x,world_max_x,world_min_y,world_max_y)
-	boundary_mob.position=Vector2(world_max_x-17,scene.world.surfaces[scene.world.world_width()-2]*32-2)
+	var boundary_ground_y=scene.world.surfaces[scene.world.world_width()-2]*32-2
+	scene.player.position=Vector2(world_max_x-180,boundary_ground_y)
+	scene.player.velocity=Vector2.ZERO
+	boundary_mob.position=Vector2(world_max_x-17,boundary_ground_y)
 	boundary_mob.knockback=Vector2(1200,0)
 	scene.enemies.add_child(boundary_mob)
 	await physics_frame
