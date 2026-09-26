@@ -74,6 +74,8 @@ func run() -> void:
 	await process_frame
 	soul_projectile._process(0.08)
 	check(game.lake_boss.hp<boss_hp_before_orb,"Soul Orb damages Leviathan inside submerged arena")
+	var boss_hp_before_player_death=game.lake_boss.hp
+	var boss_instance_before_death=game.lake_boss.get_instance_id()
 	game.player.inventory[14]=2
 	game.player.inventory[3]=9
 	game.player.hurt_time=0.0
@@ -81,6 +83,11 @@ func run() -> void:
 	await process_frame
 	await process_frame
 	check(game.in_lake_temple,"Death does not eject player from Leviathan arena")
+	check(is_instance_valid(game.lake_boss),"Leviathan still exists after player death")
+	check(game.lake_boss.get_instance_id()==boss_instance_before_death,"Player death does not replace or destroy Leviathan")
+	check(absf(game.lake_boss.hp-boss_hp_before_player_death)<0.01,"Player death preserves Leviathan HP")
+	check(not game.lake_boss_defeated and not game.lake_reward_claimed,"Player death cannot mark Leviathan defeated")
+	check(int(game.player.inventory.get(27,0))==0,"No boss reward is granted on player death")
 	check(game.player.position.distance_to(game.lake_arena.spawn_position)<36.0,"Lake death respawns inside arena")
 	check(game.player.inventory.is_empty(),"Death removes carried inventory")
 	check(game.death_bags.get_child_count()==1,"Death creates one recoverable backpack")
@@ -103,6 +110,11 @@ func run() -> void:
 	check(game.player.hp==game.player.max_hp,"Leviathan victory fully heals player")
 	check(game.player.air==game.player.max_air and not game.player.submerged,"Victory clears drowning state")
 	check(int(game.player.inventory.get(27,0))==1,"Unique Abyssal Heart reward")
+	check(game.lake_reward_claimed,"Leviathan true death marks reward as claimed")
+	var diamond_after_reward=int(game.player.inventory.get(14,0))
+	var soul_after_reward=int(game.player.inventory.get(25,0))
+	game.on_lake_boss_defeated()
+	check(int(game.player.inventory.get(14,0))==diamond_after_reward and int(game.player.inventory.get(25,0))==soul_after_reward and int(game.player.inventory.get(27,0))==1,"Leviathan reward cannot duplicate")
 	check(bool(game.forms_unlocked.get("fox",false)),"Leviathan unlocks Fox form")
 	game.apply_form("fox")
 	check(game.current_form=="fox","Fox form can be selected after unlock")

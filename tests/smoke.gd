@@ -119,6 +119,9 @@ func run() -> void:
 	check(items.drop_for_block(7,{13:1})==0 and items.drop_for_block(7,{17:1})==7,"Iron needs stone-tier pickaxe")
 	check(items.drop_for_block(14,{17:1})==0 and items.drop_for_block(14,{18:1})==14,"Diamond needs iron-tier pickaxe")
 	check(items.drop_for_block(15,{18:1})==0 and items.drop_for_block(15,{19:1})==15,"Avarita needs diamond-tier pickaxe")
+	for armor_path in ["res://assets/armor/avarita_helmet.png","res://assets/armor/avarita_chest.png","res://assets/armor/avarita_legs.png","res://assets/armor/avarita_boots.png","res://assets/armor/avarita_full.png"]:
+		check(ResourceLoader.exists(armor_path) and load(armor_path)!=null,"Avarita armor art loads: "+armor_path)
+	check(items.is_armor(32) and items.armor_slot(35)=="feet","Avarita armor item metadata")
 	var inventory={4:1}
 	check(items.craft(inventory,items.RECIPES[0],false,false),"Manual planks")
 	check(items.craft(inventory,items.RECIPES[1],false,false),"Manual table")
@@ -132,6 +135,16 @@ func run() -> void:
 		await physics_frame
 	check(int(scene.player.inventory.get(3,0))==stone_before+2,"Nearby drop is collected into inventory")
 	check(scene.drops.get_child_count()==drop_count_before,"Drop disappears only after collection")
+	for armor_id in [32,33,34,35]:
+		scene.player.inventory[armor_id]=1
+		check(scene.equip_armor_item(armor_id),"Armor piece equips: "+str(armor_id))
+	check(absf(items.armor_reduction(scene.equipped_armor)-0.42)<0.001,"Full Avarita set gives 42 percent damage reduction")
+	scene.player.hp=100.0
+	scene.player.hurt_time=0.0
+	scene.player.take_damage(20.0)
+	check(absf(scene.player.hp-88.4)<0.05,"Equipped armor reduces incoming damage")
+	scene.player.hp=100.0
+	scene.player.hurt_time=0.0
 	# Player can settle onto native collision and turn independently from mouse.
 	var ground_x=72
 	scene.player.position=Vector2(ground_x*32+16,scene.world.surfaces[ground_x]*32-64)
@@ -219,16 +232,37 @@ func run() -> void:
 	check(absf(scene.player.position.x-saved_x)<1,"Save position roundtrip")
 	check(int(scene.player.inventory.get(29,0))==7,"Inventory survives logout/login")
 	check(scene.world.get_cell(modified_cell)==31,"Modified world survives reload")
-	scene.player.position.x=-200
+	check(int(scene.equipped_armor.get("head",0))==32 and int(scene.equipped_armor.get("chest",0))==33 and int(scene.equipped_armor.get("legs",0))==34 and int(scene.equipped_armor.get("feet",0))==35,"Equipped armor survives logout/login")
+	check(absf(scene.player.armor_reduction-0.42)<0.001,"Loaded armor restores defense")
+	scene.player.position=Vector2(-200,scene.player.position.y)
+	scene.player.velocity=Vector2(-900,0)
 	await physics_frame
-	check(scene.player.position.x>=12.0,"Player cannot cross left boundary")
-	scene.player.position.x=scene.world.world_width()*32+200
+	check(scene.player.position.x>=12.0 and scene.player.velocity.x>=0.0,"Player cannot cross left boundary with speed")
+	scene.player.position=Vector2(scene.world.world_width()*32+200,scene.player.position.y)
+	scene.player.velocity=Vector2(900,0)
 	await physics_frame
-	check(scene.player.position.x<=scene.world.world_width()*32-12.0,"Player cannot cross right boundary")
+	check(scene.player.position.x<=scene.world.world_width()*32-12.0 and scene.player.velocity.x<=0.0,"Player cannot cross right boundary with speed")
+	scene.player.position.y=-300
+	scene.player.velocity.y=-900
+	await physics_frame
+	check(scene.player.position.y>=44.0 and scene.player.velocity.y>=0.0,"Player cannot cross top boundary by jump/velocity")
+	scene.player.position.y=96*32+300
+	scene.player.velocity.y=1200
+	await physics_frame
+	check(scene.player.position.y<=96*32-4.0 and scene.player.velocity.y<=0.0,"Player cannot cross bottom boundary")
+	check(scene.player.camera.limit_left==0 and scene.player.camera.limit_right==scene.world.world_width()*32,"Camera respects horizontal finite world")
+	check(scene.player.camera.limit_top==0 and scene.player.camera.limit_bottom==96*32,"Camera respects vertical finite world")
+	var first_npc=scene.npcs.get_child(0)
+	first_npc.position=Vector2(-999,-999)
+	await process_frame
+	check(first_npc.position.x>=18.0 and first_npc.position.y>=first_npc.visual_height,"NPC respects world coordinates")
+	scene.mel.position=Vector2(scene.world.world_width()*32+999,96*32+999)
+	await physics_frame
+	check(scene.mel.position.x<=scene.world.world_width()*32-16.0 and scene.mel.position.y<=96*32-2.0,"Mel respects world coordinates")
 	var boundary_mob=load("res://scripts/mob.gd").new()
 	boundary_mob.kind="dark_slime"
 	boundary_mob.player=scene.player
-	boundary_mob.set_world_bounds(0.0,float(scene.world.world_width()*32))
+	boundary_mob.set_world_bounds(0.0,float(scene.world.world_width()*32),0.0,float(96*32))
 	boundary_mob.position=Vector2(scene.world.world_width()*32-17,scene.world.surfaces[scene.world.world_width()-2]*32-2)
 	boundary_mob.knockback=Vector2(1200,0)
 	scene.enemies.add_child(boundary_mob)
@@ -236,6 +270,32 @@ func run() -> void:
 	await physics_frame
 	check(boundary_mob.position.x<=scene.world.world_width()*32-16.0,"Enemy knockback cannot cross right boundary")
 	boundary_mob.queue_free()
+	check(scene.compass_arrow_for_delta(Vector2(9000,100))=="→","Compass points right for distant player")
+	check(scene.compass_arrow_for_delta(Vector2(-9000,100))=="←","Compass points left for distant player")
+	check(scene.compass_arrow_for_delta(Vector2(20,-9000))=="↑","Compass points up for distant player")
+	var remote_class=load("res://scripts/remote_player.gd")
+	var remote=remote_class.new()
+	remote.setup("Lucas",scene.player.position+Vector2(5000,0),1,"idle","world")
+	scene.add_child(remote)
+	scene.online.remote_players["smoke_remote"]=remote
+	scene.multiplayer_active=true
+	remote.target_position=scene.player.position+Vector2(5000,0)
+	scene.update_multiplayer_compass()
+	check(scene.compass_panel.visible and "→" in scene.compass_label.text,"Multiplayer compass renders remote direction")
+	remote.target_position=scene.player.position+Vector2(0,-5000)
+	scene.update_multiplayer_compass()
+	check("↑" in scene.compass_label.text,"Multiplayer compass updates in real time")
+	scene.multiplayer_active=false
+	scene.online.remote_players.erase("smoke_remote")
+	remote.queue_free()
+	var history=load("res://scripts/player_history.gd")
+	check(history.record(smoke_user,"join","TST01","Smoke World","Lucas","lucas-id")==OK,"History records player join")
+	check(history.record(smoke_user,"leave","TST01","Smoke World","Lucas","lucas-id")==OK,"History records player leave")
+	var history_entries=history.list_for(smoke_user)
+	var history_size=history_entries.size()
+	check(history_size>=2 and str(history_entries[history_size-2].get("event",""))=="join" and str(history_entries[history_size-1].get("event",""))=="leave","History keeps join/leave order")
+	var history_reloaded=load("res://scripts/player_history.gd").list_for(smoke_user)
+	check(history_reloaded.size()>=2,"Multiplayer history persists on disk")
 	scene.start_world(true,42019)
 	await physics_frame
 	Input.action_press("jump")
@@ -260,6 +320,10 @@ func run() -> void:
 	var test_boss=lake_boss_class.new()
 	check(test_boss.max_hp==1400,"Abyssal Leviathan has 1400 HP")
 	test_boss.free()
+	var avarita_count=0
+	for row in scene.world.cells:
+		avarita_count+=row.count(15)
+	check(avarita_count>=20,"Avarita generation provides a viable endgame amount")
 	var ores={6:0,7:0}
 	var paired=0
 	for y in range(1,95):
@@ -303,7 +367,7 @@ func run() -> void:
 	check(not controls.mobile,"PC controls")
 	await process_frame
 	check(scene.hp_bar.size.y<=12 and scene.food_bar.size.y<=12,"HUD meters respect dimensions")
-	print("PASS v10: ore counts ",ores,"; connected ratio ",float(paired)/(ores[6]+ores[7]),"; multitouch, pause reset, PC mode, HUD dimensions")
+	print("PASS v11: ore counts ",ores,"; avarita=",avarita_count,"; connected ratio ",float(paired)/(ores[6]+ores[7]),"; armor, compass, history, bounds and controls")
 	print("PASS: accounts, mining drops, pickup magnet, finite bounds, desert, saves, sprites and gameplay systems")
 	scene.queue_free()
 	await process_frame
