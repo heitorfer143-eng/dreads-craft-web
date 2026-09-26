@@ -4534,7 +4534,7 @@ func spawn_dungeon_enemy(dungeon:Dictionary,cell:Vector2i,kind:String,miniboss:b
 	mob.kind=kind
 	mob.player=player
 	mob.difficulty_level=maxi(1,difficulty)
-	mob.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
+	mob.set_world_bounds(0.0,float(world.world_width()*32),0.0,float(World.HEIGHT*32))
 	var dungeon_id=str(dungeon.get("id","dungeon"))
 	if miniboss:
 		mob.set_dungeon_miniboss(dungeon_id,"Guardião de "+DungeonSystem.dungeon_name(str(dungeon.get("kind","crypt"))))
@@ -4555,6 +4555,8 @@ func spawn_dungeon_enemy(dungeon:Dictionary,cell:Vector2i,kind:String,miniboss:b
 	enemies.add_child(mob)
 
 func update_dungeon_encounters(delta:float) -> void:
+	if multiplayer_active:
+		return
 	if in_purity or in_lake_temple or in_structure!="" or not is_instance_valid(world) or not is_instance_valid(player):
 		return
 	dungeon_timer+=delta
