@@ -51,6 +51,12 @@ jobs:
           godot --version
           godot --headless --script scripts/tools/extract_mob_pngs.gd
           godot --headless --editor --quit
+          godot --headless --check-only --script scripts/dungeon_system.gd
+          godot --headless --check-only --script scripts/world.gd
+          godot --headless --check-only --script scripts/main.gd
+          godot --headless --script tests/smoke.gd
+          godot --headless --script tests/lake_smoke.gd
+          godot --headless --script tests/dungeon_smoke.gd
           godot --headless --export-release "Android" build/android/DreadsCraft.apk
           test -f build/android/DreadsCraft.apk
           ls -lh build/android/DreadsCraft.apk
