@@ -169,9 +169,10 @@ func run() -> void:
 	Input.action_release("jump")
 	# Placement uses target cell and blocks overlap.
 	scene.selected=2
+	scene.player.inventory[2]=5
 	scene.target=Vector2i(15,33)
 	scene.world.set_cell(scene.target,0)
-	var count=scene.player.inventory[2]
+	var count=int(scene.player.inventory.get(2,0))
 	check(scene.place_block(),"Place empty target")
 	check(scene.world.get_cell(scene.target)==2,"Target changed")
 	check(scene.player.inventory[2]==count-1,"Placement consumed item")
