@@ -2,6 +2,8 @@ extends Node
 
 signal room_ready(room_code:String, seed:int, world_name:String, host:bool)
 signal failed(message:String)
+signal player_joined(player_id:String, player_name:String)
+signal player_left(player_id:String, player_name:String)
 
 const RemotePlayer=preload("res://scripts/remote_player.gd")
 
@@ -148,13 +150,18 @@ func _handle(data:Dictionary) -> void:
 		room_ready.emit(room_code,int(data.get("seed",0)),str(data.get("world_name","Reino Online")),host)
 		return
 	if type=="join":
-		_spawn_remote(data.get("player",{}))
+		var player_data:Dictionary=data.get("player",{})
+		_spawn_remote(player_data)
+		player_joined.emit(str(player_data.get("id","")),str(player_data.get("name","Jogador")))
 	elif type=="leave":
 		var id=str(data.get("id",""))
+		var player_name=str(data.get("name","Jogador"))
 		if remote_players.has(id):
 			if is_instance_valid(remote_players[id]):
+				player_name=str(remote_players[id].player_name)
 				remote_players[id].queue_free()
 			remote_players.erase(id)
+		player_left.emit(id,player_name)
 	elif type=="state":
 		var id=str(data.get("id",""))
 		if id==local_id:

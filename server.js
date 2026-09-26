@@ -8,7 +8,9 @@ const PORT = process.env.PORT || 8080;
 const ROOT = path.join(__dirname, "public");
 const rooms = new Map();
 const WORLD_WIDTH_CELLS = 640;
+const WORLD_HEIGHT_CELLS = 96;
 const WORLD_MAX_X = WORLD_WIDTH_CELLS * 32;
+const WORLD_MAX_Y = WORLD_HEIGHT_CELLS * 32;
 
 const mime = {
   ".html":"text/html; charset=utf-8", ".js":"application/javascript; charset=utf-8",
@@ -82,7 +84,7 @@ function leave(ws){
   const p=room.players.get(ws.pid);
   if(p){
     room.players.delete(ws.pid);
-    broadcast(room,{type:"leave",id:ws.pid});
+    broadcast(room,{type:"leave",id:ws.pid,name:p.name});
   }
   if(room.players.size===0) rooms.delete(ws.room);
   ws.room=null; ws.pid=null;
@@ -131,7 +133,7 @@ wss.on("connection",(ws)=>{
     if(msg.type==="state"){
       const x=Number(msg.x), y=Number(msg.y);
       if(!Number.isFinite(x)||!Number.isFinite(y)) return;
-      p.state={x:Math.max(12,Math.min(WORLD_MAX_X-12,x)),y,face:Number(msg.face)<0?-1:1,anim:String(msg.anim||"idle").slice(0,12),zone:String(msg.zone||"world").slice(0,24)};
+      p.state={x:Math.max(12,Math.min(WORLD_MAX_X-12,x)),y:Math.max(44,Math.min(WORLD_MAX_Y-4,y)),face:Number(msg.face)<0?-1:1,anim:String(msg.anim||"idle").slice(0,12),zone:String(msg.zone||"world").slice(0,24)};
       broadcast(room,{type:"state",id:p.id,name:p.name,...p.state},ws);
     } else if(msg.type==="block"){
       const x=Math.trunc(Number(msg.x)), y=Math.trunc(Number(msg.y)), block=Math.trunc(Number(msg.id));
