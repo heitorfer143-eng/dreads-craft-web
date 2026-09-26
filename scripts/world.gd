@@ -1,6 +1,7 @@
 extends Node2D
 
 const Items = preload("res://scripts/items.gd")
+const DungeonSystem = preload("res://scripts/dungeon_system.gd")
 const TILE = 32
 const WIDTH = 640
 const HEIGHT = 96
@@ -52,6 +53,12 @@ const DECOR_ROLE_SCALE = {
 const LAKE_TEMPLE_SIZE = Vector2(420,220)
 const LAKE_TEMPLE_DOOR_SIZE = Vector2(96,132)
 var purity_realm := false
+var dungeons:Array=[]
+var dungeon_chests:Array=[]
+var dungeon_secret_cells:Dictionary={}
+var chest_visual_tiers:Dictionary={}
+var chest_open_targets:Dictionary={}
+var chest_open_amount:Dictionary={}
 
 func _ready() -> void:
 	texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
@@ -159,6 +166,7 @@ func generate(seed_value: int) -> void:
 			for y in range(bottom-3,bottom+1):
 				cells[y][x]=0
 	generate_structures()
+	generate_dungeons()
 	generate_ores()
 	rebuild_collision()
 	queue_redraw()
@@ -190,6 +198,222 @@ func generate_structures() -> void:
 				for y in range(maxi(0,ground-8),ground):
 					if cells[y][x] in [3,4,5,8,9]:
 						cells[y][x]=0
+
+
+func _cell_key(cell:Vector2i) -> String:
+	return "%d,%d" % [cell.x,cell.y]
+
+func _safe_set(cell:Vector2i,id:int) -> void:
+	if cell.x<1 or cell.x>=WIDTH-1 or cell.y<1 or cell.y>=HEIGHT-1:
+		return
+	cells[cell.y][cell.x]=id
+
+func _carve_room(rect:Rect2i,wall_id:int=3,floor_id:int=3) -> void:
+	for y in range(rect.position.y,rect.end.y):
+		for x in range(rect.position.x,rect.end.x):
+			if x<=1 or x>=WIDTH-1 or y<=1 or y>=HEIGHT-1:
+				continue
+			var border=x==rect.position.x or x==rect.end.x-1 or y==rect.position.y or y==rect.end.y-1
+			cells[y][x]=wall_id if border else 0
+	for x in range(rect.position.x,rect.end.x):
+		_safe_set(Vector2i(x,rect.end.y-1),floor_id)
+
+func _carve_corridor(a:Vector2i,b:Vector2i,height:int=3) -> void:
+	var x=a.x
+	var y=a.y
+	var step_x=1 if b.x>=a.x else -1
+	while x!=b.x:
+		for dy in range(height):
+			_safe_set(Vector2i(x,y-dy),0)
+		x+=step_x
+	while y!=b.y:
+		for dy in range(height):
+			_safe_set(Vector2i(x,y-dy),0)
+		y+=1 if b.y>y else -1
+	for dy in range(height):
+		_safe_set(Vector2i(x,y-dy),0)
+
+func _register_dungeon_chest(cell:Vector2i,dungeon_id:String,kind:String,tier:String,salt:int) -> void:
+	_safe_set(cell,28)
+	dungeon_chests.append({
+		"cell":cell,
+		"dungeon_id":dungeon_id,
+		"kind":kind,
+		"tier":tier,
+		"seed":world_seed ^ salt ^ cell.x*92821 ^ cell.y*68917
+	})
+	chest_visual_tiers[_cell_key(cell)]=tier
+
+func _register_secret_wall(cell:Vector2i) -> void:
+	dungeon_secret_cells[_cell_key(cell)]=true
+
+func _generate_crypt(rng:RandomNumberGenerator) -> void:
+	var x=302+rng.randi_range(0,8)
+	var y=64+rng.randi_range(0,4)
+	var id="crypt_01"
+	var room_a=Rect2i(x,y,9,7)
+	var room_b=Rect2i(x+11,y-3,10,9)
+	var room_c=Rect2i(x+23,y,10,8)
+	var secret=Rect2i(x+23,y+9,9,6)
+	_carve_room(room_a,3,3)
+	_carve_room(room_b,3,3)
+	_carve_room(room_c,3,3)
+	_carve_room(secret,3,3)
+	_carve_corridor(Vector2i(room_a.end.x-2,room_a.end.y-2),Vector2i(room_b.position.x+1,room_b.end.y-2),3)
+	_carve_corridor(Vector2i(room_b.end.x-2,room_b.end.y-2),Vector2i(room_c.position.x+1,room_c.end.y-2),3)
+	# Sloped mine-like entrance from the surface into the first crypt room.
+	var entry_x=x+2
+	var surface_y=surfaces[entry_x]-1
+	for step in range(maxi(1,y-surface_y+3)):
+		var px=entry_x+int(step/3)
+		var py=surface_y+step
+		if px>=room_a.position.x+3:
+			break
+		for dy in range(3):
+			_safe_set(Vector2i(px,py-dy),0)
+	# The secret room remains sealed behind ordinary breakable stone.
+	for sx in range(secret.position.x+2,secret.end.x-2):
+		_register_secret_wall(Vector2i(sx,secret.position.y))
+	_register_dungeon_chest(Vector2i(room_a.position.x+2,room_a.end.y-2),id,"crypt","common",101)
+	_register_dungeon_chest(Vector2i(room_b.position.x+5,room_b.end.y-2),id,"crypt","dungeon",102)
+	_register_dungeon_chest(Vector2i(secret.position.x+4,secret.end.y-2),id,"crypt","rare",103)
+	_register_dungeon_chest(Vector2i(room_c.position.x+6,room_c.end.y-2),id,"crypt","boss",104)
+	dungeons.append({
+		"id":id,"kind":"crypt","rect":Rect2i(x-2,y-5,36,22),
+		"center":Vector2i(room_b.position.x+5,room_b.position.y+4),
+		"mob_spawns":[Vector2i(room_a.position.x+5,room_a.end.y-2),Vector2i(room_b.position.x+3,room_b.end.y-2)],
+		"mob_kinds":["corrupted_skeleton","dark_slime"],
+		"miniboss":Vector2i(room_c.position.x+4,room_c.end.y-2),
+		"boss_chest":Vector2i(room_c.position.x+6,room_c.end.y-2)
+	})
+
+func _generate_tower(rng:RandomNumberGenerator) -> void:
+	var x=548+rng.randi_range(0,22)
+	var center=x+7
+	var ground=surfaces[center]
+	var top=maxi(7,ground-18)
+	var id="tower_01"
+	# Clear the tower silhouette, then build side walls and broken floors.
+	for tx in range(x,x+15):
+		for ty in range(top,ground):
+			_safe_set(Vector2i(tx,ty),0)
+	for ty in range(top,ground+1):
+		_safe_set(Vector2i(x,ty),3)
+		_safe_set(Vector2i(x+14,ty),3)
+	for tx in range(x,x+15):
+		_safe_set(Vector2i(tx,ground),3)
+	for floor_y in [ground-5,ground-10,ground-15]:
+		for tx in range(x+1,x+14):
+			if tx not in [x+4+(floor_y%2),x+5+(floor_y%2)]:
+				_safe_set(Vector2i(tx,floor_y),8 if floor_y==ground-10 else 3)
+	# Broken crenellations.
+	for tx in range(x,x+15,2):
+		_safe_set(Vector2i(tx,top),3)
+	# Small secret basement under the tower.
+	var secret=Rect2i(x+7,ground+2,7,6)
+	_carve_room(secret,3,3)
+	for sy in range(secret.position.y+2,secret.end.y-1):
+		_register_secret_wall(Vector2i(secret.position.x,sy))
+	_register_dungeon_chest(Vector2i(x+3,ground-1),id,"tower","common",201)
+	_register_dungeon_chest(Vector2i(x+9,ground-11),id,"tower","dungeon",202)
+	_register_dungeon_chest(Vector2i(secret.position.x+3,secret.end.y-2),id,"tower","rare",203)
+	_register_dungeon_chest(Vector2i(x+7,ground-16),id,"tower","boss",204)
+	dungeons.append({
+		"id":id,"kind":"tower","rect":Rect2i(x-2,top-2,19,ground-top+11),
+		"center":Vector2i(center,ground-8),
+		"mob_spawns":[Vector2i(x+4,ground-1),Vector2i(x+10,ground-6)],
+		"mob_kinds":["corrupted_skeleton","wolf"],
+		"miniboss":Vector2i(x+10,ground-1),
+		"boss_chest":Vector2i(x+7,ground-16)
+	})
+
+func _generate_desert_ruin(rng:RandomNumberGenerator) -> void:
+	var center=clampi(desert_center_cell()+rng.randi_range(-12,12),desert_start_x+18,desert_end_x-18)
+	var x=center-10
+	var ground=surfaces[center]
+	var top=maxi(8,ground-9)
+	var id="desert_ruin_01"
+	# Flatten just the ruin footprint and build a worked-sandstone temple shell.
+	for tx in range(x,x+21):
+		surfaces[tx]=ground
+		for ty in range(top,ground):
+			_safe_set(Vector2i(tx,ty),0)
+		_safe_set(Vector2i(tx,ground),30)
+	for ty in range(top+2,ground):
+		_safe_set(Vector2i(x,ty),31)
+		_safe_set(Vector2i(x+20,ty),31)
+	for tx in range(x,x+21):
+		if tx not in [center-2,center-1,center,center+1,center+2]:
+			_safe_set(Vector2i(tx,top+2),31)
+	# Pillars and broken upper silhouette.
+	for px in [x+4,x+8,x+12,x+16]:
+		for ty in range(top+3,ground):
+			if ty%5!=0:
+				_safe_set(Vector2i(px,ty),31)
+	# Basement secret chamber.
+	var basement=Rect2i(x+2,ground+3,9,7)
+	_carve_room(basement,30,30)
+	for sx in range(basement.position.x+2,basement.end.x-2):
+		_register_secret_wall(Vector2i(sx,basement.position.y))
+	_register_dungeon_chest(Vector2i(x+3,ground-1),id,"desert_ruin","common",301)
+	_register_dungeon_chest(Vector2i(x+15,ground-1),id,"desert_ruin","dungeon",302)
+	_register_dungeon_chest(Vector2i(basement.position.x+4,basement.end.y-2),id,"desert_ruin","rare",303)
+	_register_dungeon_chest(Vector2i(center,ground-1),id,"desert_ruin","boss",304)
+	dungeons.append({
+		"id":id,"kind":"desert_ruin","rect":Rect2i(x-2,top,25,ground-top+12),
+		"center":Vector2i(center,ground-4),
+		"mob_spawns":[Vector2i(x+5,ground-1),Vector2i(x+16,ground-1)],
+		"mob_kinds":["dark_slime","corrupted_skeleton"],
+		"miniboss":Vector2i(center+5,ground-1),
+		"boss_chest":Vector2i(center,ground-1)
+	})
+
+func generate_dungeons() -> void:
+	if purity_realm or surfaces.size()<WIDTH:
+		return
+	dungeons.clear()
+	dungeon_chests.clear()
+	dungeon_secret_cells.clear()
+	chest_visual_tiers.clear()
+	var rng=RandomNumberGenerator.new()
+	rng.seed=world_seed ^ 0x44554E47
+	_generate_crypt(rng)
+	_generate_tower(rng)
+	_generate_desert_ruin(rng)
+
+func repair_dungeons() -> void:
+	# Used only when loading worlds created before dungeons existed.
+	generate_dungeons()
+	rebuild_collision()
+	queue_redraw()
+
+func dungeon_at_cell(cell:Vector2i) -> Dictionary:
+	for dungeon in dungeons:
+		var rect:Rect2i=dungeon.get("rect",Rect2i())
+		if rect.grow(3).has_point(cell):
+			return dungeon
+	return {}
+
+func dungeon_signature() -> String:
+	var parts:Array[String]=[]
+	for dungeon in dungeons:
+		var center:Vector2i=dungeon.get("center",Vector2i.ZERO)
+		parts.append("%s:%d:%d" % [str(dungeon.get("kind","")),center.x,center.y])
+	return "|".join(parts)
+
+func set_chest_visual_tier(cell:Vector2i,tier:String) -> void:
+	chest_visual_tiers[_cell_key(cell)]=tier
+	queue_redraw()
+
+func set_chest_open(cell:Vector2i,opened:bool) -> void:
+	var key=_cell_key(cell)
+	chest_open_targets[key]=opened
+	if not chest_open_amount.has(key):
+		chest_open_amount[key]=0.0
+	queue_redraw()
+
+func chest_open_value(cell:Vector2i) -> float:
+	return float(chest_open_amount.get(_cell_key(cell),0.0))
 
 func world_width() -> int:
 	return surfaces.size()
@@ -629,6 +853,16 @@ func rebuild_row(y: int) -> void:
 		body.add_child(collider)
 
 func _process(_delta: float) -> void:
+	var chest_anim_changed=false
+	for key in chest_open_targets.keys():
+		var target=1.0 if bool(chest_open_targets[key]) else 0.0
+		var current=float(chest_open_amount.get(key,0.0))
+		var updated=move_toward(current,target,_delta*7.0)
+		if not is_equal_approx(updated,current):
+			chest_open_amount[key]=updated
+			chest_anim_changed=true
+	if chest_anim_changed:
+		queue_redraw()
 	if camera and not purity_realm and not surfaces.is_empty():
 		var ahead=int((camera.get_screen_center_position().x+get_viewport_rect().size.x)/TILE)+72
 		ensure_generated_to(ahead)
@@ -679,14 +913,23 @@ func _draw() -> void:
 				draw_rect(Rect2(pos+Vector2(4,29),Vector2(7,3)),Color("21171a"))
 				draw_rect(Rect2(pos+Vector2(21,29),Vector2(7,3)),Color("21171a"))
 			elif id==28:
-				# Storage chest: compact medieval wood box with iron latch.
-				draw_rect(Rect2(pos+Vector2(2,9),Vector2(28,21)),Color("2b1b18"))
-				draw_rect(Rect2(pos+Vector2(3,10),Vector2(26,8)),Color("a56632"))
+				var chest_cell=Vector2i(x,y)
+				var chest_key=_cell_key(chest_cell)
+				var tier=str(chest_visual_tiers.get(chest_key,"common"))
+				var accent=Color("d0934d")
+				if tier=="rare": accent=Color("6ca8ff")
+				elif tier=="dungeon": accent=Color("b06bd0")
+				elif tier=="boss": accent=Color("f0b85f")
+				var open_amount=chest_open_value(chest_cell)
+				var lid_offset=-6.0*open_amount
+				# Animated medieval chest. Dungeon tiers get a distinct metal/rune accent.
+				draw_rect(Rect2(pos+Vector2(2,17),Vector2(28,13)),Color("2b1b18"))
 				draw_rect(Rect2(pos+Vector2(3,18),Vector2(26,11)),Color("744225"))
-				draw_rect(Rect2(pos+Vector2(3,17),Vector2(26,3)),Color("d0934d"))
-				draw_rect(Rect2(pos+Vector2(14,16),Vector2(5,8)),Color("d2b46f"))
-				draw_rect(Rect2(pos+Vector2(15,18),Vector2(3,3)),Color("3a3030"))
 				draw_rect(Rect2(pos+Vector2(2,28),Vector2(28,3)),Color("1c1415"))
+				draw_rect(Rect2(pos+Vector2(3,10+lid_offset),Vector2(26,8)),Color("a56632"))
+				draw_rect(Rect2(pos+Vector2(3,16+lid_offset),Vector2(26,3)),accent)
+				draw_rect(Rect2(pos+Vector2(14,16),Vector2(5,8)),accent.lightened(0.18))
+				draw_rect(Rect2(pos+Vector2(15,18),Vector2(3,3)),Color("3a3030"))
 			elif texture:
 				draw_texture_rect(texture,Rect2(pos,Vector2(TILE,TILE)),false)
 			else:
