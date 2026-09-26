@@ -16,6 +16,7 @@ var world_min_x:=0.0
 var world_max_x:=320.0*32.0
 var world_min_y:=0.0
 var world_max_y:=96.0*32.0
+var despawn_distance:=1800.0
 
 func _ready() -> void:
 	collision_layer=4
@@ -104,7 +105,7 @@ func _physics_process(delta: float) -> void:
 		player.velocity.x=direction*150
 	sprite.play("attack" if attack_timer>.75 else "walk")
 	sprite.modulate=Color(1.0,0.55,0.55) if hit_flash>0 else Color.WHITE
-	if distance>1800:
+	if distance>despawn_distance:
 		queue_free()
 
 func hit(amount: float, force: float=240.0) -> void:

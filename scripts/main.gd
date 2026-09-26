@@ -151,6 +151,10 @@ var cloud:Node
 var cloud_syncing:=false
 var cloud_last_error:=""
 var desert_announced:=false
+var quest_entity_timer:=0.0
+var login_render_suspended:=false
+var login_saved_max_fps:=0
+var login_saved_low_processor:=false
 const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16,28,29,30,31]
 const LOBBY_TIPS = [
 	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
@@ -873,6 +877,25 @@ func animate_lobby(delta: float) -> void:
 func web_login_enabled() -> bool:
 	return OS.has_feature("web")
 
+func suspend_web_render_for_login() -> void:
+	if not web_login_enabled() or login_render_suspended:
+		return
+	login_saved_max_fps=Engine.max_fps
+	login_saved_low_processor=OS.low_processor_usage_mode
+	Engine.max_fps=30
+	OS.low_processor_usage_mode=true
+	OS.low_processor_usage_mode_sleep_usec=33000
+	RenderingServer.render_loop_enabled=false
+	login_render_suspended=true
+
+func resume_web_render_after_login() -> void:
+	if not login_render_suspended:
+		return
+	RenderingServer.render_loop_enabled=true
+	Engine.max_fps=login_saved_max_fps
+	OS.low_processor_usage_mode=login_saved_low_processor
+	login_render_suspended=false
+
 
 func setup_web_login_overlay() -> void:
 	if not web_login_enabled():
@@ -899,7 +922,7 @@ func setup_web_login_overlay() -> void:
 	style.textContent=`
 		#dreads-native-login{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden;font-family:Arial,sans-serif;touch-action:manipulation}
 		#dreads-native-login *{box-sizing:border-box}
-		#dc-login-stage{position:relative;width:min(100vw,177.7777778vh);height:min(56.25vw,100vh);background-image:url("/login_reference.jpg?v=6");background-position:center;background-size:100% 100%;background-repeat:no-repeat;overflow:hidden}
+		#dc-login-stage{position:relative;width:max(100vw,177.7777778vh);height:max(100vh,56.25vw);flex:0 0 auto;background-image:url("/login_reference.jpg?v=7");background-position:center;background-size:100% 100%;background-repeat:no-repeat;overflow:hidden}
 		#dc-login-stage input{position:absolute;height:5.0%;padding:0 1%;border:1px solid #986b3b;border-radius:6px;background:rgba(9,7,12,.98);color:#f3e6d5;font-size:clamp(12px,1.05vw,18px);outline:none;-webkit-user-select:text;user-select:text}
 		#dc-login-stage input:focus{border-color:#d8a055;box-shadow:0 0 0 2px rgba(216,160,85,.20)}
 		#dreads-login-user{left:38.2%;top:44.7%;width:22.3%}
@@ -918,6 +941,8 @@ func setup_web_login_overlay() -> void:
 	document.getElementById('dreads-login-guest').addEventListener('click',()=>{window.dreadsLoginAction='guest';});
 	document.getElementById('dreads-login-pass').addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();window.dreadsLoginAction='login';}});
 	window.dreadsLoginAction='';
+	const canvas=document.querySelector('canvas');
+	if(canvas) canvas.style.display='none';
 	const user=document.getElementById('dreads-login-user');
 	const pass=document.getElementById('dreads-login-pass');
 	if(user) user.value=%LAST_USER%;
@@ -927,11 +952,24 @@ func setup_web_login_overlay() -> void:
 """
 	js=js.replace("%LAST_USER%",JSON.stringify(Accounts.last_user()))
 	JavaScriptBridge.eval(js,true)
+	suspend_web_render_for_login()
+
 
 func hide_web_login_overlay() -> void:
+	resume_web_render_after_login()
 	if not web_login_enabled():
 		return
-	JavaScriptBridge.eval("const e=document.getElementById('dreads-native-login'); if(e)e.remove(); const s=document.getElementById('dreads-native-login-style'); if(s)s.remove(); window.dreadsLoginAction='';",true)
+	JavaScriptBridge.eval("""
+(() => {
+	const e=document.getElementById('dreads-native-login');
+	if(e)e.remove();
+	const s=document.getElementById('dreads-native-login-style');
+	if(s)s.remove();
+	const canvas=document.querySelector('canvas');
+	if(canvas) canvas.style.display='';
+	window.dreadsLoginAction='';
+})();
+""",true)
 
 func sync_login_from_web() -> void:
 	if not web_login_enabled():
@@ -2334,9 +2372,13 @@ func accept_quest(id:String) -> void:
 	quest_states[id]="in_progress"
 	if id==QUEST_MEL:
 		mel_quest_started=true
+	if id==QUEST_SNOW:
+		call_deferred("ensure_polar_bear")
 	status.text="MISSÃO ACEITA · "+quest_progress_text(id)
 	message_time=4
 	update_quest_markers()
+	if active and not multiplayer_active:
+		save_world()
 
 func sync_legacy_quest_flags() -> void:
 	mel_quest_started=quest_state(QUEST_MEL)!="not_started"
@@ -3643,6 +3685,11 @@ func _process(delta: float) -> void:
 		return
 	update_purity_hud()
 	update_multiplayer_compass()
+	if not in_purity and not in_lake_temple and in_structure=="":
+		quest_entity_timer+=delta
+		if quest_entity_timer>=3.0:
+			quest_entity_timer=0.0
+			ensure_required_quest_entities()
 	if in_lake_temple:
 		mining_held=false
 		if is_instance_valid(lake_arena):
@@ -3972,30 +4019,55 @@ func show_shop() -> void:
 	layout()
 
 
+
+func find_npc_by_role(role_name:String):
+	if not is_instance_valid(npcs):
+		return null
+	for npc in npcs.get_children():
+		if str(npc.get("role"))==role_name:
+			return npc
+	return null
+
+func _spawn_quest_npc(role_name:String,display_name:String,dialogue:Array,cell_x:int):
+	if not is_instance_valid(npcs) or not is_instance_valid(world):
+		return null
+	var existing=find_npc_by_role(role_name)
+	if existing!=null:
+		return existing
+	var npc=NPC.new()
+	npc.setup(role_name,display_name,dialogue,player)
+	npc.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
+	var safe_x=clampi(cell_x,World.VILLAGE_MIN_X+2,World.VILLAGE_MAX_X-2)
+	npc.position=Vector2(safe_x*32+16,world.surfaces[safe_x]*32-2)
+	npc.interacted.connect(func(who): show_npc_dialogue(who))
+	npcs.add_child(npc)
+	return npc
+
 func spawn_world_npcs() -> void:
 	if not is_instance_valid(npcs) or not is_instance_valid(world):
 		return
-	# NPC sprite comes from the generated pixel-art asset, not a runtime stick-figure drawing.
-	var npc=NPC.new()
-	npc.setup("ferreiro","Borin, o Ferreiro",[
+	_spawn_quest_npc("ferreiro","Borin, o Ferreiro",[
 		"Se quer descer fundo, não economize na picareta.",
 		"Minha bancada pode criar ferramentas e armas melhores.",
 		"Ferro é bom. Diamante é melhor. Avarita não pertence a uma lâmina."
-	],player)
-	npc.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
-	npc.position=Vector2(15*32+16,world.surfaces[15]*32-2)
-	npc.interacted.connect(func(who): show_npc_dialogue(who))
-	npcs.add_child(npc)
-	var monk=NPC.new()
-	monk.setup("monge","Monge da Pureza",[
+	],15)
+	_spawn_quest_npc("monge","Monge da Pureza",[
 		"A Pureza não é um lugar. É uma prova.",
 		"Se encontrar Avarita, não tente transformá-la em arma.",
-		"O portal responde a nove diamantes e uma Avarita."
-	],player)
-	monk.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
-	monk.position=Vector2(48*32+16,world.surfaces[48]*32-2)
-	monk.interacted.connect(func(who): show_npc_dialogue(who))
-	npcs.add_child(monk)
+		"O portal responde a quem conclui as provas da vila e do norte."
+	],60)
+
+func ensure_required_quest_entities() -> void:
+	if not is_instance_valid(world) or not is_instance_valid(npcs):
+		return
+	spawn_world_npcs()
+	var monk=find_npc_by_role("monge")
+	if monk!=null:
+		var monk_x=60
+		if absf(float(monk.position.x)-(48*32+16))<220.0:
+			monk.position=Vector2(monk_x*32+16,world.surfaces[monk_x]*32-2)
+	if quest_state(QUEST_SNOW)=="in_progress" and not polar_bear_defeated:
+		ensure_polar_bear()
 
 func find_near_mel():
 	if in_purity or in_structure!="" or not is_instance_valid(mel) or mel_tamed:
@@ -4291,16 +4363,23 @@ func has_polar_bear() -> bool:
 			return true
 	return false
 
+
 func ensure_polar_bear() -> void:
-	if polar_bear_defeated or quest_state(QUEST_SNOW)!="in_progress" or not is_instance_valid(world) or has_polar_bear():
+	if polar_bear_defeated or quest_state(QUEST_SNOW)!="in_progress" or not is_instance_valid(world) or not is_instance_valid(enemies) or not is_instance_valid(player) or has_polar_bear():
 		return
-	var spawn=world.snow_spawn_cell()
+	var player_cell=clampi(int(player.position.x/32.0),0,world.world_width()-1)
+	var middle=int((World.SNOW_START_X+World.SNOW_END_X)/2)
+	var spawn_x=middle
+	if world.is_snow_biome(player_cell):
+		var direction=1 if player_cell<middle else -1
+		spawn_x=clampi(player_cell+direction*12,World.SNOW_START_X+4,World.SNOW_END_X-4)
 	var bear=Mob.new()
 	bear.kind="polar_bear"
 	bear.player=player
 	bear.difficulty_level=maxi(2,difficulty)
-	bear.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
-	bear.position=Vector2(spawn.x*32+16,spawn.y*32-2)
+	bear.despawn_distance=100000.0
+	bear.set_world_bounds(float(World.SNOW_START_X*32),float((World.SNOW_END_X+1)*32),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
+	bear.position=Vector2(spawn_x*32+16,world.surfaces[spawn_x]*32-2)
 	bear.killed.connect(func():
 		polar_bear_defeated=true
 		if not player.creative:
@@ -4313,7 +4392,6 @@ func ensure_polar_bear() -> void:
 		save_world()
 	)
 	enemies.add_child(bear)
-
 
 func spawn_mob() -> void:
 	if not is_instance_valid(player) or not is_instance_valid(world):
@@ -4609,6 +4687,7 @@ func load_world() -> void:
 		player.hp=minf(player.hp,player.max_hp)
 	if is_instance_valid(mel):
 		mel.set_tamed(mel_tamed)
+	ensure_required_quest_entities()
 	update_quest_markers()
 	if bool(data.get("in_lake_temple",false)):
 		player.position=world.lake_temple_position()

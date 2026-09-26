@@ -83,7 +83,29 @@ func run() -> void:
 	check(scene.world.lake_depth>=14 and scene.world.lake_depth<=18,"Seeded lake depth range")
 	check(scene.world.lake_width>=44 and scene.world.lake_width<=52,"Seeded lake width range")
 	check(scene.quest_states.size()>=6,"Six quest states exist")
+	check(scene.find_npc_by_role("ferreiro")!=null,"Borin quest giver always spawns")
+	var smoke_monk=scene.find_npc_by_role("monge")
+	check(smoke_monk!=null,"Purity monk quest giver always spawns")
+	check(smoke_monk.position.x>=58*32,"Purity monk spawns outside the chapel artwork")
 	check(scene.quest_states.has(scene.QUEST_ABYSS),"Abyss hunt quest exists")
+	scene.quest_states[scene.QUEST_MONK]="completed"
+	scene.quest_states[scene.QUEST_SNOW]="in_progress"
+	scene.polar_bear_defeated=false
+	scene.ensure_polar_bear()
+	await physics_frame
+	check(scene.has_polar_bear(),"Polar Bear Elder is guaranteed for active snow quest")
+	var smoke_bear=null
+	for smoke_mob in scene.enemies.get_children():
+		if str(smoke_mob.kind)=="polar_bear":
+			smoke_bear=smoke_mob
+			break
+	check(smoke_bear!=null and smoke_bear.position.x>=scene.world.SNOW_START_X*32 and smoke_bear.position.x<=(scene.world.SNOW_END_X+1)*32,"Polar Bear Elder spawns inside snow biome")
+	check(smoke_bear!=null and smoke_bear.despawn_distance>50000.0,"Quest polar bear persists instead of random-mob despawn")
+	if smoke_bear!=null:
+		smoke_bear.queue_free()
+	await process_frame
+	scene.quest_states[scene.QUEST_MONK]="not_started"
+	scene.quest_states[scene.QUEST_SNOW]="not_started"
 	check(ResourceLoader.exists("res://assets/ui/new_world_icon.svg"),"Lobby new-world icon exists")
 	check(ResourceLoader.exists("res://assets/interiors/blacksmith.png"),"Remodeled blacksmith interior exists")
 	check(ResourceLoader.exists("res://assets/interiors/market.png"),"Remodeled market interior exists")
