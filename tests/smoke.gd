@@ -31,6 +31,10 @@ func run() -> void:
 	scene.start_world(false,42019)
 	await physics_frame
 	await physics_frame
+	# The starter Mel quest intentionally opens a modal dialogue and pauses the
+	# player; close it so physics-specific smoke checks exercise live gameplay.
+	scene.resume()
+	await physics_frame
 	check(scene.world.cells.size()==96,"World height")
 	check(scene.world.world_width()==640,"Finite world uses configured width")
 	var finite_width=scene.world.world_width()
