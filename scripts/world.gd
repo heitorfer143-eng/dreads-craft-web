@@ -401,6 +401,13 @@ func dungeon_at_cell(cell:Vector2i) -> Dictionary:
 			return dungeon
 	return {}
 
+func is_dungeon_structure_cell(cell:Vector2i) -> bool:
+	for dungeon in dungeons:
+		var rect:Rect2i=dungeon.get("rect",Rect2i())
+		if rect.grow(1).has_point(cell):
+			return true
+	return false
+
 func dungeon_signature() -> String:
 	var parts:Array[String]=[]
 	for dungeon in dungeons:
@@ -626,7 +633,7 @@ func generate_ores() -> void:
 				visited[current]=true
 				if current.x<2 or current.x>=WIDTH-2 or current.y<surfaces[current.x]+(7 if ore==6 else 15) or current.y>=HEIGHT-2:
 					continue
-				if cells[current.y][current.x]!=3:
+				if cells[current.y][current.x]!=3 or is_dungeon_structure_cell(current):
 					continue
 				var mixed=false
 				for offset in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
@@ -650,7 +657,7 @@ func generate_ores() -> void:
 				if count>=int({14:18,15:1}[ore]):
 					break
 				var point=Vector2i(x,y)
-				if get_cell(point)!=3:
+				if get_cell(point)!=3 or is_dungeon_structure_cell(point):
 					continue
 				var clear=true
 				for offset in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
@@ -679,7 +686,7 @@ func ensure_ore_minimums() -> void:
 			var y=rng.randi_range(int(min_depth[ore]),HEIGHT-3)
 			if y<surfaces[x]+(6 if ore==6 else 11):
 				continue
-			if cells[y][x]!=3:
+			if cells[y][x]!=3 or is_dungeon_structure_cell(Vector2i(x,y)):
 				continue
 			var clear=true
 			for offset in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
@@ -697,7 +704,7 @@ func ensure_ore_minimums() -> void:
 					if count>=int(minimums[ore]):
 						break
 					var p=Vector2i(x,y)+offset
-					if p.x>2 and p.x<WIDTH-2 and p.y>surfaces[p.x]+8 and p.y<HEIGHT-2 and cells[p.y][p.x]==3 and rng.randf()<0.48:
+					if p.x>2 and p.x<WIDTH-2 and p.y>surfaces[p.x]+8 and p.y<HEIGHT-2 and cells[p.y][p.x]==3 and not is_dungeon_structure_cell(p) and rng.randf()<0.48:
 						cells[p.y][p.x]=ore
 						count+=1
 	queue_redraw()
