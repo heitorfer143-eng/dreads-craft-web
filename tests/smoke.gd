@@ -20,6 +20,8 @@ func run() -> void:
 	check(scene.login_user.editable and scene.login_password.editable,"Login fields are editable")
 	check(scene.login_user.focus_mode==Control.FOCUS_ALL and scene.login_password.focus_mode==Control.FOCUS_ALL,"Login fields accept keyboard focus")
 	check(scene.login_root.z_index>=1000,"Login stays above gameplay/touch overlays")
+	check(ResourceLoader.exists("res://assets/backgrounds/login_reference.jpg"),"Exact supplied login reference artwork is bundled")
+	check(scene.login_root.find_child("LoginCard",true,false)==null,"Login does not render a second Godot card over the reference screen")
 	var web_preset=FileAccess.get_file_as_string("res://export_presets.cfg")
 	check("html/experimental_virtual_keyboard=true" in web_preset,"Web export enables virtual keyboard")
 	check("html/focus_canvas_on_start=false" in web_preset,"Web canvas does not steal login focus on startup")

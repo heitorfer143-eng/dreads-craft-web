@@ -873,64 +873,52 @@ func animate_lobby(delta: float) -> void:
 func web_login_enabled() -> bool:
 	return OS.has_feature("web")
 
+
 func setup_web_login_overlay() -> void:
 	if not web_login_enabled():
 		return
 	var js="""
 (() => {
-	let root=document.getElementById('dreads-native-login');
-	if (!root) {
-		root=document.createElement('div');
-		root.id='dreads-native-login';
-		root.innerHTML=`
-			<div class="dc-login-card">
-				<div class="dc-login-title">DREADS CRAFT</div>
-				<div class="dc-login-sub">CONTA LOCAL · SEU REINO, SEU PROGRESSO</div>
-				<label>Usuário</label>
-				<input id="dreads-login-user" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Digite seu usuário">
-				<label>Senha</label>
-				<input id="dreads-login-pass" type="password" maxlength="72" autocomplete="current-password" placeholder="Digite sua senha">
-				<div id="dreads-login-feedback"></div>
-				<button id="dreads-login-enter" type="button">ENTRAR</button>
-				<button id="dreads-login-create" type="button">CRIAR CONTA</button>
-				<div class="dc-login-note">Conta local deste dispositivo. A senha nunca é salva em texto puro.</div>
-			</div>`;
-		const style=document.createElement('style');
-		style.id='dreads-native-login-style';
-		style.textContent=`
-			#dreads-native-login{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;background:rgba(5,3,10,.24);font-family:Arial,sans-serif;color:#eee4d7;touch-action:manipulation}
-			#dreads-native-login *{box-sizing:border-box}
-			.dc-login-card{width:min(460px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;padding:20px;border:2px solid #9c6c48;border-radius:14px;background:rgba(13,9,18,.96);box-shadow:0 18px 60px rgba(0,0,0,.55)}
-			.dc-login-title{text-align:center;font-size:34px;font-weight:800;letter-spacing:2px;color:#f1d7ad;margin-bottom:4px}
-			.dc-login-sub{text-align:center;font-size:11px;color:#bca9c4;margin-bottom:18px}
-			.dc-login-card label{display:block;font-size:14px;margin:10px 0 6px}
-			.dc-login-card input{display:block;width:100%;height:48px;padding:0 14px;border:1px solid #806043;border-radius:7px;background:#0c0910;color:#fff;font-size:17px;outline:none;-webkit-user-select:text;user-select:text}
-			.dc-login-card input:focus{border-color:#d7a568;box-shadow:0 0 0 2px rgba(215,165,104,.22)}
-			.dc-login-card button{display:block;width:100%;height:50px;margin-top:10px;border:1px solid #8d5e48;border-radius:7px;background:#261722;color:#f6eadc;font-size:17px;font-weight:700}
-			.dc-login-card button:active{transform:translateY(1px);background:#3a2232}
-			#dreads-login-feedback{min-height:24px;margin-top:8px;text-align:center;color:#e5b9a8;font-size:13px}
-			.dc-login-note{text-align:center;color:#9f92a6;font-size:10px;margin-top:12px}
-			@media(max-height:620px){#dreads-native-login{align-items:flex-start;padding-top:8px}.dc-login-card{padding:12px}.dc-login-title{font-size:26px}.dc-login-sub{margin-bottom:8px}.dc-login-card input{height:42px}.dc-login-card button{height:43px}}
-		`;
-		document.head.appendChild(style);
-		document.body.appendChild(root);
-		document.getElementById('dreads-login-enter').addEventListener('click',()=>{window.dreadsLoginAction='login';});
-		document.getElementById('dreads-login-create').addEventListener('click',()=>{window.dreadsLoginAction='create';});
-		document.getElementById('dreads-login-pass').addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();window.dreadsLoginAction='login';}});
-	}
-	root.style.display='flex';
+	const old=document.getElementById('dreads-native-login');
+	if(old) old.remove();
+	const oldStyle=document.getElementById('dreads-native-login-style');
+	if(oldStyle) oldStyle.remove();
+	const root=document.createElement('div');
+	root.id='dreads-native-login';
+	root.innerHTML='<div id="dc-reference-stage"><input id="dreads-login-user" aria-label="Usuário" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Digite seu usuário"><input id="dreads-login-pass" aria-label="Senha" type="password" maxlength="72" autocomplete="current-password" placeholder="Digite sua senha"><div id="dreads-login-feedback"></div><button id="dreads-login-enter" aria-label="Entrar" type="button"></button><button id="dreads-login-create" aria-label="Criar conta" type="button"></button></div>';
+	const style=document.createElement('style');
+	style.id='dreads-native-login-style';
+	style.textContent='#dreads-native-login{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000;touch-action:manipulation;font-family:Arial,sans-serif;user-select:none}#dc-reference-stage{position:relative;width:min(100vw,calc(100vh * 1.7777777778));height:min(100vh,calc(100vw / 1.7777777778));background:url("/login_reference.jpg?v=4") center center/100% 100% no-repeat;flex:0 0 auto}#dreads-native-login input{position:absolute;left:38.2%;width:22.6%;height:5.0%;padding:0 1.1%;margin:0;border:1px solid #8a603a;border-radius:6px;background:rgba(7,7,10,.985);color:#eee4da;outline:none;font-size:clamp(12px,1.25vw,18px);line-height:1;box-shadow:none;-webkit-user-select:text;user-select:text}#dreads-login-user{top:44.7%}#dreads-login-pass{top:54.6%}#dreads-native-login input:focus{border-color:#d09a57;box-shadow:0 0 0 2px rgba(208,154,87,.18)}#dreads-native-login input::placeholder{color:#77737a;opacity:1}#dreads-login-feedback{position:absolute;left:38.2%;top:60.5%;width:22.6%;min-height:3.4%;display:flex;align-items:center;justify-content:center;color:#f1b39e;text-align:center;font-size:clamp(9px,.78vw,12px);pointer-events:none;text-shadow:0 1px 2px #000}#dreads-native-login button{position:absolute;padding:0;margin:0;border:0;border-radius:7px;background:transparent;cursor:pointer}#dreads-native-login button:hover{box-shadow:inset 0 0 0 2px rgba(255,207,134,.20)}#dreads-native-login button:active{background:rgba(255,190,90,.08)}#dreads-login-enter{left:38.2%;top:66.2%;width:22.6%;height:6.5%}#dreads-login-create{left:38.2%;top:74.6%;width:10.9%;height:6.2%}';
+	document.head.appendChild(style);
+	document.body.appendChild(root);
 	window.dreadsLoginAction='';
-	const user=document.getElementById('dreads-login-user');
-	if (user) setTimeout(()=>user.focus(),0);
+	const canvas=document.querySelector('canvas');
+	if(canvas) canvas.style.visibility='hidden';
+	document.body.style.background='#000';
+	document.getElementById('dreads-login-enter').addEventListener('click',()=>{window.dreadsLoginAction='login';});
+	document.getElementById('dreads-login-create').addEventListener('click',()=>{window.dreadsLoginAction='create';});
+	document.getElementById('dreads-login-pass').addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();window.dreadsLoginAction='login';}});
+	document.getElementById('dreads-login-user').addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('dreads-login-pass').focus();}});
 })();
 """
 	JavaScriptBridge.eval(js,true)
 	JavaScriptBridge.eval("document.getElementById('dreads-login-user').value="+JSON.stringify(Accounts.last_user())+";",true)
 
+
 func hide_web_login_overlay() -> void:
 	if not web_login_enabled():
 		return
-	JavaScriptBridge.eval("const e=document.getElementById('dreads-native-login'); if(e)e.style.display='none'; window.dreadsLoginAction='';",true)
+	JavaScriptBridge.eval("""
+(() => {
+	const e=document.getElementById('dreads-native-login');
+	if(e) e.remove();
+	const s=document.getElementById('dreads-native-login-style');
+	if(s) s.remove();
+	const canvas=document.querySelector('canvas');
+	if(canvas) canvas.style.visibility='';
+	window.dreadsLoginAction='';
+})();
+""",true)
 
 func sync_login_from_web() -> void:
 	if not web_login_enabled():
@@ -972,10 +960,24 @@ func configure_login_field(field:LineEdit) -> void:
 			field.grab_focus()
 	)
 
+
+func login_reference_rect(viewport:Vector2) -> Rect2:
+	var target_aspect=16.0/9.0
+	var width=viewport.x
+	var height=width/target_aspect
+	if height>viewport.y:
+		height=viewport.y
+		width=height*target_aspect
+	return Rect2(Vector2((viewport.x-width)*0.5,(viewport.y-height)*0.5),Vector2(width,height))
+
+func login_reference_box(rect:Rect2,x:float,y:float,w:float,h:float) -> Rect2:
+	return Rect2(rect.position+Vector2(rect.size.x*x,rect.size.y*y),Vector2(rect.size.x*w,rect.size.y*h))
+
 func show_login() -> void:
 	active=false
 	modal=true
 	pause_kind="login"
+	hide_web_login_overlay()
 	if is_instance_valid(login_root):
 		login_root.queue_free()
 	login_root=Control.new()
@@ -993,113 +995,89 @@ func show_login() -> void:
 		menu.hide()
 	if is_instance_valid(hud):
 		hud.hide()
+
 	var background=TextureRect.new()
+	background.name="LoginReferenceBackground"
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	if ResourceLoader.exists("res://assets/backgrounds/dreads_craft_cover.jpg"):
-		background.texture=load("res://assets/backgrounds/dreads_craft_cover.jpg")
+	if ResourceLoader.exists("res://assets/backgrounds/login_reference.jpg"):
+		background.texture=load("res://assets/backgrounds/login_reference.jpg")
 	background.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background.modulate=Color("9e96a6")
+	background.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	background.modulate=Color.WHITE
 	login_root.add_child(background)
-	var shade=ColorRect.new()
-	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color=Color("08050dcc")
-	shade.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	login_root.add_child(shade)
-	var center=CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter=Control.MOUSE_FILTER_PASS
-	login_root.add_child(center)
-	var viewport=get_viewport_rect().size
-	var compact=viewport.y<620.0 or viewport.x<620.0
-	var card=PanelContainer.new()
-	card.name="LoginCard"
-	card.custom_minimum_size=Vector2(clampf(viewport.x-24.0,300.0,460.0),clampf(viewport.y-20.0,320.0,500.0))
-	card.mouse_filter=Control.MOUSE_FILTER_PASS
-	card.add_theme_stylebox_override("panel",compact_panel_style(0.96,Color("9c6c48"),12))
-	center.add_child(card)
-	var scroll=ScrollContainer.new()
-	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
-	scroll.follow_focus=true
-	card.add_child(scroll)
-	var margin=MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",22 if not compact else 14)
-	margin.add_theme_constant_override("margin_right",22 if not compact else 14)
-	margin.add_theme_constant_override("margin_top",18 if not compact else 10)
-	margin.add_theme_constant_override("margin_bottom",18 if not compact else 10)
-	margin.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	scroll.add_child(margin)
-	var box=VBoxContainer.new()
-	box.name="LoginFields"
-	box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation",7 if compact else 12)
-	margin.add_child(box)
-	var title=label("DREADS CRAFT",28 if compact else 38)
-	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_color",Color("f1d7ad"))
-	box.add_child(title)
-	var sub=label("CONTA LOCAL · SEU REINO, SEU PROGRESSO",10 if compact else 11)
-	sub.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	sub.add_theme_color_override("font_color",Color("bca9c4"))
-	box.add_child(sub)
-	box.add_child(label("Usuário",12 if compact else 13))
+
 	login_user=LineEdit.new()
 	login_user.name="LoginUsername"
-	login_user.placeholder_text="Digite seu usuário"
 	login_user.max_length=20
 	login_user.text=Accounts.last_user()
-	login_user.custom_minimum_size=Vector2(0,40 if compact else 46)
 	configure_login_field(login_user)
-	box.add_child(login_user)
-	box.add_child(label("Senha",12 if compact else 13))
 	login_password=LineEdit.new()
 	login_password.name="LoginPassword"
-	login_password.placeholder_text="Digite sua senha"
 	login_password.secret=true
 	login_password.max_length=72
-	login_password.custom_minimum_size=Vector2(0,40 if compact else 46)
 	configure_login_field(login_password)
-	login_password.text_submitted.connect(func(_value): attempt_login())
-	box.add_child(login_password)
-	login_feedback=label("",11 if compact else 12)
+	login_feedback=label("",11)
 	login_feedback.name="LoginFeedback"
-	login_feedback.custom_minimum_size=Vector2(0,24)
-	login_feedback.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	login_feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	login_feedback.add_theme_color_override("font_color",Color("e5b9a8"))
-	box.add_child(login_feedback)
-	var enter=button("ENTRAR",attempt_login)
-	enter.name="LoginEnter"
-	enter.custom_minimum_size=Vector2(0,46 if compact else 54)
-	box.add_child(enter)
-	var create=button("CRIAR CONTA",attempt_create_account)
-	create.name="LoginCreate"
-	create.custom_minimum_size=Vector2(0,42 if compact else 48)
-	box.add_child(create)
-	var note=label("Conta local deste dispositivo. A senha nunca é salva em texto puro.",9 if compact else 10)
-	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	note.add_theme_color_override("font_color",Color("9f92a6"))
-	box.add_child(note)
-	login_user.call_deferred("grab_focus")
-	setup_web_login_overlay()
 
-func finish_account_login(user:String,password:String="",sync_cloud:bool=false) -> void:
-	current_account=user.strip_edges()
-	online_player_name=current_account
-	Saves.set_account(current_account)
-	Accounts.remember_user(current_account)
-	if password!="" and not Accounts.has_accounts():
-		Accounts.create_account(current_account,password)
-	login_password.clear()
-	if sync_cloud and is_instance_valid(cloud) and cloud.is_authenticated():
-		set_web_login_feedback("Sincronizando seus mundos...")
-		login_feedback.text="Sincronizando seus mundos..."
-		await sync_account_worlds()
-	hide_web_login_overlay()
-	show_main()
+	if web_login_enabled():
+		login_user.visible=false
+		login_password.visible=false
+		login_feedback.visible=false
+		login_root.add_child(login_user)
+		login_root.add_child(login_password)
+		login_root.add_child(login_feedback)
+		setup_web_login_overlay()
+		return
+
+	var reference=login_reference_rect(get_viewport_rect().size)
+	var user_box=login_reference_box(reference,0.382,0.447,0.226,0.050)
+	var pass_box=login_reference_box(reference,0.382,0.546,0.226,0.050)
+	var enter_box=login_reference_box(reference,0.382,0.662,0.226,0.064)
+	var create_box=login_reference_box(reference,0.382,0.746,0.108,0.061)
+	for field in [login_user,login_password]:
+		field.add_theme_font_size_override("font_size",16)
+		field.add_theme_color_override("font_color",Color("e8ded3"))
+		field.add_theme_color_override("font_placeholder_color",Color("827d80"))
+		var style=StyleBoxFlat.new()
+		style.bg_color=Color("0a090d")
+		style.border_color=Color("8a603a")
+		style.set_border_width_all(1)
+		style.set_corner_radius_all(5)
+		field.add_theme_stylebox_override("normal",style)
+		field.add_theme_stylebox_override("focus",style)
+	login_user.placeholder_text="Digite seu usuário"
+	login_password.placeholder_text="Digite sua senha"
+	login_user.position=user_box.position
+	login_user.size=user_box.size
+	login_password.position=pass_box.position
+	login_password.size=pass_box.size
+	login_password.text_submitted.connect(func(_value): attempt_login())
+	login_root.add_child(login_user)
+	login_root.add_child(login_password)
+	var feedback_box=login_reference_box(reference,0.382,0.606,0.226,0.038)
+	login_feedback.position=feedback_box.position
+	login_feedback.size=feedback_box.size
+	login_feedback.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	login_feedback.add_theme_color_override("font_color",Color("f3b8a4"))
+	login_root.add_child(login_feedback)
+	var enter=Button.new()
+	enter.name="LoginEnter"
+	enter.text=""
+	enter.flat=true
+	enter.position=enter_box.position
+	enter.size=enter_box.size
+	enter.pressed.connect(attempt_login)
+	login_root.add_child(enter)
+	var create=Button.new()
+	create.name="LoginCreate"
+	create.text=""
+	create.flat=true
+	create.position=create_box.position
+	create.size=create_box.size
+	create.pressed.connect(attempt_create_account)
+	login_root.add_child(create)
+	login_user.call_deferred("grab_focus")
 
 func attempt_login() -> void:
 	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
