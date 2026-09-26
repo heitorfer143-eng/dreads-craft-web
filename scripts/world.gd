@@ -261,16 +261,19 @@ func _generate_crypt(rng:RandomNumberGenerator) -> void:
 	_carve_room(secret,3,3)
 	_carve_corridor(Vector2i(room_a.end.x-2,room_a.end.y-2),Vector2i(room_b.position.x+1,room_b.end.y-2),3)
 	_carve_corridor(Vector2i(room_b.end.x-2,room_b.end.y-2),Vector2i(room_c.position.x+1,room_c.end.y-2),3)
-	# Sloped mine-like entrance from the surface into the first crypt room.
-	var entry_x=x+2
+	# Long sloped entrance from the surface into the first crypt room.
+	var entry_x=maxi(VILLAGE_MAX_X+18,x-24)
 	var surface_y=surfaces[entry_x]-1
-	for step in range(maxi(1,y-surface_y+3)):
-		var px=entry_x+int(step/3)
-		var py=surface_y+step
-		if px>=room_a.position.x+3:
-			break
-		for dy in range(3):
+	var target=Vector2i(room_a.position.x+1,room_a.end.y-2)
+	var steps=maxi(1,target.x-entry_x)
+	for step in range(steps+1):
+		var t=float(step)/float(steps)
+		var px=entry_x+step
+		var py=int(round(lerpf(float(surface_y),float(target.y),t)))
+		for dy in range(4):
 			_safe_set(Vector2i(px,py-dy),0)
+	for dy in range(4):
+		_safe_set(Vector2i(room_a.position.x,room_a.end.y-2-dy),0)
 	# The secret room remains sealed behind ordinary breakable stone.
 	for sx in range(secret.position.x+2,secret.end.x-2):
 		_register_secret_wall(Vector2i(sx,secret.position.y))
