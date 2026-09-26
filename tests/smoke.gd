@@ -73,8 +73,8 @@ func run() -> void:
 	var lake_sig_a=scene.world.lake_signature()
 	var lake_center_a=scene.world.lake_center_x
 	check(scene.world.is_lake_zone(lake_center_a),"Seeded lake center is inside lake")
-	check(scene.world.lake_depth>=7 and scene.world.lake_depth<=11,"Seeded lake depth range")
-	check(scene.world.lake_width>=20 and scene.world.lake_width<=28,"Seeded lake width range")
+	check(scene.world.lake_depth>=14 and scene.world.lake_depth<=18,"Seeded lake depth range")
+	check(scene.world.lake_width>=44 and scene.world.lake_width<=52,"Seeded lake width range")
 	check(scene.quest_states.size()>=6,"Six quest states exist")
 	check(scene.quest_states.has(scene.QUEST_ABYSS),"Abyss hunt quest exists")
 	check(ResourceLoader.exists("res://assets/ui/new_world_icon.svg"),"Lobby new-world icon exists")
