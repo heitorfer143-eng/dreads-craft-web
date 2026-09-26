@@ -204,9 +204,9 @@ func run() -> void:
 	await physics_frame
 	check(scene.enemies.get_child_count()==outside_enemy_count+1,"Mob spawns outside safe zone")
 	var mob=scene.enemies.get_child(scene.enemies.get_child_count()-1)
-	var food_before=scene.player.inventory.get(10,0)
+	var drops_before_mob=scene.drops.get_child_count()
 	mob.hit(999)
-	check(scene.player.inventory.get(10,0)==food_before+1,"Mob reward")
+	check(scene.drops.get_child_count()>=drops_before_mob+2,"Mob defeat creates meat and bone ground drops")
 	# A tamed Mel must never consume the generic USE action before a Waystone.
 	scene.quest_states[scene.QUEST_MEL]="completed"
 	scene.sync_legacy_quest_flags()
