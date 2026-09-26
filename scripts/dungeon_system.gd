@@ -69,6 +69,13 @@ static func _table_for(kind:String,tier:String) -> Array:
 				{"id":14,"min":1,"max":2,"weight":12},
 				{"id":36,"min":1,"max":1,"weight":6}
 			]
+		if tier=="rare":
+			return [
+				{"id":39,"min":1,"max":2,"weight":40},
+				{"id":40,"min":1,"max":1,"weight":28},
+				{"id":14,"min":1,"max":2,"weight":20},
+				{"id":36,"min":1,"max":1,"weight":12}
+			]
 		return [
 			{"id":3,"min":8,"max":18,"weight":34},
 			{"id":6,"min":3,"max":9,"weight":30},
@@ -90,6 +97,13 @@ static func _table_for(kind:String,tier:String) -> Array:
 				{"id":39,"min":1,"max":2,"weight":26},
 				{"id":24,"min":1,"max":1,"weight":12},
 				{"id":38,"min":1,"max":1,"weight":6}
+			]
+		if tier=="rare":
+			return [
+				{"id":39,"min":1,"max":3,"weight":42},
+				{"id":24,"min":1,"max":1,"weight":22},
+				{"id":14,"min":1,"max":2,"weight":20},
+				{"id":38,"min":1,"max":1,"weight":16}
 			]
 		return [
 			{"id":4,"min":6,"max":14,"weight":32},
@@ -113,6 +127,14 @@ static func _table_for(kind:String,tier:String) -> Array:
 				{"id":14,"min":1,"max":2,"weight":14},
 				{"id":37,"min":1,"max":1,"weight":7},
 				{"id":15,"min":1,"max":1,"weight":5}
+			]
+		if tier=="rare":
+			return [
+				{"id":31,"min":5,"max":12,"weight":30},
+				{"id":39,"min":1,"max":3,"weight":28},
+				{"id":14,"min":1,"max":2,"weight":20},
+				{"id":37,"min":1,"max":1,"weight":16},
+				{"id":15,"min":1,"max":1,"weight":6}
 			]
 		return [
 			{"id":29,"min":8,"max":18,"weight":34},
