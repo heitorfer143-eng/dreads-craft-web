@@ -176,6 +176,17 @@ func run() -> void:
 	new_slime.free()
 	new_warden.free()
 	var items=load("res://scripts/items.gd")
+	check(str(items.DETAILS[22].get("stats",[])).contains("42"),"Diamond sword card shows real 42 damage")
+	check(not str(items.DETAILS[22].get("stats",[])).contains("Durabilidade"),"Item cards do not claim unimplemented durability")
+	var mobile_hotbar_geo=scene.hotbar_geometry(Vector2(360,800),true)
+	check(float(mobile_hotbar_geo.z)+20.0<=360.0,"Nine-slot mobile hotbar fits a 360px viewport")
+	scene.player.hp=50.0
+	scene.player.food=50.0
+	scene.player.inventory[10]=1
+	scene.eat()
+	check(absf(scene.player.hp-68.0)<0.01,"Eating meat restores 18 health")
+	check(absf(scene.player.food-75.0)<0.01,"Eating meat restores 25 hunger")
+	check(int(scene.player.inventory.get(10,0))==0,"Eating consumes one meat")
 	check(items.drop_for_block(3,{})==0,"Stone broken by hand produces no drop")
 	check(items.drop_for_block(3,{13:1})==3,"Stone with wooden pickaxe drops stone")
 	check(items.drop_for_block(7,{13:1})==0 and items.drop_for_block(7,{17:1})==7,"Iron needs stone-tier pickaxe")
