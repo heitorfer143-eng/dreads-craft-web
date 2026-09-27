@@ -2,7 +2,7 @@
 const fs=require("fs");
 const os=require("os");
 const path=require("path");
-const {CloudStore}=require("./cloud_store");
+const {CloudStore}=require(path.join(__dirname,"..","cloud_store"));
 
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),"dreads-cloud-test-"));
 try {

@@ -6,6 +6,7 @@ COPY . .
 # Build dedicated PNG mob frames from the original sprite sheet, then import them.
 RUN mkdir -p assets/mobs/generated && \
     godot --headless --script scripts/tools/extract_mob_pngs.gd && \
+    godot --headless --script tests/asset_integrity.gd && \
     godot --headless --editor --quit
 
 # Parse-check the scripts changed by this update before integration tests.
@@ -68,8 +69,8 @@ RUN mkdir -p build/android /tmp/godot-config/godot && \
 FROM node:20-alpine
 WORKDIR /srv
 COPY package.json server.js cloud_store.js ./
-COPY tests/cloud_store_test.js ./cloud_store_test.js
-RUN npm install --omit=dev && node --check server.js && node --check cloud_store.js && node cloud_store_test.js
+COPY tests/cloud_store_test.js ./tests/cloud_store_test.js
+RUN npm install --omit=dev && node --check server.js && node --check cloud_store.js && node tests/cloud_store_test.js
 COPY --from=build /app/build/web ./public
 COPY --from=build /app/build/android/DreadsCraft.apk ./public/DreadsCraft.apk
 ENV PORT=8080

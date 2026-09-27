@@ -184,6 +184,7 @@ func run() -> void:
 	check(items.is_armor(32) and items.armor_slot(32)=="head","Avarita helmet is armor")
 	check(absf(items.armor_reduction({"head":32,"chest":33,"legs":34,"feet":35})-0.42)<0.001,"Full Avarita set grants 42 percent defense")
 	check(ResourceLoader.exists("res://assets/armor/avarita_helmet.png") and ResourceLoader.exists("res://assets/armor/avarita_chest.png"),"Avarita armor PNG assets exist")
+	check(load("res://assets/armor/avarita_helmet.png")!=null,"Avarita helmet PNG imports cleanly")
 	scene.player.inventory[32]=1
 	check(scene.equip_armor_item(32),"Avarita helmet equips from inventory")
 	check(int(scene.armor_equipment.get("head",0))==32 and not scene.player.inventory.has(32),"Equipped armor leaves inventory")
@@ -342,6 +343,31 @@ func run() -> void:
 	check(int(scene.player.inventory.get(29,0))==7,"Inventory survives logout/login")
 	check(int(scene.armor_equipment.get("head",0))==32 and scene.player.armor_reduction>0.06,"Armor equipment survives save reload")
 	check(scene.world.get_cell(modified_cell)==31,"Modified world survives reload")
+	# Regression: local world files are isolated per account. Two users may have
+	# the same world ID/name on one device without overwriting each other.
+	var shared_world_id=saves.current_world_id()
+	var shared_world_data=saves.read_world_by_id(shared_world_id)
+	check(not shared_world_data.is_empty(),"Saved world can be read for account-isolation regression")
+	var owner_a=smoke_user+"_cache_a"
+	var owner_b=smoke_user+"_cache_b"
+	saves.set_account(owner_a)
+	saves.select_world(shared_world_id)
+	var owner_a_data=shared_world_data.duplicate(true)
+	owner_a_data["account_isolation_marker"]="A"
+	check(saves.write(owner_a_data)==OK,"Account A writes isolated local cache")
+	saves.set_account(owner_b)
+	saves.select_world(shared_world_id)
+	var owner_b_data=shared_world_data.duplicate(true)
+	owner_b_data["account_isolation_marker"]="B"
+	check(saves.write(owner_b_data)==OK,"Account B writes same world ID independently")
+	saves.set_account(owner_a)
+	saves.select_world(shared_world_id)
+	check(str(saves.read_save().get("account_isolation_marker",""))=="A","Account A cache survives Account B write")
+	saves.set_account(owner_b)
+	saves.select_world(shared_world_id)
+	check(str(saves.read_save().get("account_isolation_marker",""))=="B","Account B cache stays isolated")
+	saves.set_account(smoke_user)
+	saves.select_world(shared_world_id)
 	var world_min_x=scene.player.world_min_x
 	var world_max_x=scene.player.world_max_x
 	var world_min_y=scene.player.world_min_y

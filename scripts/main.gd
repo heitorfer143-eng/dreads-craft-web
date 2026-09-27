@@ -163,6 +163,7 @@ var quest_entity_timer:=0.0
 var login_render_suspended:=false
 var login_saved_max_fps:=0
 var login_saved_low_processor:=false
+var login_auth_pending:=false
 const PLACEABLE_BLOCKS = [2,3,4,5,6,7,8,9,14,15,16,28,29,30,31]
 const LOBBY_TIPS = [
 	"Clique com o botão direito para colocar blocos ou abrir a bancada.",
@@ -908,6 +909,18 @@ func resume_web_render_after_login() -> void:
 	login_render_suspended=false
 
 
+func set_login_auth_busy(value:bool) -> void:
+	login_auth_pending=value
+	if is_instance_valid(login_root):
+		for node_name in ["LoginEnter","LoginCreate","LoginGuest"]:
+			var control=login_root.find_child(node_name,true,false)
+			if control is Button:
+				control.disabled=value
+	if web_login_enabled():
+		var js_value="true" if value else "false"
+		JavaScriptBridge.eval("['dreads-login-enter','dreads-login-create','dreads-login-guest'].forEach(id=>{const e=document.getElementById(id);if(e)e.disabled="+js_value+";});",true)
+
+
 func setup_web_login_overlay() -> void:
 	if not web_login_enabled():
 		return
@@ -972,6 +985,7 @@ func setup_web_login_overlay() -> void:
 		#dreads-login-feedback{min-height:34px;padding:9px 3px 5px;display:flex;align-items:center;justify-content:center;text-align:center;color:#e5b9a4;font-size:12px;font-weight:650;line-height:1.25}
 		.dc-action{width:100%;height:50px;border-radius:8px;font-size:13px;font-weight:900;letter-spacing:.10em;cursor:pointer;transition:transform .08s ease,border-color .12s ease,background .12s ease,box-shadow .12s ease}
 		.dc-action:active{transform:translateY(1px)}
+		.dc-action:disabled{opacity:.58;cursor:wait;transform:none;box-shadow:none}
 		.dc-primary{border:1px solid #d29a57;background:linear-gradient(180deg,#70432f,#4b2b27);color:#fff0da;box-shadow:0 8px 22px rgba(0,0,0,.22)}
 		.dc-primary:hover,.dc-primary:focus-visible{border-color:#efbd79;background:linear-gradient(180deg,#87523a,#5b322d);box-shadow:0 0 0 3px rgba(216,160,85,.13),0 8px 22px rgba(0,0,0,.28);outline:none}
 		.dc-login-secondary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
@@ -1133,6 +1147,7 @@ func show_login() -> void:
 	active=false
 	modal=true
 	pause_kind="login"
+	login_auth_pending=false
 	hide_web_login_overlay()
 	if is_instance_valid(login_root):
 		login_root.queue_free()
@@ -1313,16 +1328,23 @@ func finish_account_login(user:String,password:String="",sync_cloud:bool=false) 
 		set_web_login_feedback("Sincronizando seus mundos...")
 		login_feedback.text="Sincronizando seus mundos..."
 		await sync_account_worlds()
+	set_login_auth_busy(false)
 	hide_web_login_overlay()
 	show_main()
 
 func attempt_login() -> void:
-	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
+	if login_auth_pending or not is_instance_valid(login_user) or not is_instance_valid(login_password):
 		return
 	sync_login_from_web()
 	var user=login_user.text.strip_edges()
 	var password=login_password.text
+	if user.length()<3 or password.length()<6:
+		var validation_message="Informe um usuário válido e uma senha com pelo menos 6 caracteres."
+		login_feedback.text=validation_message
+		set_web_login_feedback(validation_message)
+		return
 	if is_instance_valid(cloud) and cloud.is_enabled():
+		set_login_auth_busy(true)
 		login_feedback.text="Entrando na conta..."
 		set_web_login_feedback("Entrando na conta...")
 		login_cloud_account(user,password)
@@ -1352,14 +1374,21 @@ func login_cloud_account(user:String,password:String) -> void:
 		message="Servidor de contas indisponível. Tente novamente em alguns segundos."
 	login_feedback.text=message
 	set_web_login_feedback(message)
+	set_login_auth_busy(false)
 
 func attempt_create_account() -> void:
-	if not is_instance_valid(login_user) or not is_instance_valid(login_password):
+	if login_auth_pending or not is_instance_valid(login_user) or not is_instance_valid(login_password):
 		return
 	sync_login_from_web()
 	var user=login_user.text.strip_edges()
 	var password=login_password.text
+	if user.length()<3 or password.length()<6:
+		var validation_message="Usuário precisa ter pelo menos 3 caracteres e senha pelo menos 6."
+		login_feedback.text=validation_message
+		set_web_login_feedback(validation_message)
+		return
 	if is_instance_valid(cloud) and cloud.is_enabled():
+		set_login_auth_busy(true)
 		login_feedback.text="Criando sua conta online..."
 		set_web_login_feedback("Criando sua conta online...")
 		create_cloud_account(user,password)
@@ -1378,6 +1407,7 @@ func create_cloud_account(user:String,password:String) -> void:
 		var message=str(result.get("message","Falha ao criar conta."))
 		login_feedback.text=message
 		set_web_login_feedback(message)
+		set_login_auth_busy(false)
 		return
 	# Keep a local credential/cache only as offline migration backup; cloud is authoritative.
 	var local_created=Accounts.create_account(str(result.get("user",user)),password)
@@ -1386,6 +1416,7 @@ func create_cloud_account(user:String,password:String) -> void:
 	await finish_account_login(str(result.get("user",user)),password,true)
 
 func continue_as_guest() -> void:
+	set_login_auth_busy(false)
 	Accounts.logout()
 	if is_instance_valid(cloud):
 		cloud.clear_session()
@@ -3768,6 +3799,14 @@ func on_death_backpack_collected() -> void:
 
 func drop_selected_item(amount:int=1) -> void:
 	if not active or (modal and pause_kind!="inventory") or player.creative or in_purity or in_structure!="" or selected<=0:
+		return
+	# Ground drops belong to the overworld drop container. Creating one inside
+	# the instanced lake arena used to make an invisible/persisted drop whose
+	# coordinates could later be restored in the overworld. Keep arena items in
+	# the player's inventory until we have zone-aware drop containers.
+	if in_lake_temple:
+		status.text="Não é possível largar itens dentro do Templo Submerso."
+		message_time=2.5
 		return
 	var owned=int(player.inventory.get(selected,0))
 	if owned<=0:

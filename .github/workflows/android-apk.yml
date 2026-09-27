@@ -50,6 +50,7 @@ jobs:
           test -f /root/debug.keystore
           godot --version
           godot --headless --script scripts/tools/extract_mob_pngs.gd
+          godot --headless --script tests/asset_integrity.gd
           godot --headless --editor --quit
           godot --headless --check-only --script scripts/dungeon_system.gd
           godot --headless --check-only --script scripts/dungeon_art.gd
@@ -65,7 +66,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: DreadsCraft-v0.11-Android
+          name: DreadsCraft-v0.14-Android
           path: build/android/DreadsCraft.apk
           if-no-files-found: error
           retention-days: 14
