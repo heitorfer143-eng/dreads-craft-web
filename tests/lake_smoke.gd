@@ -68,6 +68,13 @@ func run() -> void:
 	check(game.lake_arena.boss_position.y>=820.0,"Leviathan is positioned deeper in the lake")
 	check(game.lake_boss.arena_size==game.lake_arena.arena_size,"Leviathan attack bounds match expanded arena")
 	check(game.player.max_air>=18.0,"Player has enough underwater air for a real boss attempt")
+	game.player.inventory[3]=3
+	game.selected=3
+	var temple_stone_before=int(game.player.inventory.get(3,0))
+	var temple_drops_before=game.drops.get_child_count()
+	game.drop_selected_item(1)
+	check(int(game.player.inventory.get(3,0))==temple_stone_before,"Temple blocks item dropping instead of losing inventory")
+	check(game.drops.get_child_count()==temple_drops_before,"Temple never creates hidden overworld drops")
 	var spike_tex=game.player.sprite.sprite_frames.get_frame_texture("idle",0)
 	check(spike_tex!=null and spike_tex.get_size().y*game.player.sprite.scale.y<=70.0,"Spike visual size stays normalized")
 	game.player.set_water_state(true,true)
