@@ -1,0 +1,19 @@
+name: Export Dreads Craft Source
+on:
+  push:
+    branches:
+      - export/source-18376f70
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create source ZIP
+        run: |
+          zip -r DreadsCraft-current-18376f70.zip . -x '.git/*' '.github/workflows/source-archive.yml'
+      - name: Upload source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: DreadsCraft-current-source
+          path: DreadsCraft-current-18376f70.zip
+          retention-days: 1
