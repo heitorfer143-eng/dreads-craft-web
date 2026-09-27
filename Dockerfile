@@ -31,7 +31,8 @@ RUN godot --headless --script tests/dungeon_smoke.gd
 
 # Web build
 RUN mkdir -p build/web && godot --headless --export-release "Web" build/web/index.html
-RUN cp assets/backgrounds/login_reference.jpg build/web/login_reference.jpg
+RUN cp assets/backgrounds/login_reference.jpg build/web/login_reference.jpg && \
+    cp assets/backgrounds/dark_castles_generated.png build/web/login_bg.png
 
 # Android APK build. Uses the same Godot CI image/signing identity as the existing APK workflow
 # so this APK can update the previously installed Dreads Craft debug build.
