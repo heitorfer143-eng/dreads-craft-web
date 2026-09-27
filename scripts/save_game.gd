@@ -19,6 +19,16 @@ static func _safe_id(name: String) -> String:
 static func _abs(path: String) -> String:
 	return ProjectSettings.globalize_path(path)
 
+static func _account_storage_key() -> String:
+	if active_account=="":
+		return ""
+	return _safe_id(active_account)
+
+static func _world_path(id:String,legacy:bool=false) -> String:
+	if legacy or active_account=="":
+		return WORLDS_DIR+"/"+id+".json"
+	return WORLDS_DIR+"/"+_account_storage_key()+"__"+id+".json"
+
 static func set_account(username:String) -> void:
 	active_account=username.strip_edges().to_lower()
 	active_id=""
@@ -60,7 +70,7 @@ static func list_worlds() -> Array:
 			var id=_safe_id(str(legacy.get("name","Reino do Abismo")))
 			active_id=id
 			write(legacy)
-			result=_read_index()
+			result=_read_index().filter(func(e): return str(e.get("owner",""))==active_account)
 	return result
 
 static func _read_index() -> Array:
@@ -121,7 +131,7 @@ static func write(data: Dictionary) -> Error:
 
 	data["version"]=SAVE_VERSION
 	data["owner"]=active_account
-	var save_path=WORLDS_DIR+"/"+active_id+".json"
+	var save_path=_world_path(active_id)
 	var tmp_path=save_path+".tmp"
 	var bak_path=save_path+".bak"
 	var save_abs=_abs(save_path)
@@ -170,7 +180,7 @@ static func write(data: Dictionary) -> Error:
 	}
 	var replaced=false
 	for i in entries.size():
-		if str(entries[i].get("id",""))==active_id:
+		if str(entries[i].get("id",""))==active_id and str(entries[i].get("owner",""))==active_account:
 			entries[i]=meta
 			replaced=true
 			break
@@ -275,21 +285,45 @@ static func read_save() -> Dictionary:
 		if worlds.is_empty():
 			return {}
 		active_id=str(worlds[0].get("id",""))
-	var save_path=WORLDS_DIR+"/"+active_id+".json"
+	var save_path=_world_path(active_id)
 	var data=read_path(save_path)
 	if data.is_empty():
 		data=read_path(save_path+".bak")
+	if not data.is_empty():
+		return data
+
+	# Migration path for saves created before per-account local storage existed.
+	# read_path() rejects a legacy file owned by another account, so a matching
+	# world can be safely copied into this account's isolated cache.
+	var legacy_path=_world_path(active_id,true)
+	data=read_path(legacy_path)
+	if data.is_empty():
+		data=read_path(legacy_path+".bak")
+	if not data.is_empty():
+		write(data.duplicate(true))
 	return data
 
 static func erase_save() -> Error:
-	var save_path=WORLDS_DIR+"/"+active_id+".json"
+	var save_path=_world_path(active_id)
 	for suffix in ["",".bak",".tmp"]:
 		var path=save_path+suffix
 		if FileAccess.file_exists(path):
 			var error=DirAccess.remove_absolute(_abs(path))
 			if error!=OK:
 				return error
-	var entries=_read_index().filter(func(e): return str(e.get("id",""))!=active_id)
+
+	# Delete an old unscoped copy only when it actually belongs to the active
+	# account (or is an ownerless pre-account save that this account claimed).
+	var legacy_path=_world_path(active_id,true)
+	if not read_path(legacy_path).is_empty() or not read_path(legacy_path+".bak").is_empty():
+		for suffix in ["",".bak",".tmp"]:
+			var path=legacy_path+suffix
+			if FileAccess.file_exists(path):
+				var legacy_error=DirAccess.remove_absolute(_abs(path))
+				if legacy_error!=OK:
+					return legacy_error
+
+	var entries=_read_index().filter(func(e): return not (str(e.get("id",""))==active_id and str(e.get("owner",""))==active_account))
 	_write_index(entries)
 	active_id=""
 	return OK
