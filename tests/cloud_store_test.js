@@ -25,6 +25,14 @@ try {
   if(!loginAfterRestart.ok) throw new Error("account did not persist across restart");
   const loaded=restarted.loadWorld("heitor","reino_42");
   if(!loaded.ok || loaded.data.day!==7) throw new Error("world did not persist across restart");
+  const other=restarted.createAccount("Outro","senha456");
+  if(!other.ok) throw new Error("second account create failed");
+  const otherSession=restarted.auth(other.token);
+  if(!otherSession) throw new Error("second account session failed");
+  const otherWorld={...world,day:99,name:"Outro Reino"};
+  if(!restarted.saveWorld(otherSession.key,otherSession.display,"reino_42",otherWorld).ok) throw new Error("second account same-id save failed");
+  if(restarted.loadWorld("heitor","reino_42").data.day!==7) throw new Error("same world id leaked across accounts");
+  if(restarted.loadWorld(otherSession.key,"reino_42").data.day!==99) throw new Error("second account same-id world mismatch");
   if(!restarted.deleteWorld("heitor","reino_42").ok || restarted.listWorlds("heitor").length!==0) throw new Error("delete failed");
   console.log("PASS cloud account persistence, cross-session login and world storage");
 } finally {
