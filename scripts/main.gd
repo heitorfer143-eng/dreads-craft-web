@@ -263,17 +263,19 @@ func button(text: String, callback: Callable) -> Button:
 	var node=Button.new()
 	node.focus_mode=Control.FOCUS_NONE
 	node.text=text
-	node.custom_minimum_size=Vector2(260,54)
+	var compact_ui=get_viewport_rect().size.x<=620
+	node.custom_minimum_size=Vector2(0,48) if compact_ui else Vector2(260,54)
+	if compact_ui:
+		node.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	node.add_theme_stylebox_override("normal",button_style(Color("17131dee"),Color("66536f")))
 	node.add_theme_stylebox_override("hover",button_style(Color("282035ff"),Color("a077bc")))
 	node.add_theme_stylebox_override("pressed",button_style(Color("39254aff"),Color("c08de0")))
 	node.add_theme_stylebox_override("disabled",button_style(Color("100d15aa"),Color("403748")))
-	node.add_theme_font_size_override("font_size",17)
+	node.add_theme_font_size_override("font_size",14 if compact_ui else 17)
 	node.add_theme_color_override("font_color",Color("eee7df"))
 	node.add_theme_color_override("font_hover_color",Color("ffffff"))
 	node.pressed.connect(callback)
 	return node
-
 func icon_button(path: String, tooltip: String, callback: Callable) -> Button:
 	var node=Button.new()
 	node.focus_mode=Control.FOCUS_NONE
@@ -306,7 +308,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.3.3 • BOSS + ORB FIX"
+	build_badge.text="DREADS CRAFT • V14.0.1 • STABILITY"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -329,67 +331,65 @@ func build_ui() -> void:
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ui.add_child(hud)
 
-	# HUD compacto criado do zero: sem molduras gigantes importadas.
+	# HUD de sobrevivência: sem retrato dentro das barras. O retrato antigo podia
+	# vazar visualmente e parecer uma "orelha" entre VIDA e FOME em algumas escalas.
 	var stats_frame=Panel.new()
 	stats_frame.name="StatsFrame"
-	stats_frame.size=Vector2(244,90)
+	stats_frame.size=Vector2(236,82)
 	stats_frame.add_theme_stylebox_override("panel",panel_style(0.92,Color("725f78")))
 	hud.add_child(stats_frame)
 	var stats_root=Control.new()
-	stats_root.custom_minimum_size=Vector2(244,90)
-	stats_root.size=Vector2(244,90)
+	stats_root.custom_minimum_size=Vector2(236,82)
+	stats_root.size=Vector2(236,82)
 	stats_root.clip_contents=true
 	stats_frame.add_child(stats_root)
-	var portrait=TextureRect.new()
-	portrait_icon=portrait
-	portrait.texture=load("res://assets/sprites/normal_idle_0.png")
-	portrait.position=Vector2(10,12)
-	portrait.size=Vector2(46,46)
-	portrait.custom_minimum_size=Vector2(46,46)
-	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	stats_root.add_child(portrait)
+
+	# Keep the reference alive for transformation code, but do not render a character
+	# portrait inside the compact HUD. This guarantees no sprite/armor pixels overlap it.
+	portrait_icon=TextureRect.new()
+	portrait_icon.name="HiddenPortraitReference"
+	portrait_icon.visible=false
+	stats_root.add_child(portrait_icon)
+
 	form_name_label=label("SPIKE",9)
-	form_name_label.position=Vector2(8,61)
-	form_name_label.size=Vector2(52,15)
-	form_name_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	form_name_label.position=Vector2(10,5)
+	form_name_label.size=Vector2(96,15)
+	form_name_label.add_theme_color_override("font_color",Color("cbb7d6"))
 	stats_root.add_child(form_name_label)
+
 	var hp_caption=label("VIDA",9)
-	hp_caption.position=Vector2(68,9)
+	hp_caption.position=Vector2(10,23)
 	stats_root.add_child(hp_caption)
-	var food_caption=label("FOME",9)
-	food_caption.position=Vector2(68,43)
-	stats_root.add_child(food_caption)
+	stats=label("",9)
+	stats.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	stats.position=Vector2(146,20)
+	stats.size=Vector2(78,18)
+	stats_root.add_child(stats)
 	hp_bar=ProgressBar.new()
-	hp_bar.position=Vector2(68,24)
-	hp_bar.size=Vector2(142,10)
+	hp_bar.position=Vector2(10,38)
+	hp_bar.size=Vector2(214,9)
 	hp_bar.max_value=100
 	hp_bar.show_percentage=false
 	hp_bar.add_theme_stylebox_override("background",meter_style(Color("130c13")))
 	hp_bar.add_theme_stylebox_override("fill",meter_style(Color("bf2548")))
-	hp_bar.size=Vector2(142,10)
 	stats_root.add_child(hp_bar)
+
+	var food_caption=label("FOME",9)
+	food_caption.position=Vector2(10,51)
+	stats_root.add_child(food_caption)
+	food_value=label("",9)
+	food_value.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	food_value.position=Vector2(168,48)
+	food_value.size=Vector2(56,18)
+	stats_root.add_child(food_value)
 	food_bar=ProgressBar.new()
-	food_bar.position=Vector2(68,58)
-	food_bar.size=Vector2(142,10)
+	food_bar.position=Vector2(10,66)
+	food_bar.size=Vector2(214,9)
 	food_bar.max_value=100
 	food_bar.show_percentage=false
 	food_bar.add_theme_stylebox_override("background",meter_style(Color("130c13")))
 	food_bar.add_theme_stylebox_override("fill",meter_style(Color("c28a36")))
-	food_bar.size=Vector2(142,10)
 	stats_root.add_child(food_bar)
-	stats=label("",9)
-	stats.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
-	stats.position=Vector2(186,7)
-	stats.size=Vector2(82,18)
-	stats.position=Vector2(146,7)
-	food_value=label("",10)
-	food_value.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
-	food_value.position=Vector2(174,42)
-	food_value.size=Vector2(54,18)
-	stats_root.add_child(food_value)
-	stats_root.add_child(stats)
 
 	air_frame=Panel.new()
 	air_frame.name="AirFrame"
@@ -472,6 +472,8 @@ func build_ui() -> void:
 	ui.add_child(selected_name)
 	status=label("",11)
 	status.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	ui.add_child(status)
 
 	chat_panel=Panel.new()
@@ -545,12 +547,32 @@ func build_ui() -> void:
 	get_viewport().size_changed.connect(layout)
 	layout()
 
+func mobile_hotbar_slot_size(viewport_size:Vector2) -> float:
+	# Fit all 9 slots in the free center strip between the touch controls.
+	var side_margin=maxf(14.0,viewport_size.x*0.012)
+	var control_gap=8.0
+	var height_size=clampf(viewport_size.y*0.18,60.0,104.0)
+	var width_limit=maxf(52.0,(viewport_size.x-side_margin*2.0-24.0-control_gap*3.0)/5.0)
+	var button_size=minf(height_size,width_limit)
+	var left_end=side_margin+button_size*2.0+control_gap
+	var right_start=viewport_size.x-side_margin-button_size*3.0-control_gap*2.0
+	var center_width=right_start-left_end-12.0
+	var available=center_width if center_width>=300.0 else viewport_size.x-24.0
+	return clampf((available-16.0)/9.0,32.0,64.0)
+
+func hotbar_geometry(viewport_size:Vector2,mobile_layout:bool) -> Vector3:
+	var slot_size=mobile_hotbar_slot_size(viewport_size) if mobile_layout else 48.0
+	var gap=2.0 if mobile_layout else 5.0
+	var bar_width=slot_size*9.0+gap*8.0
+	return Vector3(slot_size,gap,bar_width)
+
 func layout() -> void:
 	if is_instance_valid(hp_bar):
-		hp_bar.size=Vector2(142,10)
-		food_bar.size=Vector2(142,10)
+		hp_bar.size=Vector2(214,9)
+		food_bar.size=Vector2(214,9)
 	var size=get_viewport_rect().size
 	var mobile_layout=size.x <= 900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var narrow_mobile=mobile_layout and size.x<620
 	var menu_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
 	if menu_scroll:
 		if pause_kind=="creation":
@@ -558,11 +580,11 @@ func layout() -> void:
 		elif pause_kind=="world_intro":
 			menu_scroll.custom_minimum_size=Vector2(minf(900,size.x-42),minf(560,size.y-50))
 		elif pause_kind=="craft":
-			menu_scroll.custom_minimum_size=Vector2(minf(1140,size.x-24),minf(650,size.y-24))
+			menu_scroll.custom_minimum_size=Vector2(minf(560.0,size.x-24.0),minf(620.0,size.y-24.0)) if mobile_layout else Vector2(minf(1140.0,size.x-24.0),minf(650.0,size.y-24.0))
 		else:
 			menu_scroll.custom_minimum_size=Vector2(minf(560,size.x-44),minf(360,size.y-56)) if mobile_layout else Vector2(560,360)
 	if is_instance_valid(menu):
-		var menu_size=Vector2(620,480)
+		var menu_size=Vector2(minf(620.0,size.x-24.0),minf(480.0,size.y-36.0)) if mobile_layout else Vector2(620,480)
 		if pause_kind=="craft":
 			menu_size=Vector2(minf(1180,size.x-40),minf(680,size.y-36))
 		elif pause_kind=="creation":
@@ -576,35 +598,41 @@ func layout() -> void:
 	var stats_frame=hud.get_node_or_null("StatsFrame") if is_instance_valid(hud) else null
 	if stats_frame:
 		stats_frame.position=Vector2(6,6) if mobile_layout else Vector2(12,10)
-		stats_frame.scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
-		stats_frame.size=Vector2(244,90)
+		stats_frame.scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		stats_frame.size=Vector2(236,82)
 	var clock_frame=hud.get_node_or_null("ClockFrame") if is_instance_valid(hud) else null
 	if clock_frame:
-		clock_frame.scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
-		clock_frame.position=Vector2((size.x-138)/2.0,6) if mobile_layout else Vector2((size.x-184)/2.0,10)
+		clock_frame.scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		if narrow_mobile:
+			clock_frame.position=Vector2(6,76)
+		elif mobile_layout:
+			clock_frame.position=Vector2((size.x-162)/2.0,6)
+		else:
+			clock_frame.position=Vector2((size.x-184)/2.0,10)
 		clock_frame.size=Vector2(184,38)
 	if is_instance_valid(action_box):
-		# Keep the familiar top-right inventory/crafting/menu/fullscreen buttons
-		# on mobile too; the previous lake build accidentally hid the whole strip.
 		action_box.visible=true
-		action_box.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		action_box.scale=Vector2(0.68,0.68) if narrow_mobile else Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
 		var actions_width=(235.0 if multiplayer_active else 175.0)*action_box.scale.x
-		action_box.position=Vector2(size.x-actions_width-12.0,8.0 if mobile_layout else 10.0)
+		action_box.position=Vector2(size.x-actions_width-8.0,8.0 if mobile_layout else 10.0)
 	if is_instance_valid(mode_frame):
 		mode_frame.visible=true
-		mode_frame.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
-		mode_frame.position=Vector2(size.x-122.0,48.0) if mobile_layout else Vector2(size.x-144,56)
+		mode_frame.scale=Vector2(0.72,0.72) if narrow_mobile else Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		mode_frame.position=Vector2(size.x-104.0,44.0) if narrow_mobile else Vector2(size.x-122.0,48.0) if mobile_layout else Vector2(size.x-144,56)
 		mode_frame.size=Vector2(132,32)
 	if is_instance_valid(transform_button):
-		transform_button.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
-		transform_button.position=Vector2(size.x-48.0,82.0) if mobile_layout else Vector2(size.x-52.0,96.0)
+		transform_button.scale=Vector2(0.72,0.72) if narrow_mobile else Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		transform_button.position=Vector2(size.x-42.0,76.0) if narrow_mobile else Vector2(size.x-48.0,82.0) if mobile_layout else Vector2(size.x-52.0,96.0)
 	if is_instance_valid(air_frame):
-		var stat_scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		var stat_scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
 		air_frame.scale=stat_scale
-		air_frame.position=Vector2(6,80) if mobile_layout else Vector2(12,104)
+		air_frame.position=Vector2(6,112) if narrow_mobile else Vector2(6,80) if mobile_layout else Vector2(12,104)
 	if is_instance_valid(compass_frame):
-		compass_frame.scale=Vector2(0.86,0.86) if mobile_layout else Vector2.ONE
-		compass_frame.position=Vector2((size.x-compass_frame.size.x*compass_frame.scale.x)/2.0,48.0 if mobile_layout else 54.0)
+		compass_frame.scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.86,0.86) if mobile_layout else Vector2.ONE
+		if narrow_mobile:
+			compass_frame.position=Vector2(size.x-compass_frame.size.x*compass_frame.scale.x-8.0,112.0)
+		else:
+			compass_frame.position=Vector2((size.x-compass_frame.size.x*compass_frame.scale.x)/2.0,48.0 if mobile_layout else 54.0)
 	if is_instance_valid(chat_panel):
 		chat_panel.size=Vector2(minf(380.0,size.x-24.0),156.0 if mobile_layout else 176.0)
 		chat_panel.position=Vector2(12.0,maxf(92.0,size.y-chat_panel.size.y-(106.0 if mobile_layout else 78.0)))
@@ -615,24 +643,24 @@ func layout() -> void:
 			chat_input.size=Vector2(chat_panel.size.x-18.0,34.0)
 		if is_instance_valid(chat_close_button):
 			chat_close_button.position=Vector2(chat_panel.size.x-38.0,6.0)
+	var hotbar_geo=hotbar_geometry(size,mobile_layout)
+	var hotbar_slot=hotbar_geo.x
+	var hotbar_width=hotbar_geo.z
 	if is_instance_valid(hotbar_back):
-		# Mobile hotbar is deliberately larger than desktop: 9 x 64px slots plus a
-		# compact frame. It remains centered between the movement and action clusters.
 		hotbar_back.scale=Vector2.ONE
-		hotbar_back.size=Vector2(612,74) if mobile_layout else Vector2(492,58)
-		hotbar_back.position=Vector2((size.x-hotbar_back.size.x)/2.0,size.y-94) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
+		var frame_size=Vector2(hotbar_width+20.0,hotbar_slot+10.0) if mobile_layout else Vector2(492,58)
+		hotbar_back.size=frame_size
+		hotbar_back.position=Vector2((size.x-frame_size.x)/2.0,size.y-frame_size.y-20.0) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
 	if is_instance_valid(bar):
 		bar.scale=Vector2.ONE
-		var mobile_bar_width=592.0
-		bar.position=Vector2((size.x-mobile_bar_width)/2.0,size.y-89) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
+		bar.position=Vector2((size.x-hotbar_width)/2.0,size.y-hotbar_slot-25.0) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
 	if is_instance_valid(selected_name):
 		selected_name.visible=not mobile_layout
 		selected_name.position=Vector2((size.x-240)/2.0,size.y-92)
 		selected_name.size=Vector2(240,18)
 	if is_instance_valid(status):
-		status.position=Vector2(12,96) if mobile_layout else Vector2((size.x-420)/2.0,size.y-114)
-		status.size=Vector2(size.x-24,18) if mobile_layout else Vector2(420,18)
-
+		status.position=Vector2(12,150) if narrow_mobile else Vector2(12,118) if mobile_layout else Vector2((size.x-420)/2.0,size.y-114)
+		status.size=Vector2(size.x-24,36) if mobile_layout else Vector2(420,18)
 func clear_menu(title: String, kind: String) -> void:
 	var outer_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
 	if outer_scroll:
@@ -2775,7 +2803,7 @@ func refresh_hud() -> void:
 	if not active:
 		return
 	sync_hotbar_from_inventory()
-	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png") if player.creative else (fox_preview_texture() if current_form=="fox" else load("res://assets/sprites/normal_idle_0.png"))
+	portrait_icon.texture=null
 	form_name_label.text="LIVRE" if player.creative else ("RAPOSA" if current_form=="fox" else "SPIKE")
 	hp_bar.max_value=player.max_hp
 	hp_bar.value=player.max_hp if player.creative else player.hp
@@ -2792,15 +2820,19 @@ func refresh_hud() -> void:
 		bar.remove_child(child)
 		child.queue_free()
 
-	var mobile_hotbar=get_viewport_rect().size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
-	bar.add_theme_constant_override("separation",2 if mobile_hotbar else 5)
+	var viewport_size=get_viewport_rect().size
+	var mobile_hotbar=viewport_size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var hotbar_geo=hotbar_geometry(viewport_size,mobile_hotbar)
+	var hotbar_slot=hotbar_geo.x
+	var hotbar_gap=int(round(hotbar_geo.y))
+	bar.add_theme_constant_override("separation",hotbar_gap)
 	for slot_index in range(9):
 		var id=int(hotbar[slot_index]) if slot_index<hotbar.size() else 0
 		var slot=Button.new()
 		slot.focus_mode=Control.FOCUS_NONE
-		slot.custom_minimum_size=Vector2(64,64) if mobile_hotbar else Vector2(48,48)
+		slot.custom_minimum_size=Vector2(hotbar_slot,hotbar_slot) if mobile_hotbar else Vector2(48,48)
 		slot.expand_icon=true
-		slot.add_theme_constant_override("icon_max_width",44 if mobile_hotbar else 30)
+		slot.add_theme_constant_override("icon_max_width",int(round(hotbar_slot*0.66)) if mobile_hotbar else 30)
 		slot.tooltip_text=Items.NAMES.get(id,"Slot vazio") if id!=0 else "Slot vazio"
 
 		var empty_style=StyleBoxFlat.new()
@@ -2829,17 +2861,17 @@ func refresh_hud() -> void:
 				refresh_hud()
 			)
 			var amount=int(player.inventory.get(id,0))
-			var count=label("∞" if player.creative else str(amount),13 if mobile_hotbar else 10)
+			var count=label("∞" if player.creative else str(amount),clampi(int(round(hotbar_slot*0.20)),9,13) if mobile_hotbar else 10)
 			count.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 			count.vertical_alignment=VERTICAL_ALIGNMENT_BOTTOM
-			count.position=Vector2(36,43) if mobile_hotbar else Vector2(26,29)
+			count.position=Vector2(hotbar_slot-28.0,hotbar_slot-21.0) if mobile_hotbar else Vector2(26,29)
 			count.size=Vector2(24,17) if mobile_hotbar else Vector2(18,14)
 			count.mouse_filter=Control.MOUSE_FILTER_IGNORE
 			slot.add_child(count)
 		else:
 			slot.disabled=true
 
-		var number=label(str(slot_index+1),10 if mobile_hotbar else 8)
+		var number=label(str(slot_index+1),clampi(int(round(hotbar_slot*0.17)),8,10) if mobile_hotbar else 8)
 		number.position=Vector2(4,2) if mobile_hotbar else Vector2(3,1)
 		number.size=Vector2(16,12) if mobile_hotbar else Vector2(14,10)
 		number.add_theme_color_override("font_color",Color("a9a3aa"))
@@ -2847,7 +2879,6 @@ func refresh_hud() -> void:
 		slot.add_child(number)
 		bar.add_child(slot)
 	layout()
-
 func update_air_hud() -> void:
 	if not is_instance_valid(air_frame) or not is_instance_valid(player):
 		return
@@ -3954,12 +3985,27 @@ func attack() -> void:
 		update_purity_hud()
 
 func eat() -> void:
-	if player.inventory.get(10,0)>0:
-		if not player.creative:
-			player.inventory[10]-=1
-		player.food=minf(100,player.food+25)
+	if not is_instance_valid(player) or int(player.inventory.get(10,0))<=0:
+		return
+	if player.creative:
+		player.hp=player.max_hp
+		player.food=100
 		refresh_hud()
-
+		return
+	if player.food>=99.9 and player.hp>=player.max_hp-0.01:
+		status.text="VIDA E FOME JÁ ESTÃO CHEIAS"
+		message_time=1.8
+		return
+	player.inventory[10]=int(player.inventory.get(10,0))-1
+	if int(player.inventory.get(10,0))<=0:
+		player.inventory.erase(10)
+	var hp_before=player.hp
+	player.food=minf(100.0,player.food+25.0)
+	player.hp=minf(player.max_hp,player.hp+18.0)
+	var healed=maxf(0.0,player.hp-hp_before)
+	status.text="CARNE · +25 FOME"+(" · +%d VIDA" % int(round(healed)) if healed>0.0 else " · VIDA CHEIA")
+	message_time=2.0
+	refresh_hud()
 func _process(delta: float) -> void:
 	if not active:
 		poll_web_login()
