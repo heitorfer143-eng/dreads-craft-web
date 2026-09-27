@@ -64,7 +64,7 @@ func validate_png(path:String) -> void:
 		var expected_crc=read_u32_be(bytes,crc_offset)
 		var actual_crc=crc32_range(bytes,type_offset,4+chunk_length)
 		if expected_crc!=actual_crc:
-			fail("PNG CRC mismatch: "+path+" at "+str(offset))
+			fail("PNG CRC mismatch: "+path+" at "+str(offset)+" expected="+str(expected_crc)+" actual="+str(actual_crc))
 			return
 		if chunk_index==0:
 			if not is_chunk(bytes,type_offset,73,72,68,82) or chunk_length!=13:
@@ -104,6 +104,8 @@ func scan_dir(path:String) -> void:
 	dir.list_dir_end()
 
 func run() -> void:
+	var crc_probe="123456789".to_utf8_buffer()
+	print("CRC_PROBE=",crc32_range(crc_probe,0,crc_probe.size())," expected=3421780262")
 	scan_dir("res://assets")
 	if checked_pngs==0:
 		fail("No PNG assets were scanned")
