@@ -732,10 +732,11 @@ func lobby_panel_style(alpha: float=0.84, border: Color=Color("6d537c")) -> Styl
 	style.shadow_size=12
 	return style
 
-func lobby_button(text: String, subtitle: String, icon_path: String, callback: Callable, primary: bool=false) -> Button:
+func lobby_button(text: String, subtitle: String, icon_path: String, callback: Callable, primary: bool=false, compact: bool=false) -> Button:
 	var node=Button.new()
 	node.focus_mode=Control.FOCUS_NONE
-	node.custom_minimum_size=Vector2(360,68)
+	node.custom_minimum_size=Vector2(0,58) if compact else Vector2(360,68)
+	node.size_flags_horizontal=Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_CENTER
 	node.text=""
 	var base=Color("2a1736ee") if primary else Color("130f1bee")
 	var border=Color("b47ad5") if primary else Color("5d496b")
@@ -755,7 +756,7 @@ func lobby_button(text: String, subtitle: String, icon_path: String, callback: C
 	var ico=TextureRect.new()
 	if ResourceLoader.exists(icon_path):
 		ico.texture=load(icon_path)
-	ico.custom_minimum_size=Vector2(40,40)
+	ico.custom_minimum_size=Vector2(32,32) if compact else Vector2(40,40)
 	ico.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	ico.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	ico.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -764,10 +765,11 @@ func lobby_button(text: String, subtitle: String, icon_path: String, callback: C
 	copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	copy.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	row.add_child(copy)
-	var title=label(text,16)
+	var title=label(text,14 if compact else 16)
 	title.add_theme_color_override("font_color",Color("fff6e9"))
 	copy.add_child(title)
-	var sub=label(subtitle,11)
+	var sub=label(subtitle,9 if compact else 11)
+	sub.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	sub.add_theme_color_override("font_color",Color("aa99b8"))
 	copy.add_child(sub)
 	var arrow=label("›",28)
@@ -775,27 +777,26 @@ func lobby_button(text: String, subtitle: String, icon_path: String, callback: C
 	arrow.add_theme_color_override("font_color",Color("a776c3"))
 	row.add_child(arrow)
 	return node
-
-func lobby_info_chip(text: String, icon_path: String) -> PanelContainer:
+func lobby_info_chip(text: String, icon_path: String, compact: bool=false) -> PanelContainer:
 	var chip=PanelContainer.new()
 	chip.add_theme_stylebox_override("panel",lobby_panel_style(0.65,Color("4b3b56")))
-	chip.custom_minimum_size=Vector2(150,52)
+	chip.custom_minimum_size=Vector2(0,44) if compact else Vector2(150,52)
+	chip.size_flags_horizontal=Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_CENTER
 	var row=HBoxContainer.new()
 	row.add_theme_constant_override("separation",8)
 	chip.add_child(row)
 	var ico=TextureRect.new()
 	if ResourceLoader.exists(icon_path):
 		ico.texture=load(icon_path)
-	ico.custom_minimum_size=Vector2(26,26)
+	ico.custom_minimum_size=Vector2(20,20) if compact else Vector2(26,26)
 	ico.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	ico.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	row.add_child(ico)
-	var text_node=label(text,11)
+	var text_node=label(text,9 if compact else 11)
 	text_node.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	text_node.add_theme_color_override("font_color",Color("c9bbcf"))
 	row.add_child(text_node)
 	return chip
-
 func difficulty_name(value: int) -> String:
 	var names=["Pacífico","Fácil","Normal","Difícil"]
 	return names[clampi(value,0,names.size()-1)]
@@ -810,97 +811,128 @@ func format_saved_time(data: Dictionary) -> String:
 
 func show_world_browser_v2() -> void:
 	clear_menu("MEUS MUNDOS","worlds")
+	var mobile=get_viewport_rect().size.x<=620
 	var worlds=Saves.list_worlds()
-	var intro=label("Escolha um reino para jogar. Você pode manter vários mundos salvos.",14)
+	var intro=label("Escolha um reino para jogar. Você pode manter vários mundos salvos.",12 if mobile else 14)
 	intro.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	intro.add_theme_color_override("font_color",Color("c7a6dd"))
 	menu_box.add_child(intro)
 	for meta in worlds:
 		var card=PanelContainer.new()
+		card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		card.add_theme_stylebox_override("panel",panel_style(0.92,Color("765681")))
-		card.custom_minimum_size=Vector2(560,104)
+		card.custom_minimum_size=Vector2(0,118 if mobile else 104) if mobile else Vector2(560,104)
 		menu_box.add_child(card)
-		var row=HBoxContainer.new()
-		row.add_theme_constant_override("separation",10)
-		card.add_child(row)
+		var content=VBoxContainer.new() if mobile else HBoxContainer.new()
+		content.add_theme_constant_override("separation",8 if mobile else 10)
+		card.add_child(content)
 		var copy=VBoxContainer.new()
 		copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		row.add_child(copy)
-		var title=label(str(meta.get("name","Reino")),18)
+		content.add_child(copy)
+		var title=label(str(meta.get("name","Reino")),16 if mobile else 18)
+		title.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		title.add_theme_color_override("font_color",Color("f3dfca"))
 		copy.add_child(title)
 		var mode_text="Criativo" if bool(meta.get("creative",false)) else "Sobrevivência"
-		copy.add_child(label("Dia %d  •  %s  •  %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],11))
+		var details=label("Dia %d  •  %s  •  %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],10 if mobile else 11)
+		details.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		copy.add_child(details)
+		var actions=HBoxContainer.new()
+		actions.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		actions.add_theme_constant_override("separation",7)
+		content.add_child(actions)
 		var play=button("JOGAR",func():
 			Saves.select_world(str(meta.get("id","")))
 			load_world()
 		)
-		play.custom_minimum_size=Vector2(105,44)
-		row.add_child(play)
+		play.custom_minimum_size=Vector2(0,42) if mobile else Vector2(105,44)
+		play.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		actions.add_child(play)
 		var erase=button("EXCLUIR",func():
 			delete_world_everywhere(str(meta.get("id","")))
 		)
-		erase.custom_minimum_size=Vector2(105,44)
+		erase.custom_minimum_size=Vector2(0,42) if mobile else Vector2(105,44)
+		erase.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 		erase.add_theme_color_override("font_color",Color("e7a6a6"))
-		row.add_child(erase)
+		actions.add_child(erase)
 	if worlds.is_empty():
 		var empty=label("Nenhum mundo salvo.",16)
 		empty.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		menu_box.add_child(empty)
-	menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
-	menu_box.add_child(button("VOLTAR",show_main))
-
+	var create=button("CRIAR NOVO MUNDO",show_creation)
+	create.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(create)
+	var back=button("VOLTAR",show_main)
+	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(back)
 func show_saved_world() -> void:
 	clear_menu("Meus Mundos","worlds")
+	var mobile=get_viewport_rect().size.x<=620
 	var worlds=Saves.list_worlds()
 	if worlds.is_empty():
-		var empty=label("Nenhum mundo salvo ainda. Crie seu primeiro reino para ele aparecer aqui.",15)
+		var empty=label("Nenhum mundo salvo ainda. Crie seu primeiro reino para ele aparecer aqui.",13 if mobile else 15)
 		empty.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		empty.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		empty.custom_minimum_size=Vector2(520,80)
+		empty.custom_minimum_size=Vector2(0,72)
 		menu_box.add_child(empty)
-		menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
-		menu_box.add_child(button("VOLTAR",show_main))
+		var create=button("CRIAR NOVO MUNDO",show_creation)
+		create.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		menu_box.add_child(create)
+		var back=button("VOLTAR",show_main)
+		back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		menu_box.add_child(back)
 		return
-	var heading=label("Escolha um mundo para continuar",15)
+	var heading=label("Escolha um mundo para continuar",13 if mobile else 15)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	heading.add_theme_color_override("font_color",Color("c7a6dd"))
 	menu_box.add_child(heading)
 	for meta in worlds:
 		var card=PanelContainer.new()
+		card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		card.add_theme_stylebox_override("panel",panel_style(0.90,Color("735b80")))
-		card.custom_minimum_size=Vector2(520,112)
+		card.custom_minimum_size=Vector2(0,120) if mobile else Vector2(520,112)
 		menu_box.add_child(card)
-		var row=HBoxContainer.new()
-		row.add_theme_constant_override("separation",12)
-		card.add_child(row)
+		var content=VBoxContainer.new() if mobile else HBoxContainer.new()
+		content.add_theme_constant_override("separation",8 if mobile else 12)
+		card.add_child(content)
 		var copy=VBoxContainer.new()
 		copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		row.add_child(copy)
-		var title=label(str(meta.get("name","Reino")),19)
+		content.add_child(copy)
+		var title=label(str(meta.get("name","Reino")),16 if mobile else 19)
+		title.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		title.add_theme_color_override("font_color",Color("f1dfc8"))
 		copy.add_child(title)
 		var mode_text="Criativo" if bool(meta.get("creative",false)) else "Sobrevivência"
-		var info=label("Dia %d · %s · %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],12)
+		var info=label("Dia %d · %s · %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],10 if mobile else 12)
+		info.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		info.add_theme_color_override("font_color",Color("b8a9c1"))
 		copy.add_child(info)
+		var actions=HBoxContainer.new()
+		actions.add_theme_constant_override("separation",7)
+		content.add_child(actions)
 		var play=button("JOGAR",func():
 			Saves.select_world(str(meta.get("id","")))
 			load_world()
 		)
-		play.custom_minimum_size=Vector2(108,44)
-		row.add_child(play)
+		play.custom_minimum_size=Vector2(0,42) if mobile else Vector2(108,44)
+		play.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		actions.add_child(play)
 		var erase=button("EXCLUIR",func():
 			Saves.select_world(str(meta.get("id","")))
 			Saves.erase_save()
 			show_saved_world()
 		)
-		erase.custom_minimum_size=Vector2(108,44)
+		erase.custom_minimum_size=Vector2(0,42) if mobile else Vector2(108,44)
+		erase.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 		erase.add_theme_color_override("font_color",Color("e7a6a6"))
-		row.add_child(erase)
-	menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
-	menu_box.add_child(button("VOLTAR",show_main))
-
+		actions.add_child(erase)
+	var create=button("CRIAR NOVO MUNDO",show_creation)
+	create.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(create)
+	var back=button("VOLTAR",show_main)
+	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(back)
 func animate_lobby(delta: float) -> void:
 	menu_glow+=delta
 	if is_instance_valid(menu_title):
@@ -1555,36 +1587,60 @@ func show_main() -> void:
 	menu_tip_timer=0.0
 	menu_tip_index=0
 
+	var viewport_size=get_viewport_rect().size
+	var mobile=viewport_size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var narrow=viewport_size.x<520
+	var content_parent:Control=lobby_root
+	if mobile:
+		var lobby_scroll=ScrollContainer.new()
+		lobby_scroll.name="LobbyScroll"
+		lobby_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		lobby_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+		lobby_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+		lobby_scroll.follow_focus=true
+		lobby_root.add_child(lobby_scroll)
+		content_parent=lobby_scroll
+
 	var margin=MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left",58)
-	margin.add_theme_constant_override("margin_right",58)
-	margin.add_theme_constant_override("margin_top",42)
-	margin.add_theme_constant_override("margin_bottom",34)
-	lobby_root.add_child(margin)
+	margin.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	if mobile:
+		margin.custom_minimum_size=Vector2(viewport_size.x,0)
+	margin.add_theme_constant_override("margin_left",14 if mobile else 58)
+	margin.add_theme_constant_override("margin_right",14 if mobile else 58)
+	margin.add_theme_constant_override("margin_top",14 if mobile else 42)
+	margin.add_theme_constant_override("margin_bottom",18 if mobile else 34)
+	content_parent.add_child(margin)
 
 	var root=VBoxContainer.new()
-	root.add_theme_constant_override("separation",14)
+	root.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	root.add_theme_constant_override("separation",10 if mobile else 14)
 	margin.add_child(root)
 
-	var header=HBoxContainer.new()
-	header.custom_minimum_size=Vector2(1,82)
+	var header=VBoxContainer.new() if mobile else HBoxContainer.new()
+	header.custom_minimum_size=Vector2(1,0 if mobile else 82)
+	header.add_theme_constant_override("separation",4)
 	root.add_child(header)
 	var title_box=VBoxContainer.new()
 	title_box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	title_box.add_theme_constant_override("separation",0)
 	header.add_child(title_box)
-	menu_title=label("DREADS CRAFT",42)
+	menu_title=label("DREADS CRAFT",30 if mobile else 42)
+	menu_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
 	menu_title.add_theme_color_override("font_color",Color("f5eadf"))
 	title_box.add_child(menu_title)
-	var subtitle=label("REINO DO ABISMO · CONTA "+current_account,15)
+	var subtitle=label("REINO DO ABISMO · CONTA "+current_account,11 if mobile else 15)
+	subtitle.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
+	subtitle.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	subtitle.add_theme_color_override("font_color",Color("c89ee0"))
 	title_box.add_child(subtitle)
 	var build=PanelContainer.new()
 	build.add_theme_stylebox_override("panel",lobby_panel_style(0.66,Color("5e486a")))
-	build.custom_minimum_size=Vector2(170,54)
+	build.custom_minimum_size=Vector2(0,38) if mobile else Vector2(170,54)
+	build.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 	header.add_child(build)
-	var build_text=label("ALPHA 0.8\nPC BUILD",11)
+	var build_text=label("V14.0.1 · ESTABILIDADE" if mobile else "V14.0.1
+STABILITY BUILD",9 if mobile else 11)
 	build_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	build_text.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	build_text.add_theme_color_override("font_color",Color("baacc1"))
@@ -1594,34 +1650,39 @@ func show_main() -> void:
 	rule.modulate=Color("6f4f82")
 	root.add_child(rule)
 
-	var body=HBoxContainer.new()
+	var body=VBoxContainer.new() if mobile else HBoxContainer.new()
+	body.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	body.size_flags_vertical=Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation",22)
+	body.add_theme_constant_override("separation",12 if mobile else 22)
 	root.add_child(body)
 
 	var left=VBoxContainer.new()
-	left.custom_minimum_size=Vector2(620,1)
+	left.custom_minimum_size=Vector2(0,1) if mobile else Vector2(620,1)
 	left.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	left.add_theme_constant_override("separation",12)
+	left.add_theme_constant_override("separation",9 if mobile else 12)
 	body.add_child(left)
-	var hook=label("SOBREVIVA AO QUE EXISTE DEPOIS DA LUZ.",24)
+	var hook=label("SOBREVIVA AO QUE EXISTE DEPOIS DA LUZ.",17 if mobile else 24)
+	hook.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
+	hook.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	hook.add_theme_color_override("font_color",Color("eadccf"))
 	left.add_child(hook)
-	var intro=label("Explore ruínas, construa abrigo, mine recursos e enfrente criaturas que despertam quando a noite toma o reino.",13)
+	var intro=label("Explore ruínas, construa abrigo, mine recursos e enfrente criaturas que despertam quando a noite toma o reino.",11 if mobile else 13)
 	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	intro.custom_minimum_size=Vector2(590,44)
+	intro.custom_minimum_size=Vector2(0,38 if mobile else 44)
+	intro.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
 	intro.add_theme_color_override("font_color",Color("b9acbf"))
 	left.add_child(intro)
 
 	var realm=PanelContainer.new()
+	realm.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	realm.add_theme_stylebox_override("panel",lobby_panel_style(0.80,Color("705580")))
-	realm.custom_minimum_size=Vector2(600,205)
+	realm.custom_minimum_size=Vector2(0,145 if mobile else 205) if mobile else Vector2(600,205)
 	left.add_child(realm)
 	var realm_row=HBoxContainer.new()
-	realm_row.add_theme_constant_override("separation",18)
+	realm_row.add_theme_constant_override("separation",9 if mobile else 18)
 	realm.add_child(realm_row)
 	var spike_wrap=PanelContainer.new()
-	spike_wrap.custom_minimum_size=Vector2(150,165)
+	spike_wrap.custom_minimum_size=Vector2(82,110) if mobile else Vector2(150,165)
 	spike_wrap.add_theme_stylebox_override("panel",lobby_panel_style(0.58,Color("4b3957")))
 	realm_row.add_child(spike_wrap)
 	var spike=TextureRect.new()
@@ -1633,62 +1694,72 @@ func show_main() -> void:
 	spike.material=clean_mat
 	spike.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	spike.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	spike.custom_minimum_size=Vector2(120,145)
+	spike.custom_minimum_size=Vector2(68,94) if mobile else Vector2(120,145)
 	spike_wrap.add_child(spike)
 	var realm_copy=VBoxContainer.new()
 	realm_copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	realm_copy.add_theme_constant_override("separation",8)
+	realm_copy.add_theme_constant_override("separation",4 if mobile else 8)
 	realm_row.add_child(realm_copy)
 	var saved_worlds=Saves.list_worlds()
 	var saved=Saves.read_save() if not saved_worlds.is_empty() else {}
-	var label_last=label("ÚLTIMO REINO",12)
+	var label_last=label("ÚLTIMO REINO",9 if mobile else 12)
 	label_last.add_theme_color_override("font_color",Color("aa83c1"))
 	realm_copy.add_child(label_last)
-	var realm_name=label("Nenhum mundo salvo" if saved.is_empty() else str(saved.get("name","Reino do Abismo")),22)
+	var realm_name=label("Nenhum mundo salvo" if saved.is_empty() else str(saved.get("name","Reino do Abismo")),15 if mobile else 22)
+	realm_name.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	realm_name.add_theme_color_override("font_color",Color("f2e1cf"))
 	realm_copy.add_child(realm_name)
 	var realm_desc="Crie seu primeiro mundo e comece a jornada de Spike."
 	if not saved.is_empty():
 		var mode_text="Criativo" if bool(saved.get("creative",false)) else "Sobrevivência"
-		realm_desc="%s\n%s · %s" % [format_saved_time(saved),mode_text,difficulty_name(int(saved.get("difficulty",1)))]
-	var realm_info=label(realm_desc,13)
+		realm_desc="%s
+%s · %s" % [format_saved_time(saved),mode_text,difficulty_name(int(saved.get("difficulty",1)))]
+	var realm_info=label(realm_desc,10 if mobile else 13)
 	realm_info.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	realm_info.add_theme_color_override("font_color",Color("c6b9c8"))
 	realm_copy.add_child(realm_info)
-	var quote=label("“O abismo não dorme. Só espera.”",12)
-	quote.add_theme_color_override("font_color",Color("95879f"))
-	realm_copy.add_child(quote)
+	if not narrow:
+		var quote=label("“O abismo não dorme. Só espera.”",10 if mobile else 12)
+		quote.add_theme_color_override("font_color",Color("95879f"))
+		realm_copy.add_child(quote)
 
-	var chips=HBoxContainer.new()
-	chips.add_theme_constant_override("separation",10)
+	var chips=GridContainer.new() if mobile else HBoxContainer.new()
+	if mobile:
+		chips.columns=3
+		chips.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		chips.add_theme_constant_override("h_separation",6)
+	else:
+		chips.add_theme_constant_override("separation",10)
 	left.add_child(chips)
-	chips.add_child(lobby_info_chip("EXPLORAÇÃO","res://assets/items/torch.png"))
-	chips.add_child(lobby_info_chip("CRAFTING","res://assets/items/table.png"))
-	chips.add_child(lobby_info_chip("COMBATE","res://assets/items/sword_iron_v11.svg"))
+	chips.add_child(lobby_info_chip("EXPLORAÇÃO","res://assets/items/torch.png",mobile))
+	chips.add_child(lobby_info_chip("CRAFTING","res://assets/items/table.png",mobile))
+	chips.add_child(lobby_info_chip("COMBATE","res://assets/items/sword_iron_v11.svg",mobile))
 
 	var right_panel=PanelContainer.new()
-	right_panel.custom_minimum_size=Vector2(390,1)
+	right_panel.custom_minimum_size=Vector2(0,1) if mobile else Vector2(390,1)
+	right_panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	right_panel.add_theme_stylebox_override("panel",lobby_panel_style(0.86,Color("765786")))
 	body.add_child(right_panel)
 	var right=VBoxContainer.new()
-	right.add_theme_constant_override("separation",10)
+	right.add_theme_constant_override("separation",7 if mobile else 10)
 	right_panel.add_child(right)
-	var menu_label=label("ESCOLHA SEU CAMINHO",13)
+	var menu_label=label("ESCOLHA SEU CAMINHO",11 if mobile else 13)
+	menu_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
 	menu_label.add_theme_color_override("font_color",Color("c9a6dc"))
 	right.add_child(menu_label)
-	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/ui/new_world_icon.svg",show_creation,true)
+	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/ui/new_world_icon.svg",show_creation,true,mobile)
 	right.add_child(new_button)
-	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer))
-	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2))
-	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia, controles e conta.","res://assets/items/menu.png",func(): show_settings(true)))
-	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit())
+	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer,false,mobile))
+	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2,false,mobile))
+	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia, controles e conta.","res://assets/items/menu.png",func(): show_settings(true),false,mobile))
+	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit(),false,mobile)
 	right.add_child(exit_button)
 
 	var tip_panel=PanelContainer.new()
 	tip_panel.add_theme_stylebox_override("panel",lobby_panel_style(0.58,Color("493653")))
-	tip_panel.custom_minimum_size=Vector2(1,46)
+	tip_panel.custom_minimum_size=Vector2(1,54 if mobile else 46)
 	root.add_child(tip_panel)
-	menu_tip_label=label("✦  "+LOBBY_TIPS[0],12)
+	menu_tip_label=label("✦  "+LOBBY_TIPS[0],10 if mobile else 12)
 	menu_tip_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	menu_tip_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	menu_tip_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -1696,8 +1767,6 @@ func show_main() -> void:
 	tip_panel.add_child(menu_tip_label)
 
 	layout()
-
-
 func mobile_web_prompt(edit: LineEdit, title: String, uppercase: bool=false) -> void:
 	if not OS.has_feature("web"):
 		edit.grab_focus()
@@ -2334,48 +2403,61 @@ func show_world_intro(creative_mode: bool, seed_value: int, page: int=0) -> void
 
 func show_settings(from_main: bool=false) -> void:
 	clear_menu("Configurações","settings")
-	var intro=label("Ajustes rápidos para PC, Android e iPhone.",14)
+	var mobile=get_viewport_rect().size.x<=620 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var intro=label("Ajustes rápidos para PC, Android e iPhone.",12 if mobile else 14)
 	intro.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	intro.add_theme_color_override("font_color",Color("c7a6dd"))
 	menu_box.add_child(intro)
 	var full_button=button("ALTERNAR TELA CHEIA",toggle_fullscreen)
 	set_button_icon(full_button,"res://assets/items/fullscreen.png")
-	full_button.custom_minimum_size=Vector2(520,54)
+	full_button.custom_minimum_size=Vector2(0,50 if mobile else 54) if mobile else Vector2(520,54)
+	full_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 	menu_box.add_child(full_button)
 	var controls=PanelContainer.new()
+	controls.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	controls.add_theme_stylebox_override("panel",panel_style(0.82,Color("5c4a67")))
-	controls.custom_minimum_size=Vector2(520,150)
+	controls.custom_minimum_size=Vector2(0,190 if mobile else 150) if mobile else Vector2(520,150)
 	menu_box.add_child(controls)
-	var controls_text=label("CONTROLES\nA/D ou ←/→  mover     ·     Espaço/W  pular\nMouse esquerdo  minerar/atacar     ·     Mouse direito  colocar/interagir\nE  inventário     ·     C  crafting     ·     Q  dropar item     ·     Esc  menu",13)
+	var controls_text=label("CONTROLES
+A/D ou ←/→  mover  ·  Espaço/W  pular
+Mouse esquerdo  minerar/atacar
+Mouse direito  colocar/interagir
+E  inventário  ·  C  crafting  ·  Q  dropar item  ·  Esc  menu",11 if mobile else 13)
 	controls_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	controls_text.add_theme_color_override("font_color",Color("d7cadb"))
 	controls.add_child(controls_text)
-	var note=label("iPhone: o jogo também pode ser adicionado à Tela de Início para abrir sem a barra do navegador.",12)
+	var note=label("iPhone: o jogo também pode ser adicionado à Tela de Início para abrir sem a barra do navegador.",10 if mobile else 12)
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_color_override("font_color",Color("9f91a7"))
 	menu_box.add_child(note)
 	if current_account!="":
 		var account_panel=PanelContainer.new()
+		account_panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		account_panel.add_theme_stylebox_override("panel",panel_style(0.82,Color("5c4a67")))
-		account_panel.custom_minimum_size=Vector2(520,108)
+		account_panel.custom_minimum_size=Vector2(0,108) if mobile else Vector2(520,108)
 		menu_box.add_child(account_panel)
 		var account_box=VBoxContainer.new()
 		account_box.add_theme_constant_override("separation",8)
 		account_panel.add_child(account_box)
-		var account_label=label("CONTA · "+current_account,13)
+		var account_label=label("CONTA · "+current_account,12 if mobile else 13)
 		account_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		account_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		account_label.add_theme_color_override("font_color",Color("d9c4e6"))
 		account_box.add_child(account_label)
 		var logout_button=button("SAIR DA CONTA",logout_account)
-		logout_button.custom_minimum_size=Vector2(0,48)
+		logout_button.custom_minimum_size=Vector2(0,44 if mobile else 48)
+		logout_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		account_box.add_child(logout_button)
-	menu_box.add_child(button("VOLTAR",func():
+	var back=button("VOLTAR",func():
 		if from_main or not active:
 			show_main()
 		else:
 			show_pause()
-	))
-
+	)
+	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(back)
 func toggle_fullscreen() -> void:
 	if OS.has_feature("web"):
 		# Keep a single ESC press available to the game while in browser fullscreen.
