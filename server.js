@@ -16,6 +16,8 @@ const WORLD_MIN_X = 0;
 const WORLD_MAX_X = WORLD_WIDTH_CELLS * 32;
 const WORLD_MIN_Y = 0;
 const WORLD_MAX_Y = WORLD_HEIGHT_CELLS * 32;
+const VALID_BLOCK_IDS = new Set([0,1,2,3,4,5,6,7,8,9,14,15,16,25,28,29,30,31]);
+const VALID_ITEM_IDS = new Set(Array.from({length:41},(_,i)=>i+1));
 
 const mime = {
   ".html":"text/html; charset=utf-8", ".js":"application/javascript; charset=utf-8",
@@ -36,11 +38,8 @@ function headers(res, code=200, type="text/plain; charset=utf-8") {
     "Referrer-Policy": "no-referrer",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-    "Pragma":"no-cache", "Expires":"0",
-    "X-Content-Type-Options":"nosniff",
-    "Referrer-Policy":"no-referrer",
-    "Permissions-Policy":"camera=(), microphone=(), geolocation=()",
-    "X-Frame-Options":"DENY"
+    "Pragma":"no-cache",
+    "Expires":"0"
   });
 }
 
@@ -129,7 +128,13 @@ async function handleApi(req,res,pathname) {
 }
 
 const serverHttp = http.createServer((req,res)=>{
-  const pathname = decodeURIComponent((req.url || "/").split("?")[0]);
+  let pathname;
+  try {
+    pathname = decodeURIComponent((req.url || "/").split("?")[0]);
+  } catch {
+    headers(res,400);
+    return res.end("bad request");
+  }
   if (pathname.startsWith("/api/")) {
     handleApi(req,res,pathname);
     return;
@@ -140,11 +145,19 @@ const serverHttp = http.createServer((req,res)=>{
   }
   let reqPath = pathname;
   if (reqPath === "/") reqPath = "/index.html";
-  const safe = path.normalize(reqPath).replace(/^([.][.][/\\])+/, "");
-  let file = path.join(ROOT, safe);
-  if (!file.startsWith(ROOT)) { headers(res,403); return res.end("forbidden"); }
+  const fileRoot = path.resolve(ROOT);
+  let file = path.resolve(ROOT, "." + reqPath);
+  if (file !== fileRoot && !file.startsWith(fileRoot + path.sep)) {
+    headers(res,403);
+    return res.end("forbidden");
+  }
   fs.stat(file,(err,st)=>{
-    if (err || !st.isFile()) file = path.join(ROOT,"index.html");
+    if (err || !st.isFile()) {
+      // Browser routes may fall back to the game shell, but missing assets must
+      // stay 404 so broken PNG/JS references are visible instead of returning HTML.
+      if (path.extname(reqPath)) { headers(res,404); return res.end("not found"); }
+      file = path.join(ROOT,"index.html");
+    }
     fs.readFile(file,(readErr,data)=>{
       if (readErr) { headers(res,404); return res.end("not found"); }
       headers(res,200,mime[path.extname(file).toLowerCase()] || "application/octet-stream");
@@ -237,13 +250,13 @@ wss.on("connection",(ws)=>{
       broadcast(room,{type:"state",id:p.id,name:p.name,...p.state},ws);
     } else if(msg.type==="block"){
       const x=Math.trunc(Number(msg.x)), y=Math.trunc(Number(msg.y)), block=Math.trunc(Number(msg.id));
-      if(x<0||x>=WORLD_WIDTH_CELLS||y<0||y>=95||block<0||block>64) return;
+      if(x<0||x>=WORLD_WIDTH_CELLS||y<0||y>=95||!VALID_BLOCK_IDS.has(block)) return;
       room.blocks.set(x+","+y,block);
       broadcast(room,{type:"block",x,y,id:block,by:p.id},ws);
     } else if(msg.type==="drop_spawn"){
       const itemId=Math.trunc(Number(msg.item_id)), count=Math.trunc(Number(msg.count));
       const x=Number(msg.x), y=Number(msg.y);
-      if(!Number.isFinite(x)||!Number.isFinite(y)||itemId<=0||itemId>64||count<=0||count>999) return;
+      if(!Number.isFinite(x)||!Number.isFinite(y)||!VALID_ITEM_IDS.has(itemId)||count<=0||count>999) return;
       if(Math.hypot(x-p.state.x,y-p.state.y)>180) return;
       const dropId=id();
       const drop={id:dropId,item_id:itemId,count,x,y,zone:p.state.zone||"world",expires:Date.now()+300000};
