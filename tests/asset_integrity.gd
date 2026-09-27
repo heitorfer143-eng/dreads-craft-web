@@ -14,15 +14,18 @@ func read_u32_be(bytes:PackedByteArray,offset:int) -> int:
 	return (int(bytes[offset])<<24) | (int(bytes[offset+1])<<16) | (int(bytes[offset+2])<<8) | int(bytes[offset+3])
 
 func crc32_range(bytes:PackedByteArray,start:int,length:int) -> int:
-	var crc:int=0xFFFFFFFF
+	# GDScript integers are signed 64-bit values. Keep every intermediate value
+	# explicitly inside the unsigned 32-bit CRC domain so right shifts cannot
+	# sign-extend on long IDAT chunks.
+	var crc:int=4294967295
 	for i in range(start,start+length):
-		crc^=int(bytes[i])
+		crc=(crc^int(bytes[i]))&4294967295
 		for _bit in range(8):
 			if (crc & 1)!=0:
-				crc=(crc>>1)^0xEDB88320
+				crc=((crc>>1)^3988292384)&4294967295
 			else:
-				crc=crc>>1
-	return (~crc)&0xFFFFFFFF
+				crc=(crc>>1)&4294967295
+	return (crc^4294967295)&4294967295
 
 func is_chunk(bytes:PackedByteArray,offset:int,a:int,b:int,c:int,d:int) -> bool:
 	return int(bytes[offset])==a and int(bytes[offset+1])==b and int(bytes[offset+2])==c and int(bytes[offset+3])==d
