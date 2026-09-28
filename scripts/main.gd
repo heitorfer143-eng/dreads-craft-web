@@ -263,17 +263,19 @@ func button(text: String, callback: Callable) -> Button:
 	var node=Button.new()
 	node.focus_mode=Control.FOCUS_NONE
 	node.text=text
-	node.custom_minimum_size=Vector2(260,54)
+	var compact_ui=get_viewport_rect().size.x<=620
+	node.custom_minimum_size=Vector2(0,48) if compact_ui else Vector2(260,54)
+	if compact_ui:
+		node.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	node.add_theme_stylebox_override("normal",button_style(Color("17131dee"),Color("66536f")))
 	node.add_theme_stylebox_override("hover",button_style(Color("282035ff"),Color("a077bc")))
 	node.add_theme_stylebox_override("pressed",button_style(Color("39254aff"),Color("c08de0")))
 	node.add_theme_stylebox_override("disabled",button_style(Color("100d15aa"),Color("403748")))
-	node.add_theme_font_size_override("font_size",17)
+	node.add_theme_font_size_override("font_size",14 if compact_ui else 17)
 	node.add_theme_color_override("font_color",Color("eee7df"))
 	node.add_theme_color_override("font_hover_color",Color("ffffff"))
 	node.pressed.connect(callback)
 	return node
-
 func icon_button(path: String, tooltip: String, callback: Callable) -> Button:
 	var node=Button.new()
 	node.focus_mode=Control.FOCUS_NONE
@@ -306,7 +308,7 @@ func make_texture(path: String, size: Vector2) -> TextureRect:
 
 func build_ui() -> void:
 	var build_badge=Label.new()
-	build_badge.text="DREADS CRAFT • BUILD 14.3.3 • BOSS + ORB FIX"
+	build_badge.text="DREADS CRAFT • V14.0.1 • STABILITY"
 	build_badge.position=Vector2(12,get_viewport_rect().size.y-24)
 	build_badge.add_theme_font_size_override("font_size",10)
 	build_badge.add_theme_color_override("font_color",Color("80758b"))
@@ -329,67 +331,65 @@ func build_ui() -> void:
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ui.add_child(hud)
 
-	# HUD compacto criado do zero: sem molduras gigantes importadas.
+	# HUD de sobrevivência: sem retrato dentro das barras. O retrato antigo podia
+	# vazar visualmente e parecer uma "orelha" entre VIDA e FOME em algumas escalas.
 	var stats_frame=Panel.new()
 	stats_frame.name="StatsFrame"
-	stats_frame.size=Vector2(244,90)
+	stats_frame.size=Vector2(236,82)
 	stats_frame.add_theme_stylebox_override("panel",panel_style(0.92,Color("725f78")))
 	hud.add_child(stats_frame)
 	var stats_root=Control.new()
-	stats_root.custom_minimum_size=Vector2(244,90)
-	stats_root.size=Vector2(244,90)
+	stats_root.custom_minimum_size=Vector2(236,82)
+	stats_root.size=Vector2(236,82)
 	stats_root.clip_contents=true
 	stats_frame.add_child(stats_root)
-	var portrait=TextureRect.new()
-	portrait_icon=portrait
-	portrait.texture=load("res://assets/sprites/normal_idle_0.png")
-	portrait.position=Vector2(10,12)
-	portrait.size=Vector2(46,46)
-	portrait.custom_minimum_size=Vector2(46,46)
-	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	stats_root.add_child(portrait)
+
+	# Keep the reference alive for transformation code, but do not render a character
+	# portrait inside the compact HUD. This guarantees no sprite/armor pixels overlap it.
+	portrait_icon=TextureRect.new()
+	portrait_icon.name="HiddenPortraitReference"
+	portrait_icon.visible=false
+	stats_root.add_child(portrait_icon)
+
 	form_name_label=label("SPIKE",9)
-	form_name_label.position=Vector2(8,61)
-	form_name_label.size=Vector2(52,15)
-	form_name_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	form_name_label.position=Vector2(10,5)
+	form_name_label.size=Vector2(96,15)
+	form_name_label.add_theme_color_override("font_color",Color("cbb7d6"))
 	stats_root.add_child(form_name_label)
+
 	var hp_caption=label("VIDA",9)
-	hp_caption.position=Vector2(68,9)
+	hp_caption.position=Vector2(10,23)
 	stats_root.add_child(hp_caption)
-	var food_caption=label("FOME",9)
-	food_caption.position=Vector2(68,43)
-	stats_root.add_child(food_caption)
+	stats=label("",9)
+	stats.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	stats.position=Vector2(146,20)
+	stats.size=Vector2(78,18)
+	stats_root.add_child(stats)
 	hp_bar=ProgressBar.new()
-	hp_bar.position=Vector2(68,24)
-	hp_bar.size=Vector2(142,10)
+	hp_bar.position=Vector2(10,38)
+	hp_bar.size=Vector2(214,9)
 	hp_bar.max_value=100
 	hp_bar.show_percentage=false
 	hp_bar.add_theme_stylebox_override("background",meter_style(Color("130c13")))
 	hp_bar.add_theme_stylebox_override("fill",meter_style(Color("bf2548")))
-	hp_bar.size=Vector2(142,10)
 	stats_root.add_child(hp_bar)
+
+	var food_caption=label("FOME",9)
+	food_caption.position=Vector2(10,51)
+	stats_root.add_child(food_caption)
+	food_value=label("",9)
+	food_value.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	food_value.position=Vector2(168,48)
+	food_value.size=Vector2(56,18)
+	stats_root.add_child(food_value)
 	food_bar=ProgressBar.new()
-	food_bar.position=Vector2(68,58)
-	food_bar.size=Vector2(142,10)
+	food_bar.position=Vector2(10,66)
+	food_bar.size=Vector2(214,9)
 	food_bar.max_value=100
 	food_bar.show_percentage=false
 	food_bar.add_theme_stylebox_override("background",meter_style(Color("130c13")))
 	food_bar.add_theme_stylebox_override("fill",meter_style(Color("c28a36")))
-	food_bar.size=Vector2(142,10)
 	stats_root.add_child(food_bar)
-	stats=label("",9)
-	stats.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
-	stats.position=Vector2(186,7)
-	stats.size=Vector2(82,18)
-	stats.position=Vector2(146,7)
-	food_value=label("",10)
-	food_value.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
-	food_value.position=Vector2(174,42)
-	food_value.size=Vector2(54,18)
-	stats_root.add_child(food_value)
-	stats_root.add_child(stats)
 
 	air_frame=Panel.new()
 	air_frame.name="AirFrame"
@@ -472,6 +472,8 @@ func build_ui() -> void:
 	ui.add_child(selected_name)
 	status=label("",11)
 	status.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	status.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	ui.add_child(status)
 
 	chat_panel=Panel.new()
@@ -545,12 +547,32 @@ func build_ui() -> void:
 	get_viewport().size_changed.connect(layout)
 	layout()
 
+func mobile_hotbar_slot_size(viewport_size:Vector2) -> float:
+	# Fit all 9 slots in the free center strip between the touch controls.
+	var side_margin=maxf(14.0,viewport_size.x*0.012)
+	var control_gap=8.0
+	var height_size=clampf(viewport_size.y*0.18,60.0,104.0)
+	var width_limit=maxf(52.0,(viewport_size.x-side_margin*2.0-24.0-control_gap*3.0)/5.0)
+	var button_size=minf(height_size,width_limit)
+	var left_end=side_margin+button_size*2.0+control_gap
+	var right_start=viewport_size.x-side_margin-button_size*3.0-control_gap*2.0
+	var center_width=right_start-left_end-12.0
+	var available=center_width if center_width>=300.0 else viewport_size.x-24.0
+	return clampf((available-16.0)/9.0,32.0,64.0)
+
+func hotbar_geometry(viewport_size:Vector2,mobile_layout:bool) -> Vector3:
+	var slot_size=mobile_hotbar_slot_size(viewport_size) if mobile_layout else 48.0
+	var gap=2.0 if mobile_layout else 5.0
+	var bar_width=slot_size*9.0+gap*8.0
+	return Vector3(slot_size,gap,bar_width)
+
 func layout() -> void:
 	if is_instance_valid(hp_bar):
-		hp_bar.size=Vector2(142,10)
-		food_bar.size=Vector2(142,10)
+		hp_bar.size=Vector2(214,9)
+		food_bar.size=Vector2(214,9)
 	var size=get_viewport_rect().size
 	var mobile_layout=size.x <= 900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var narrow_mobile=mobile_layout and size.x<620
 	var menu_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
 	if menu_scroll:
 		if pause_kind=="creation":
@@ -558,11 +580,11 @@ func layout() -> void:
 		elif pause_kind=="world_intro":
 			menu_scroll.custom_minimum_size=Vector2(minf(900,size.x-42),minf(560,size.y-50))
 		elif pause_kind=="craft":
-			menu_scroll.custom_minimum_size=Vector2(minf(1140,size.x-24),minf(650,size.y-24))
+			menu_scroll.custom_minimum_size=Vector2(minf(560.0,size.x-24.0),minf(620.0,size.y-24.0)) if mobile_layout else Vector2(minf(1140.0,size.x-24.0),minf(650.0,size.y-24.0))
 		else:
 			menu_scroll.custom_minimum_size=Vector2(minf(560,size.x-44),minf(360,size.y-56)) if mobile_layout else Vector2(560,360)
 	if is_instance_valid(menu):
-		var menu_size=Vector2(620,480)
+		var menu_size=Vector2(minf(620.0,size.x-24.0),minf(480.0,size.y-36.0)) if mobile_layout else Vector2(620,480)
 		if pause_kind=="craft":
 			menu_size=Vector2(minf(1180,size.x-40),minf(680,size.y-36))
 		elif pause_kind=="creation":
@@ -576,35 +598,41 @@ func layout() -> void:
 	var stats_frame=hud.get_node_or_null("StatsFrame") if is_instance_valid(hud) else null
 	if stats_frame:
 		stats_frame.position=Vector2(6,6) if mobile_layout else Vector2(12,10)
-		stats_frame.scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
-		stats_frame.size=Vector2(244,90)
+		stats_frame.scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		stats_frame.size=Vector2(236,82)
 	var clock_frame=hud.get_node_or_null("ClockFrame") if is_instance_valid(hud) else null
 	if clock_frame:
-		clock_frame.scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
-		clock_frame.position=Vector2((size.x-138)/2.0,6) if mobile_layout else Vector2((size.x-184)/2.0,10)
+		clock_frame.scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		if narrow_mobile:
+			clock_frame.position=Vector2(6,76)
+		elif mobile_layout:
+			clock_frame.position=Vector2((size.x-162)/2.0,6)
+		else:
+			clock_frame.position=Vector2((size.x-184)/2.0,10)
 		clock_frame.size=Vector2(184,38)
 	if is_instance_valid(action_box):
-		# Keep the familiar top-right inventory/crafting/menu/fullscreen buttons
-		# on mobile too; the previous lake build accidentally hid the whole strip.
 		action_box.visible=true
-		action_box.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		action_box.scale=Vector2(0.68,0.68) if narrow_mobile else Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
 		var actions_width=(235.0 if multiplayer_active else 175.0)*action_box.scale.x
-		action_box.position=Vector2(size.x-actions_width-12.0,8.0 if mobile_layout else 10.0)
+		action_box.position=Vector2(size.x-actions_width-8.0,8.0 if mobile_layout else 10.0)
 	if is_instance_valid(mode_frame):
 		mode_frame.visible=true
-		mode_frame.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
-		mode_frame.position=Vector2(size.x-122.0,48.0) if mobile_layout else Vector2(size.x-144,56)
+		mode_frame.scale=Vector2(0.72,0.72) if narrow_mobile else Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		mode_frame.position=Vector2(size.x-104.0,44.0) if narrow_mobile else Vector2(size.x-122.0,48.0) if mobile_layout else Vector2(size.x-144,56)
 		mode_frame.size=Vector2(132,32)
 	if is_instance_valid(transform_button):
-		transform_button.scale=Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
-		transform_button.position=Vector2(size.x-48.0,82.0) if mobile_layout else Vector2(size.x-52.0,96.0)
+		transform_button.scale=Vector2(0.72,0.72) if narrow_mobile else Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		transform_button.position=Vector2(size.x-42.0,76.0) if narrow_mobile else Vector2(size.x-48.0,82.0) if mobile_layout else Vector2(size.x-52.0,96.0)
 	if is_instance_valid(air_frame):
-		var stat_scale=Vector2(0.78,0.78) if size.x<560 else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		var stat_scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
 		air_frame.scale=stat_scale
-		air_frame.position=Vector2(6,80) if mobile_layout else Vector2(12,104)
+		air_frame.position=Vector2(6,112) if narrow_mobile else Vector2(6,80) if mobile_layout else Vector2(12,104)
 	if is_instance_valid(compass_frame):
-		compass_frame.scale=Vector2(0.86,0.86) if mobile_layout else Vector2.ONE
-		compass_frame.position=Vector2((size.x-compass_frame.size.x*compass_frame.scale.x)/2.0,48.0 if mobile_layout else 54.0)
+		compass_frame.scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.86,0.86) if mobile_layout else Vector2.ONE
+		if narrow_mobile:
+			compass_frame.position=Vector2(size.x-compass_frame.size.x*compass_frame.scale.x-8.0,112.0)
+		else:
+			compass_frame.position=Vector2((size.x-compass_frame.size.x*compass_frame.scale.x)/2.0,48.0 if mobile_layout else 54.0)
 	if is_instance_valid(chat_panel):
 		chat_panel.size=Vector2(minf(380.0,size.x-24.0),156.0 if mobile_layout else 176.0)
 		chat_panel.position=Vector2(12.0,maxf(92.0,size.y-chat_panel.size.y-(106.0 if mobile_layout else 78.0)))
@@ -615,24 +643,24 @@ func layout() -> void:
 			chat_input.size=Vector2(chat_panel.size.x-18.0,34.0)
 		if is_instance_valid(chat_close_button):
 			chat_close_button.position=Vector2(chat_panel.size.x-38.0,6.0)
+	var hotbar_geo=hotbar_geometry(size,mobile_layout)
+	var hotbar_slot=hotbar_geo.x
+	var hotbar_width=hotbar_geo.z
 	if is_instance_valid(hotbar_back):
-		# Mobile hotbar is deliberately larger than desktop: 9 x 64px slots plus a
-		# compact frame. It remains centered between the movement and action clusters.
 		hotbar_back.scale=Vector2.ONE
-		hotbar_back.size=Vector2(612,74) if mobile_layout else Vector2(492,58)
-		hotbar_back.position=Vector2((size.x-hotbar_back.size.x)/2.0,size.y-94) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
+		var frame_size=Vector2(hotbar_width+20.0,hotbar_slot+10.0) if mobile_layout else Vector2(492,58)
+		hotbar_back.size=frame_size
+		hotbar_back.position=Vector2((size.x-frame_size.x)/2.0,size.y-frame_size.y-20.0) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
 	if is_instance_valid(bar):
 		bar.scale=Vector2.ONE
-		var mobile_bar_width=592.0
-		bar.position=Vector2((size.x-mobile_bar_width)/2.0,size.y-89) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
+		bar.position=Vector2((size.x-hotbar_width)/2.0,size.y-hotbar_slot-25.0) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
 	if is_instance_valid(selected_name):
 		selected_name.visible=not mobile_layout
 		selected_name.position=Vector2((size.x-240)/2.0,size.y-92)
 		selected_name.size=Vector2(240,18)
 	if is_instance_valid(status):
-		status.position=Vector2(12,96) if mobile_layout else Vector2((size.x-420)/2.0,size.y-114)
-		status.size=Vector2(size.x-24,18) if mobile_layout else Vector2(420,18)
-
+		status.position=Vector2(12,150) if narrow_mobile else Vector2(12,118) if mobile_layout else Vector2((size.x-420)/2.0,size.y-114)
+		status.size=Vector2(size.x-24,36) if mobile_layout else Vector2(420,18)
 func clear_menu(title: String, kind: String) -> void:
 	var outer_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
 	if outer_scroll:
@@ -704,10 +732,11 @@ func lobby_panel_style(alpha: float=0.84, border: Color=Color("6d537c")) -> Styl
 	style.shadow_size=12
 	return style
 
-func lobby_button(text: String, subtitle: String, icon_path: String, callback: Callable, primary: bool=false) -> Button:
+func lobby_button(text: String, subtitle: String, icon_path: String, callback: Callable, primary: bool=false, compact: bool=false) -> Button:
 	var node=Button.new()
 	node.focus_mode=Control.FOCUS_NONE
-	node.custom_minimum_size=Vector2(360,68)
+	node.custom_minimum_size=Vector2(0,58) if compact else Vector2(360,68)
+	node.size_flags_horizontal=Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_CENTER
 	node.text=""
 	var base=Color("2a1736ee") if primary else Color("130f1bee")
 	var border=Color("b47ad5") if primary else Color("5d496b")
@@ -727,7 +756,7 @@ func lobby_button(text: String, subtitle: String, icon_path: String, callback: C
 	var ico=TextureRect.new()
 	if ResourceLoader.exists(icon_path):
 		ico.texture=load(icon_path)
-	ico.custom_minimum_size=Vector2(40,40)
+	ico.custom_minimum_size=Vector2(32,32) if compact else Vector2(40,40)
 	ico.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	ico.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	ico.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -736,10 +765,11 @@ func lobby_button(text: String, subtitle: String, icon_path: String, callback: C
 	copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	copy.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	row.add_child(copy)
-	var title=label(text,16)
+	var title=label(text,14 if compact else 16)
 	title.add_theme_color_override("font_color",Color("fff6e9"))
 	copy.add_child(title)
-	var sub=label(subtitle,11)
+	var sub=label(subtitle,9 if compact else 11)
+	sub.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	sub.add_theme_color_override("font_color",Color("aa99b8"))
 	copy.add_child(sub)
 	var arrow=label("›",28)
@@ -747,27 +777,26 @@ func lobby_button(text: String, subtitle: String, icon_path: String, callback: C
 	arrow.add_theme_color_override("font_color",Color("a776c3"))
 	row.add_child(arrow)
 	return node
-
-func lobby_info_chip(text: String, icon_path: String) -> PanelContainer:
+func lobby_info_chip(text: String, icon_path: String, compact: bool=false) -> PanelContainer:
 	var chip=PanelContainer.new()
 	chip.add_theme_stylebox_override("panel",lobby_panel_style(0.65,Color("4b3b56")))
-	chip.custom_minimum_size=Vector2(150,52)
+	chip.custom_minimum_size=Vector2(0,44) if compact else Vector2(150,52)
+	chip.size_flags_horizontal=Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_CENTER
 	var row=HBoxContainer.new()
 	row.add_theme_constant_override("separation",8)
 	chip.add_child(row)
 	var ico=TextureRect.new()
 	if ResourceLoader.exists(icon_path):
 		ico.texture=load(icon_path)
-	ico.custom_minimum_size=Vector2(26,26)
+	ico.custom_minimum_size=Vector2(20,20) if compact else Vector2(26,26)
 	ico.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	ico.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	row.add_child(ico)
-	var text_node=label(text,11)
+	var text_node=label(text,9 if compact else 11)
 	text_node.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	text_node.add_theme_color_override("font_color",Color("c9bbcf"))
 	row.add_child(text_node)
 	return chip
-
 func difficulty_name(value: int) -> String:
 	var names=["Pacífico","Fácil","Normal","Difícil"]
 	return names[clampi(value,0,names.size()-1)]
@@ -782,97 +811,128 @@ func format_saved_time(data: Dictionary) -> String:
 
 func show_world_browser_v2() -> void:
 	clear_menu("MEUS MUNDOS","worlds")
+	var mobile=get_viewport_rect().size.x<=620
 	var worlds=Saves.list_worlds()
-	var intro=label("Escolha um reino para jogar. Você pode manter vários mundos salvos.",14)
+	var intro=label("Escolha um reino para jogar. Você pode manter vários mundos salvos.",12 if mobile else 14)
 	intro.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	intro.add_theme_color_override("font_color",Color("c7a6dd"))
 	menu_box.add_child(intro)
 	for meta in worlds:
 		var card=PanelContainer.new()
+		card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		card.add_theme_stylebox_override("panel",panel_style(0.92,Color("765681")))
-		card.custom_minimum_size=Vector2(560,104)
+		card.custom_minimum_size=Vector2(0,118 if mobile else 104) if mobile else Vector2(560,104)
 		menu_box.add_child(card)
-		var row=HBoxContainer.new()
-		row.add_theme_constant_override("separation",10)
-		card.add_child(row)
+		var content=VBoxContainer.new() if mobile else HBoxContainer.new()
+		content.add_theme_constant_override("separation",8 if mobile else 10)
+		card.add_child(content)
 		var copy=VBoxContainer.new()
 		copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		row.add_child(copy)
-		var title=label(str(meta.get("name","Reino")),18)
+		content.add_child(copy)
+		var title=label(str(meta.get("name","Reino")),16 if mobile else 18)
+		title.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		title.add_theme_color_override("font_color",Color("f3dfca"))
 		copy.add_child(title)
 		var mode_text="Criativo" if bool(meta.get("creative",false)) else "Sobrevivência"
-		copy.add_child(label("Dia %d  •  %s  •  %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],11))
+		var details=label("Dia %d  •  %s  •  %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],10 if mobile else 11)
+		details.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		copy.add_child(details)
+		var actions=HBoxContainer.new()
+		actions.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		actions.add_theme_constant_override("separation",7)
+		content.add_child(actions)
 		var play=button("JOGAR",func():
 			Saves.select_world(str(meta.get("id","")))
 			load_world()
 		)
-		play.custom_minimum_size=Vector2(105,44)
-		row.add_child(play)
+		play.custom_minimum_size=Vector2(0,42) if mobile else Vector2(105,44)
+		play.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		actions.add_child(play)
 		var erase=button("EXCLUIR",func():
 			delete_world_everywhere(str(meta.get("id","")))
 		)
-		erase.custom_minimum_size=Vector2(105,44)
+		erase.custom_minimum_size=Vector2(0,42) if mobile else Vector2(105,44)
+		erase.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 		erase.add_theme_color_override("font_color",Color("e7a6a6"))
-		row.add_child(erase)
+		actions.add_child(erase)
 	if worlds.is_empty():
 		var empty=label("Nenhum mundo salvo.",16)
 		empty.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		menu_box.add_child(empty)
-	menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
-	menu_box.add_child(button("VOLTAR",show_main))
-
+	var create=button("CRIAR NOVO MUNDO",show_creation)
+	create.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(create)
+	var back=button("VOLTAR",show_main)
+	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(back)
 func show_saved_world() -> void:
 	clear_menu("Meus Mundos","worlds")
+	var mobile=get_viewport_rect().size.x<=620
 	var worlds=Saves.list_worlds()
 	if worlds.is_empty():
-		var empty=label("Nenhum mundo salvo ainda. Crie seu primeiro reino para ele aparecer aqui.",15)
+		var empty=label("Nenhum mundo salvo ainda. Crie seu primeiro reino para ele aparecer aqui.",13 if mobile else 15)
 		empty.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		empty.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-		empty.custom_minimum_size=Vector2(520,80)
+		empty.custom_minimum_size=Vector2(0,72)
 		menu_box.add_child(empty)
-		menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
-		menu_box.add_child(button("VOLTAR",show_main))
+		var create=button("CRIAR NOVO MUNDO",show_creation)
+		create.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		menu_box.add_child(create)
+		var back=button("VOLTAR",show_main)
+		back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		menu_box.add_child(back)
 		return
-	var heading=label("Escolha um mundo para continuar",15)
+	var heading=label("Escolha um mundo para continuar",13 if mobile else 15)
 	heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	heading.add_theme_color_override("font_color",Color("c7a6dd"))
 	menu_box.add_child(heading)
 	for meta in worlds:
 		var card=PanelContainer.new()
+		card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		card.add_theme_stylebox_override("panel",panel_style(0.90,Color("735b80")))
-		card.custom_minimum_size=Vector2(520,112)
+		card.custom_minimum_size=Vector2(0,120) if mobile else Vector2(520,112)
 		menu_box.add_child(card)
-		var row=HBoxContainer.new()
-		row.add_theme_constant_override("separation",12)
-		card.add_child(row)
+		var content=VBoxContainer.new() if mobile else HBoxContainer.new()
+		content.add_theme_constant_override("separation",8 if mobile else 12)
+		card.add_child(content)
 		var copy=VBoxContainer.new()
 		copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		row.add_child(copy)
-		var title=label(str(meta.get("name","Reino")),19)
+		content.add_child(copy)
+		var title=label(str(meta.get("name","Reino")),16 if mobile else 19)
+		title.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		title.add_theme_color_override("font_color",Color("f1dfc8"))
 		copy.add_child(title)
 		var mode_text="Criativo" if bool(meta.get("creative",false)) else "Sobrevivência"
-		var info=label("Dia %d · %s · %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],12)
+		var info=label("Dia %d · %s · %s" % [int(meta.get("day",1)),mode_text,difficulty_name(int(meta.get("difficulty",1)))],10 if mobile else 12)
+		info.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		info.add_theme_color_override("font_color",Color("b8a9c1"))
 		copy.add_child(info)
+		var actions=HBoxContainer.new()
+		actions.add_theme_constant_override("separation",7)
+		content.add_child(actions)
 		var play=button("JOGAR",func():
 			Saves.select_world(str(meta.get("id","")))
 			load_world()
 		)
-		play.custom_minimum_size=Vector2(108,44)
-		row.add_child(play)
+		play.custom_minimum_size=Vector2(0,42) if mobile else Vector2(108,44)
+		play.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		actions.add_child(play)
 		var erase=button("EXCLUIR",func():
 			Saves.select_world(str(meta.get("id","")))
 			Saves.erase_save()
 			show_saved_world()
 		)
-		erase.custom_minimum_size=Vector2(108,44)
+		erase.custom_minimum_size=Vector2(0,42) if mobile else Vector2(108,44)
+		erase.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 		erase.add_theme_color_override("font_color",Color("e7a6a6"))
-		row.add_child(erase)
-	menu_box.add_child(button("CRIAR NOVO MUNDO",show_creation))
-	menu_box.add_child(button("VOLTAR",show_main))
-
+		actions.add_child(erase)
+	var create=button("CRIAR NOVO MUNDO",show_creation)
+	create.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(create)
+	var back=button("VOLTAR",show_main)
+	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(back)
 func animate_lobby(delta: float) -> void:
 	menu_glow+=delta
 	if is_instance_valid(menu_title):
@@ -1527,36 +1587,60 @@ func show_main() -> void:
 	menu_tip_timer=0.0
 	menu_tip_index=0
 
+	var viewport_size=get_viewport_rect().size
+	var mobile=viewport_size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var narrow=viewport_size.x<520
+	var content_parent:Control=lobby_root
+	if mobile:
+		var lobby_scroll=ScrollContainer.new()
+		lobby_scroll.name="LobbyScroll"
+		lobby_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		lobby_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+		lobby_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+		lobby_scroll.follow_focus=true
+		lobby_root.add_child(lobby_scroll)
+		content_parent=lobby_scroll
+
 	var margin=MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left",58)
-	margin.add_theme_constant_override("margin_right",58)
-	margin.add_theme_constant_override("margin_top",42)
-	margin.add_theme_constant_override("margin_bottom",34)
-	lobby_root.add_child(margin)
+	margin.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	if mobile:
+		margin.custom_minimum_size=Vector2(viewport_size.x,0)
+	margin.add_theme_constant_override("margin_left",14 if mobile else 58)
+	margin.add_theme_constant_override("margin_right",14 if mobile else 58)
+	margin.add_theme_constant_override("margin_top",14 if mobile else 42)
+	margin.add_theme_constant_override("margin_bottom",18 if mobile else 34)
+	content_parent.add_child(margin)
 
 	var root=VBoxContainer.new()
-	root.add_theme_constant_override("separation",14)
+	root.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	root.add_theme_constant_override("separation",10 if mobile else 14)
 	margin.add_child(root)
 
-	var header=HBoxContainer.new()
-	header.custom_minimum_size=Vector2(1,82)
+	var header=VBoxContainer.new() if mobile else HBoxContainer.new()
+	header.custom_minimum_size=Vector2(1,0 if mobile else 82)
+	header.add_theme_constant_override("separation",4)
 	root.add_child(header)
 	var title_box=VBoxContainer.new()
 	title_box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	title_box.add_theme_constant_override("separation",0)
 	header.add_child(title_box)
-	menu_title=label("DREADS CRAFT",42)
+	menu_title=label("DREADS CRAFT",30 if mobile else 42)
+	menu_title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
 	menu_title.add_theme_color_override("font_color",Color("f5eadf"))
 	title_box.add_child(menu_title)
-	var subtitle=label("REINO DO ABISMO · CONTA "+current_account,15)
+	var subtitle=label("REINO DO ABISMO · CONTA "+current_account,11 if mobile else 15)
+	subtitle.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
+	subtitle.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	subtitle.add_theme_color_override("font_color",Color("c89ee0"))
 	title_box.add_child(subtitle)
 	var build=PanelContainer.new()
 	build.add_theme_stylebox_override("panel",lobby_panel_style(0.66,Color("5e486a")))
-	build.custom_minimum_size=Vector2(170,54)
+	build.custom_minimum_size=Vector2(0,38) if mobile else Vector2(170,54)
+	build.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 	header.add_child(build)
-	var build_text=label("ALPHA 0.8\nPC BUILD",11)
+	var build_text=label("V14.0.1 · ESTABILIDADE" if mobile else "V14.0.1
+STABILITY BUILD",9 if mobile else 11)
 	build_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	build_text.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	build_text.add_theme_color_override("font_color",Color("baacc1"))
@@ -1566,34 +1650,39 @@ func show_main() -> void:
 	rule.modulate=Color("6f4f82")
 	root.add_child(rule)
 
-	var body=HBoxContainer.new()
+	var body=VBoxContainer.new() if mobile else HBoxContainer.new()
+	body.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	body.size_flags_vertical=Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation",22)
+	body.add_theme_constant_override("separation",12 if mobile else 22)
 	root.add_child(body)
 
 	var left=VBoxContainer.new()
-	left.custom_minimum_size=Vector2(620,1)
+	left.custom_minimum_size=Vector2(0,1) if mobile else Vector2(620,1)
 	left.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	left.add_theme_constant_override("separation",12)
+	left.add_theme_constant_override("separation",9 if mobile else 12)
 	body.add_child(left)
-	var hook=label("SOBREVIVA AO QUE EXISTE DEPOIS DA LUZ.",24)
+	var hook=label("SOBREVIVA AO QUE EXISTE DEPOIS DA LUZ.",17 if mobile else 24)
+	hook.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
+	hook.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	hook.add_theme_color_override("font_color",Color("eadccf"))
 	left.add_child(hook)
-	var intro=label("Explore ruínas, construa abrigo, mine recursos e enfrente criaturas que despertam quando a noite toma o reino.",13)
+	var intro=label("Explore ruínas, construa abrigo, mine recursos e enfrente criaturas que despertam quando a noite toma o reino.",11 if mobile else 13)
 	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	intro.custom_minimum_size=Vector2(590,44)
+	intro.custom_minimum_size=Vector2(0,38 if mobile else 44)
+	intro.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
 	intro.add_theme_color_override("font_color",Color("b9acbf"))
 	left.add_child(intro)
 
 	var realm=PanelContainer.new()
+	realm.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	realm.add_theme_stylebox_override("panel",lobby_panel_style(0.80,Color("705580")))
-	realm.custom_minimum_size=Vector2(600,205)
+	realm.custom_minimum_size=Vector2(0,145 if mobile else 205) if mobile else Vector2(600,205)
 	left.add_child(realm)
 	var realm_row=HBoxContainer.new()
-	realm_row.add_theme_constant_override("separation",18)
+	realm_row.add_theme_constant_override("separation",9 if mobile else 18)
 	realm.add_child(realm_row)
 	var spike_wrap=PanelContainer.new()
-	spike_wrap.custom_minimum_size=Vector2(150,165)
+	spike_wrap.custom_minimum_size=Vector2(82,110) if mobile else Vector2(150,165)
 	spike_wrap.add_theme_stylebox_override("panel",lobby_panel_style(0.58,Color("4b3957")))
 	realm_row.add_child(spike_wrap)
 	var spike=TextureRect.new()
@@ -1605,62 +1694,72 @@ func show_main() -> void:
 	spike.material=clean_mat
 	spike.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	spike.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	spike.custom_minimum_size=Vector2(120,145)
+	spike.custom_minimum_size=Vector2(68,94) if mobile else Vector2(120,145)
 	spike_wrap.add_child(spike)
 	var realm_copy=VBoxContainer.new()
 	realm_copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	realm_copy.add_theme_constant_override("separation",8)
+	realm_copy.add_theme_constant_override("separation",4 if mobile else 8)
 	realm_row.add_child(realm_copy)
 	var saved_worlds=Saves.list_worlds()
 	var saved=Saves.read_save() if not saved_worlds.is_empty() else {}
-	var label_last=label("ÚLTIMO REINO",12)
+	var label_last=label("ÚLTIMO REINO",9 if mobile else 12)
 	label_last.add_theme_color_override("font_color",Color("aa83c1"))
 	realm_copy.add_child(label_last)
-	var realm_name=label("Nenhum mundo salvo" if saved.is_empty() else str(saved.get("name","Reino do Abismo")),22)
+	var realm_name=label("Nenhum mundo salvo" if saved.is_empty() else str(saved.get("name","Reino do Abismo")),15 if mobile else 22)
+	realm_name.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	realm_name.add_theme_color_override("font_color",Color("f2e1cf"))
 	realm_copy.add_child(realm_name)
 	var realm_desc="Crie seu primeiro mundo e comece a jornada de Spike."
 	if not saved.is_empty():
 		var mode_text="Criativo" if bool(saved.get("creative",false)) else "Sobrevivência"
-		realm_desc="%s\n%s · %s" % [format_saved_time(saved),mode_text,difficulty_name(int(saved.get("difficulty",1)))]
-	var realm_info=label(realm_desc,13)
+		realm_desc="%s
+%s · %s" % [format_saved_time(saved),mode_text,difficulty_name(int(saved.get("difficulty",1)))]
+	var realm_info=label(realm_desc,10 if mobile else 13)
 	realm_info.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	realm_info.add_theme_color_override("font_color",Color("c6b9c8"))
 	realm_copy.add_child(realm_info)
-	var quote=label("“O abismo não dorme. Só espera.”",12)
-	quote.add_theme_color_override("font_color",Color("95879f"))
-	realm_copy.add_child(quote)
+	if not narrow:
+		var quote=label("“O abismo não dorme. Só espera.”",10 if mobile else 12)
+		quote.add_theme_color_override("font_color",Color("95879f"))
+		realm_copy.add_child(quote)
 
-	var chips=HBoxContainer.new()
-	chips.add_theme_constant_override("separation",10)
+	var chips=GridContainer.new() if mobile else HBoxContainer.new()
+	if mobile:
+		chips.columns=3
+		chips.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		chips.add_theme_constant_override("h_separation",6)
+	else:
+		chips.add_theme_constant_override("separation",10)
 	left.add_child(chips)
-	chips.add_child(lobby_info_chip("EXPLORAÇÃO","res://assets/items/torch.png"))
-	chips.add_child(lobby_info_chip("CRAFTING","res://assets/items/table.png"))
-	chips.add_child(lobby_info_chip("COMBATE","res://assets/items/sword_iron_v11.svg"))
+	chips.add_child(lobby_info_chip("EXPLORAÇÃO","res://assets/items/torch.png",mobile))
+	chips.add_child(lobby_info_chip("CRAFTING","res://assets/items/table.png",mobile))
+	chips.add_child(lobby_info_chip("COMBATE","res://assets/items/sword_iron_v11.svg",mobile))
 
 	var right_panel=PanelContainer.new()
-	right_panel.custom_minimum_size=Vector2(390,1)
+	right_panel.custom_minimum_size=Vector2(0,1) if mobile else Vector2(390,1)
+	right_panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	right_panel.add_theme_stylebox_override("panel",lobby_panel_style(0.86,Color("765786")))
 	body.add_child(right_panel)
 	var right=VBoxContainer.new()
-	right.add_theme_constant_override("separation",10)
+	right.add_theme_constant_override("separation",7 if mobile else 10)
 	right_panel.add_child(right)
-	var menu_label=label("ESCOLHA SEU CAMINHO",13)
+	var menu_label=label("ESCOLHA SEU CAMINHO",11 if mobile else 13)
+	menu_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
 	menu_label.add_theme_color_override("font_color",Color("c9a6dc"))
 	right.add_child(menu_label)
-	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/ui/new_world_icon.svg",show_creation,true)
+	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/ui/new_world_icon.svg",show_creation,true,mobile)
 	right.add_child(new_button)
-	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer))
-	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2))
-	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia, controles e conta.","res://assets/items/menu.png",func(): show_settings(true)))
-	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit())
+	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer,false,mobile))
+	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2,false,mobile))
+	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia, controles e conta.","res://assets/items/menu.png",func(): show_settings(true),false,mobile))
+	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit(),false,mobile)
 	right.add_child(exit_button)
 
 	var tip_panel=PanelContainer.new()
 	tip_panel.add_theme_stylebox_override("panel",lobby_panel_style(0.58,Color("493653")))
-	tip_panel.custom_minimum_size=Vector2(1,46)
+	tip_panel.custom_minimum_size=Vector2(1,54 if mobile else 46)
 	root.add_child(tip_panel)
-	menu_tip_label=label("✦  "+LOBBY_TIPS[0],12)
+	menu_tip_label=label("✦  "+LOBBY_TIPS[0],10 if mobile else 12)
 	menu_tip_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	menu_tip_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	menu_tip_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -1668,8 +1767,6 @@ func show_main() -> void:
 	tip_panel.add_child(menu_tip_label)
 
 	layout()
-
-
 func mobile_web_prompt(edit: LineEdit, title: String, uppercase: bool=false) -> void:
 	if not OS.has_feature("web"):
 		edit.grab_focus()
@@ -2306,48 +2403,61 @@ func show_world_intro(creative_mode: bool, seed_value: int, page: int=0) -> void
 
 func show_settings(from_main: bool=false) -> void:
 	clear_menu("Configurações","settings")
-	var intro=label("Ajustes rápidos para PC, Android e iPhone.",14)
+	var mobile=get_viewport_rect().size.x<=620 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var intro=label("Ajustes rápidos para PC, Android e iPhone.",12 if mobile else 14)
 	intro.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	intro.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	intro.add_theme_color_override("font_color",Color("c7a6dd"))
 	menu_box.add_child(intro)
 	var full_button=button("ALTERNAR TELA CHEIA",toggle_fullscreen)
 	set_button_icon(full_button,"res://assets/items/fullscreen.png")
-	full_button.custom_minimum_size=Vector2(520,54)
+	full_button.custom_minimum_size=Vector2(0,50 if mobile else 54) if mobile else Vector2(520,54)
+	full_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 	menu_box.add_child(full_button)
 	var controls=PanelContainer.new()
+	controls.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	controls.add_theme_stylebox_override("panel",panel_style(0.82,Color("5c4a67")))
-	controls.custom_minimum_size=Vector2(520,150)
+	controls.custom_minimum_size=Vector2(0,190 if mobile else 150) if mobile else Vector2(520,150)
 	menu_box.add_child(controls)
-	var controls_text=label("CONTROLES\nA/D ou ←/→  mover     ·     Espaço/W  pular\nMouse esquerdo  minerar/atacar     ·     Mouse direito  colocar/interagir\nE  inventário     ·     C  crafting     ·     Q  dropar item     ·     Esc  menu",13)
+	var controls_text=label("CONTROLES
+A/D ou ←/→  mover  ·  Espaço/W  pular
+Mouse esquerdo  minerar/atacar
+Mouse direito  colocar/interagir
+E  inventário  ·  C  crafting  ·  Q  dropar item  ·  Esc  menu",11 if mobile else 13)
 	controls_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	controls_text.add_theme_color_override("font_color",Color("d7cadb"))
 	controls.add_child(controls_text)
-	var note=label("iPhone: o jogo também pode ser adicionado à Tela de Início para abrir sem a barra do navegador.",12)
+	var note=label("iPhone: o jogo também pode ser adicionado à Tela de Início para abrir sem a barra do navegador.",10 if mobile else 12)
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_color_override("font_color",Color("9f91a7"))
 	menu_box.add_child(note)
 	if current_account!="":
 		var account_panel=PanelContainer.new()
+		account_panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		account_panel.add_theme_stylebox_override("panel",panel_style(0.82,Color("5c4a67")))
-		account_panel.custom_minimum_size=Vector2(520,108)
+		account_panel.custom_minimum_size=Vector2(0,108) if mobile else Vector2(520,108)
 		menu_box.add_child(account_panel)
 		var account_box=VBoxContainer.new()
 		account_box.add_theme_constant_override("separation",8)
 		account_panel.add_child(account_box)
-		var account_label=label("CONTA · "+current_account,13)
+		var account_label=label("CONTA · "+current_account,12 if mobile else 13)
 		account_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		account_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		account_label.add_theme_color_override("font_color",Color("d9c4e6"))
 		account_box.add_child(account_label)
 		var logout_button=button("SAIR DA CONTA",logout_account)
-		logout_button.custom_minimum_size=Vector2(0,48)
+		logout_button.custom_minimum_size=Vector2(0,44 if mobile else 48)
+		logout_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		account_box.add_child(logout_button)
-	menu_box.add_child(button("VOLTAR",func():
+	var back=button("VOLTAR",func():
 		if from_main or not active:
 			show_main()
 		else:
 			show_pause()
-	))
-
+	)
+	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+	menu_box.add_child(back)
 func toggle_fullscreen() -> void:
 	if OS.has_feature("web"):
 		# Keep a single ESC press available to the game while in browser fullscreen.
@@ -2775,7 +2885,7 @@ func refresh_hud() -> void:
 	if not active:
 		return
 	sync_hotbar_from_inventory()
-	portrait_icon.texture=load("res://assets/sprites/demon_idle_0.png") if player.creative else (fox_preview_texture() if current_form=="fox" else load("res://assets/sprites/normal_idle_0.png"))
+	portrait_icon.texture=null
 	form_name_label.text="LIVRE" if player.creative else ("RAPOSA" if current_form=="fox" else "SPIKE")
 	hp_bar.max_value=player.max_hp
 	hp_bar.value=player.max_hp if player.creative else player.hp
@@ -2792,15 +2902,19 @@ func refresh_hud() -> void:
 		bar.remove_child(child)
 		child.queue_free()
 
-	var mobile_hotbar=get_viewport_rect().size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
-	bar.add_theme_constant_override("separation",2 if mobile_hotbar else 5)
+	var viewport_size=get_viewport_rect().size
+	var mobile_hotbar=viewport_size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var hotbar_geo=hotbar_geometry(viewport_size,mobile_hotbar)
+	var hotbar_slot=hotbar_geo.x
+	var hotbar_gap=int(round(hotbar_geo.y))
+	bar.add_theme_constant_override("separation",hotbar_gap)
 	for slot_index in range(9):
 		var id=int(hotbar[slot_index]) if slot_index<hotbar.size() else 0
 		var slot=Button.new()
 		slot.focus_mode=Control.FOCUS_NONE
-		slot.custom_minimum_size=Vector2(64,64) if mobile_hotbar else Vector2(48,48)
+		slot.custom_minimum_size=Vector2(hotbar_slot,hotbar_slot) if mobile_hotbar else Vector2(48,48)
 		slot.expand_icon=true
-		slot.add_theme_constant_override("icon_max_width",44 if mobile_hotbar else 30)
+		slot.add_theme_constant_override("icon_max_width",int(round(hotbar_slot*0.66)) if mobile_hotbar else 30)
 		slot.tooltip_text=Items.NAMES.get(id,"Slot vazio") if id!=0 else "Slot vazio"
 
 		var empty_style=StyleBoxFlat.new()
@@ -2829,17 +2943,17 @@ func refresh_hud() -> void:
 				refresh_hud()
 			)
 			var amount=int(player.inventory.get(id,0))
-			var count=label("∞" if player.creative else str(amount),13 if mobile_hotbar else 10)
+			var count=label("∞" if player.creative else str(amount),clampi(int(round(hotbar_slot*0.20)),9,13) if mobile_hotbar else 10)
 			count.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 			count.vertical_alignment=VERTICAL_ALIGNMENT_BOTTOM
-			count.position=Vector2(36,43) if mobile_hotbar else Vector2(26,29)
+			count.position=Vector2(hotbar_slot-28.0,hotbar_slot-21.0) if mobile_hotbar else Vector2(26,29)
 			count.size=Vector2(24,17) if mobile_hotbar else Vector2(18,14)
 			count.mouse_filter=Control.MOUSE_FILTER_IGNORE
 			slot.add_child(count)
 		else:
 			slot.disabled=true
 
-		var number=label(str(slot_index+1),10 if mobile_hotbar else 8)
+		var number=label(str(slot_index+1),clampi(int(round(hotbar_slot*0.17)),8,10) if mobile_hotbar else 8)
 		number.position=Vector2(4,2) if mobile_hotbar else Vector2(3,1)
 		number.size=Vector2(16,12) if mobile_hotbar else Vector2(14,10)
 		number.add_theme_color_override("font_color",Color("a9a3aa"))
@@ -2847,7 +2961,6 @@ func refresh_hud() -> void:
 		slot.add_child(number)
 		bar.add_child(slot)
 	layout()
-
 func update_air_hud() -> void:
 	if not is_instance_valid(air_frame) or not is_instance_valid(player):
 		return
@@ -3056,6 +3169,7 @@ func show_chest(cell:Vector2i) -> void:
 	active_chest_cell=cell
 	world.set_chest_unsealed(cell,true)
 	world.set_chest_open(cell,true)
+	var mobile=get_viewport_rect().size.x<=520
 	var key=chest_key(cell)
 	if not chest_inventories.has(key):
 		chest_inventories[key]={}
@@ -3079,15 +3193,17 @@ func show_chest(cell:Vector2i) -> void:
 		for raw_id in sorted_ids:
 			var item_id=int(raw_id)
 			var item_rarity=DungeonSystem.rarity_of(item_id)
-			var line=HBoxContainer.new()
+			var line=VBoxContainer.new() if mobile else HBoxContainer.new()
 			line.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-			line.add_theme_constant_override("separation",8)
-			var info=label("%s  x%d · %s" % [Items.NAMES.get(item_id,"Item"),int(stored[raw_id]),item_rarity.to_upper()],13)
+			line.add_theme_constant_override("separation",6 if mobile else 8)
+			var info=label("%s  x%d · %s" % [Items.NAMES.get(item_id,"Item"),int(stored[raw_id]),item_rarity.to_upper()],11 if mobile else 13)
 			info.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+			info.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 			info.add_theme_color_override("font_color",DungeonSystem.rarity_color(item_rarity))
 			line.add_child(info)
 			var take=button("RETIRAR 1",func(): chest_take_one(cell,item_id))
-			take.custom_minimum_size=Vector2(130,44)
+			take.custom_minimum_size=Vector2(0,40) if mobile else Vector2(130,44)
+			take.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 			line.add_child(take)
 			menu_box.add_child(line)
 	var rule=HSeparator.new()
@@ -3098,19 +3214,20 @@ func show_chest(cell:Vector2i) -> void:
 		var amount=int(player.inventory.get(raw_id,0))
 		if amount<=0:
 			continue
-		var row=HBoxContainer.new()
+		var row=VBoxContainer.new() if mobile else HBoxContainer.new()
 		row.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		row.add_theme_constant_override("separation",8)
-		var info=label("%s  x%d" % [Items.NAMES.get(item_id,"Item"),amount],12)
+		row.add_theme_constant_override("separation",6 if mobile else 8)
+		var info=label("%s  x%d" % [Items.NAMES.get(item_id,"Item"),amount],11 if mobile else 12)
 		info.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		info.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(info)
 		var put=button("GUARDAR 1",func(): chest_put_one(cell,item_id))
-		put.custom_minimum_size=Vector2(130,44)
+		put.custom_minimum_size=Vector2(0,40) if mobile else Vector2(130,44)
+		put.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 		put.disabled=player.creative or (not stored.has(item_id) and stored.size()>=18)
 		row.add_child(put)
 		menu_box.add_child(row)
 	menu_box.add_child(button("FECHAR",resume))
-
 func apply_exploration_bonuses() -> void:
 	if not is_instance_valid(player):
 		return
@@ -3168,40 +3285,60 @@ func show_inventory() -> void:
 	if not active:
 		return
 	clear_menu("Inventário","inventory")
-	var subtitle=label("Itens coletados · Q também dropa 1 item no PC",14)
+	var mobile=get_viewport_rect().size.x<=620
+	var subtitle=label("Itens coletados · Q também dropa 1 item no PC",12 if mobile else 14)
+	subtitle.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	subtitle.add_theme_color_override("font_color",Color("b8a5c5"))
 	menu_box.add_child(subtitle)
+
 	var armor_panel=PanelContainer.new()
 	armor_panel.add_theme_stylebox_override("panel",compact_panel_style(0.72,Color("4e8aa0"),8))
 	menu_box.add_child(armor_panel)
 	var armor_box=VBoxContainer.new()
 	armor_box.add_theme_constant_override("separation",6)
 	armor_panel.add_child(armor_box)
-	var defense=label("ARMADURA DE AVARITA · DEFESA TOTAL %d%%" % int(round(Items.armor_reduction(armor_equipment)*100.0)),13)
+	var defense=label("ARMADURA DE AVARITA · DEFESA TOTAL %d%%" % int(round(Items.armor_reduction(armor_equipment)*100.0)),12 if mobile else 13)
+	defense.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	defense.add_theme_color_override("font_color",Color("83e7ff"))
 	armor_box.add_child(defense)
-	var armor_row=HBoxContainer.new()
-	armor_row.add_theme_constant_override("separation",6)
+
+	var armor_row:Container
+	if mobile:
+		var armor_grid=GridContainer.new()
+		armor_grid.columns=2
+		armor_grid.add_theme_constant_override("h_separation",6)
+		armor_grid.add_theme_constant_override("v_separation",6)
+		armor_row=armor_grid
+	else:
+		var desktop_armor_row=HBoxContainer.new()
+		desktop_armor_row.add_theme_constant_override("separation",6)
+		armor_row=desktop_armor_row
 	armor_box.add_child(armor_row)
 	for slot in ["head","chest","legs","feet"]:
 		var equipped_id=int(armor_equipment.get(slot,0))
 		var slot_text=armor_slot_title(slot)+"\n"+(Items.NAMES.get(equipped_id,"Vazio") if equipped_id>0 else "Vazio")
-		var slot_button=button(slot_text,func(s=slot): 
+		var slot_button=button(slot_text,func(s=slot):
 			if int(armor_equipment.get(s,0))>0:
 				unequip_armor_slot(s)
 				show_inventory()
 		)
-		slot_button.custom_minimum_size=Vector2(150,62)
-		slot_button.add_theme_font_size_override("font_size",10)
+		slot_button.custom_minimum_size=Vector2(126,58) if mobile else Vector2(150,62)
+		slot_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
+		slot_button.add_theme_font_size_override("font_size",9 if mobile else 10)
 		if equipped_id>0:
 			slot_button.icon=item_display_texture(equipped_id)
 			slot_button.expand_icon=true
 		armor_row.add_child(slot_button)
+
 	for id in Items.NAMES:
 		if id==1 or (not player.creative and player.inventory.get(id,0)<=0):
 			continue
-		var line=HBoxContainer.new()
-		line.add_theme_constant_override("separation",8)
+		var line:Container
+		if mobile:
+			line=VBoxContainer.new()
+		else:
+			line=HBoxContainer.new()
+		line.add_theme_constant_override("separation",6 if mobile else 8)
 		line.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		menu_box.add_child(line)
 
@@ -3218,6 +3355,7 @@ func show_inventory() -> void:
 			resume()
 		)
 		row.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		row.custom_minimum_size=Vector2(0,48 if mobile else 54)
 		if Items.ICONS.has(id):
 			row.icon=item_display_texture(id)
 			row.expand_icon=true
@@ -3237,11 +3375,11 @@ func show_inventory() -> void:
 				drop_selected_item(1)
 				show_inventory()
 			)
-			drop_button.disabled=player.creative or int(player.inventory.get(id,0))<=0 or in_purity
-		drop_button.custom_minimum_size=Vector2(126,54)
+			drop_button.disabled=player.creative or int(player.inventory.get(id,0))<=0 or in_purity or in_lake_temple or in_structure!=""
+		drop_button.custom_minimum_size=Vector2(0,42) if mobile else Vector2(126,54)
+		drop_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 		line.add_child(drop_button)
 	menu_box.add_child(button("FECHAR",resume))
-
 func near_table() -> bool:
 	if craft_override or in_structure=="blacksmith":
 		return true
@@ -3258,37 +3396,120 @@ func set_craft_category(category: String) -> void:
 	craft_category=category
 	show_craft()
 
-func craft_category_button(text: String, key: String) -> Button:
+func craft_category_button(text: String, key: String, compact: bool=false) -> Button:
 	var b=button(text,func(): set_craft_category(key))
-	b.custom_minimum_size=Vector2(158,48)
-	b.alignment=HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size=Vector2(0,40) if compact else Vector2(158,48)
+	b.size_flags_horizontal=Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_CENTER
+	b.alignment=HORIZONTAL_ALIGNMENT_CENTER if compact else HORIZONTAL_ALIGNMENT_LEFT
+	b.add_theme_font_size_override("font_size",10 if compact else 13)
 	if craft_category==key:
 		b.add_theme_stylebox_override("normal",button_style(Color("2b1b27f4"),Color("d99a55")))
 	return b
-
-func craft_material_chip(id: int, required: int) -> PanelContainer:
+func craft_material_chip(id: int, required: int, compact: bool=false) -> PanelContainer:
 	var chip=PanelContainer.new()
-	chip.custom_minimum_size=Vector2(72,52)
+	chip.custom_minimum_size=Vector2(0,46) if compact else Vector2(72,52)
+	chip.size_flags_horizontal=Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_CENTER
 	chip.add_theme_stylebox_override("panel",compact_panel_style(0.72,Color("4b4358"),5))
 	var row=HBoxContainer.new()
 	row.add_theme_constant_override("separation",4)
 	chip.add_child(row)
 	var icon=TextureRect.new()
 	icon.texture=item_display_texture(id)
-	icon.custom_minimum_size=Vector2(28,28)
+	icon.custom_minimum_size=Vector2(24,24) if compact else Vector2(28,28)
 	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	row.add_child(icon)
 	var have=player.inventory.get(id,0)
-	var amount=label("∞" if player.creative else "%d/%d" % [have,required],11)
+	var amount=label("∞" if player.creative else "%d/%d" % [have,required],10 if compact else 11)
+	amount.size_flags_horizontal=Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_CENTER
+	amount.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if compact else HORIZONTAL_ALIGNMENT_LEFT
 	amount.add_theme_color_override("font_color",Color("9fe7b2") if player.creative or have>=required else Color("ef9b9b"))
 	row.add_child(amount)
 	return chip
-
 func craft_recipe_card(recipe: Dictionary, has_table: bool) -> PanelContainer:
+	var viewport_size=get_viewport_rect().size
+	var mobile=viewport_size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var narrow=viewport_size.x<520
 	var card=PanelContainer.new()
-	card.custom_minimum_size=Vector2(900,112)
+	card.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	card.custom_minimum_size=Vector2(0,0) if mobile else Vector2(900,112)
 	card.add_theme_stylebox_override("panel",compact_panel_style(0.76,Color("443b50"),8))
+
+	var recipe_id=int(recipe.id)
+	var create_recipe=func():
+		if Items.craft(player.inventory,recipe,player.creative,near_table()):
+			status.text="%s criado" % recipe.name
+			message_time=2.5
+			refresh_hud()
+			show_craft()
+
+	if mobile:
+		var column=VBoxContainer.new()
+		column.add_theme_constant_override("separation",7)
+		card.add_child(column)
+
+		var top=HBoxContainer.new()
+		top.add_theme_constant_override("separation",9)
+		column.add_child(top)
+		var icon_panel=PanelContainer.new()
+		icon_panel.custom_minimum_size=Vector2(62,62)
+		icon_panel.add_theme_stylebox_override("panel",compact_panel_style(0.68,Color("564665"),4))
+		top.add_child(icon_panel)
+		var icon=TextureRect.new()
+		icon.texture=item_display_texture(recipe_id,true)
+		icon.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.custom_minimum_size=Vector2(50,50)
+		icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon_panel.add_child(icon)
+
+		var info_box=VBoxContainer.new()
+		info_box.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		info_box.add_theme_constant_override("separation",2)
+		top.add_child(info_box)
+		var title=label(recipe.name,15)
+		title.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		title.add_theme_color_override("font_color",Color("f0e8df"))
+		info_box.add_child(title)
+		var desc=label(Items.description(recipe_id),10)
+		desc.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		desc.add_theme_color_override("font_color",Color("c5bad0"))
+		info_box.add_child(desc)
+
+		var stat_lines=Items.display_stats(recipe_id)
+		if not stat_lines.is_empty():
+			var stat_parts:Array[String]=[]
+			for stat_text in stat_lines:
+				stat_parts.append(str(stat_text))
+			var stats_line=label(" · ".join(stat_parts),10)
+			stats_line.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+			stats_line.add_theme_color_override("font_color",Color("bfc1da"))
+			column.add_child(stats_line)
+
+		var mt=label("MATERIAIS",9)
+		mt.add_theme_color_override("font_color",Color("d1c4dc"))
+		column.add_child(mt)
+		var chips=GridContainer.new()
+		chips.columns=2 if narrow else 3
+		chips.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		chips.add_theme_constant_override("h_separation",5)
+		chips.add_theme_constant_override("v_separation",5)
+		column.add_child(chips)
+		for id in recipe.cost:
+			chips.add_child(craft_material_chip(int(id),int(recipe.cost[id]),true))
+		if recipe.table and not has_table and not player.creative:
+			var need=label("Requer bancada próxima",10)
+			need.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+			need.add_theme_color_override("font_color",Color("e6a06f"))
+			column.add_child(need)
+
+		var create=button("CRIAR",create_recipe)
+		create.custom_minimum_size=Vector2(0,44)
+		create.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		create.disabled=not Items.can_craft(player.inventory,recipe,player.creative,has_table)
+		column.add_child(create)
+		return card
+
 	var row=HBoxContainer.new()
 	row.add_theme_constant_override("separation",12)
 	card.add_child(row)
@@ -3298,7 +3519,7 @@ func craft_recipe_card(recipe: Dictionary, has_table: bool) -> PanelContainer:
 	icon_panel.add_theme_stylebox_override("panel",compact_panel_style(0.68,Color("564665"),5))
 	row.add_child(icon_panel)
 	var icon=TextureRect.new()
-	icon.texture=item_display_texture(int(recipe.id),true)
+	icon.texture=item_display_texture(recipe_id,true)
 	icon.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.custom_minimum_size=Vector2(70,70)
 	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
@@ -3312,7 +3533,7 @@ func craft_recipe_card(recipe: Dictionary, has_table: bool) -> PanelContainer:
 	var title=label(recipe.name,18)
 	title.add_theme_color_override("font_color",Color("f0e8df"))
 	info_box.add_child(title)
-	var desc=label(Items.description(recipe.id),12)
+	var desc=label(Items.description(recipe_id),12)
 	desc.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	desc.custom_minimum_size=Vector2(240,55)
 	desc.add_theme_color_override("font_color",Color("c5bad0"))
@@ -3325,7 +3546,7 @@ func craft_recipe_card(recipe: Dictionary, has_table: bool) -> PanelContainer:
 	var stats_title=label("ATRIBUTOS",10)
 	stats_title.add_theme_color_override("font_color",Color("d9a35e"))
 	stats_box.add_child(stats_title)
-	var stat_lines=Items.display_stats(recipe.id)
+	var stat_lines=Items.display_stats(recipe_id)
 	if stat_lines.is_empty():
 		stats_box.add_child(label("Item de criação / construção",11))
 	else:
@@ -3351,73 +3572,101 @@ func craft_recipe_card(recipe: Dictionary, has_table: bool) -> PanelContainer:
 		need.add_theme_color_override("font_color",Color("e6a06f"))
 		materials.add_child(need)
 
-	var create=button("CRIAR",func():
-		if Items.craft(player.inventory,recipe,player.creative,near_table()):
-			status.text="%s criado" % recipe.name
-			message_time=2.5
-			refresh_hud()
-		show_craft()
-	)
+	var create=button("CRIAR",create_recipe)
 	create.custom_minimum_size=Vector2(112,52)
 	create.disabled=not Items.can_craft(player.inventory,recipe,player.creative,has_table)
 	row.add_child(create)
 	return card
-
 func show_craft() -> void:
 	if not active:
 		return
 	clear_menu("Dreads Craft · Criação","craft")
+	var viewport_size=get_viewport_rect().size
+	var mobile=viewport_size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
+	var narrow=viewport_size.x<520
 	var outer_scroll=menu.get_node_or_null("MenuScroll")
 	if outer_scroll:
 		outer_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	var has_table=near_table()
-	var root=HBoxContainer.new()
-	root.add_theme_constant_override("separation",14)
+	var root=VBoxContainer.new() if mobile else HBoxContainer.new()
+	root.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	root.add_theme_constant_override("separation",8 if mobile else 14)
 	menu_box.add_child(root)
 
-	var sidebar=VBoxContainer.new()
-	sidebar.custom_minimum_size=Vector2(170,520)
-	sidebar.add_theme_constant_override("separation",8)
-	root.add_child(sidebar)
-	var side_title=label("CRIAÇÃO",16)
-	side_title.add_theme_color_override("font_color",Color("b889d2"))
-	sidebar.add_child(side_title)
-	sidebar.add_child(craft_category_button("▦  TODOS","all"))
-	sidebar.add_child(craft_category_button("⛏  FERRAMENTAS","tools"))
-	sidebar.add_child(craft_category_button("⚔  ARMAS","weapons"))
-	sidebar.add_child(craft_category_button("🛡  ARMADURAS","armor"))
-	sidebar.add_child(craft_category_button("◆  BLOCOS","blocks"))
-	sidebar.add_child(craft_category_button("✦  DECORAÇÃO","decoration"))
-	sidebar.add_child(craft_category_button("✧  ITENS ESPECIAIS","special"))
-	var status_box=PanelContainer.new()
-	status_box.add_theme_stylebox_override("panel",compact_panel_style(0.65,Color("4a3b58"),7))
-	status_box.custom_minimum_size=Vector2(158,92)
-	sidebar.add_child(status_box)
-	var status_text=label("BANCADA\nCONECTADA" if has_table else "CRAFT MANUAL\nAproxime-se da bancada",11)
-	status_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	status_text.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
-	status_text.add_theme_color_override("font_color",Color("cba1e4") if has_table else Color("b9a9c5"))
-	status_box.add_child(status_text)
-	var close=button("FECHAR",resume)
-	close.custom_minimum_size=Vector2(158,44)
-	sidebar.add_child(close)
+	if mobile:
+		var category_grid=GridContainer.new()
+		category_grid.columns=2 if narrow else 4
+		category_grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		category_grid.add_theme_constant_override("h_separation",6)
+		category_grid.add_theme_constant_override("v_separation",6)
+		root.add_child(category_grid)
+		category_grid.add_child(craft_category_button("TODOS","all",true))
+		category_grid.add_child(craft_category_button("FERRAMENTAS","tools",true))
+		category_grid.add_child(craft_category_button("ARMAS","weapons",true))
+		category_grid.add_child(craft_category_button("ARMADURAS","armor",true))
+		category_grid.add_child(craft_category_button("BLOCOS","blocks",true))
+		category_grid.add_child(craft_category_button("DECORAÇÃO","decoration",true))
+		category_grid.add_child(craft_category_button("ESPECIAIS","special",true))
+
+		var mobile_info=HBoxContainer.new()
+		mobile_info.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		mobile_info.add_theme_constant_override("separation",7)
+		root.add_child(mobile_info)
+		var bench=label("BANCADA: CONECTADA" if has_table else "CRAFT MANUAL",10)
+		bench.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		bench.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+		bench.add_theme_color_override("font_color",Color("cba1e4") if has_table else Color("b9a9c5"))
+		mobile_info.add_child(bench)
+		var close_mobile=button("FECHAR",resume)
+		close_mobile.custom_minimum_size=Vector2(92,38)
+		mobile_info.add_child(close_mobile)
+	else:
+		var sidebar=VBoxContainer.new()
+		sidebar.custom_minimum_size=Vector2(170,520)
+		sidebar.add_theme_constant_override("separation",8)
+		root.add_child(sidebar)
+		var side_title=label("CRIAÇÃO",16)
+		side_title.add_theme_color_override("font_color",Color("b889d2"))
+		sidebar.add_child(side_title)
+		sidebar.add_child(craft_category_button("▦  TODOS","all"))
+		sidebar.add_child(craft_category_button("⛏  FERRAMENTAS","tools"))
+		sidebar.add_child(craft_category_button("⚔  ARMAS","weapons"))
+		sidebar.add_child(craft_category_button("🛡  ARMADURAS","armor"))
+		sidebar.add_child(craft_category_button("◆  BLOCOS","blocks"))
+		sidebar.add_child(craft_category_button("✦  DECORAÇÃO","decoration"))
+		sidebar.add_child(craft_category_button("✧  ITENS ESPECIAIS","special"))
+		var status_box=PanelContainer.new()
+		status_box.add_theme_stylebox_override("panel",compact_panel_style(0.65,Color("4a3b58"),7))
+		status_box.custom_minimum_size=Vector2(158,92)
+		sidebar.add_child(status_box)
+		var status_text=label("BANCADA\nCONECTADA" if has_table else "CRAFT MANUAL\nAproxime-se da bancada",11)
+		status_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		status_text.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+		status_text.add_theme_color_override("font_color",Color("cba1e4") if has_table else Color("b9a9c5"))
+		status_box.add_child(status_text)
+		var close=button("FECHAR",resume)
+		close.custom_minimum_size=Vector2(158,44)
+		sidebar.add_child(close)
 
 	var content=VBoxContainer.new()
 	content.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation",8)
+	content.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation",6 if mobile else 8)
 	root.add_child(content)
 	var header=HBoxContainer.new()
 	content.add_child(header)
-	var heading=label("Receitas disponíveis",16)
+	var heading=label("Receitas disponíveis",14 if mobile else 16)
 	heading.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	header.add_child(heading)
-	var hint=label("Itens avançados exigem bancada",11)
-	hint.add_theme_color_override("font_color",Color("9f91ad"))
-	header.add_child(hint)
+	if not narrow:
+		var hint=label("Itens avançados exigem bancada",10 if mobile else 11)
+		hint.add_theme_color_override("font_color",Color("9f91ad"))
+		header.add_child(hint)
 	var recipe_scroll=ScrollContainer.new()
 	recipe_scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	recipe_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
-	recipe_scroll.custom_minimum_size=Vector2(0,clampf(get_viewport_rect().size.y-210.0,330.0,520.0))
+	recipe_scroll.custom_minimum_size=Vector2(0,clampf(viewport_size.y-360.0,170.0,430.0)) if mobile else Vector2(0,clampf(viewport_size.y-210.0,330.0,520.0))
 	recipe_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
 	recipe_scroll.follow_focus=true
 	recipe_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
@@ -3437,7 +3686,6 @@ func show_craft() -> void:
 		var empty=label("Nenhuma receita nesta categoria ainda.",15)
 		empty.add_theme_color_override("font_color",Color("9588a2"))
 		recipe_list.add_child(empty)
-
 func _input(event: InputEvent) -> void:
 	if modal and event is InputEventScreenDrag and absf(event.relative.y)>absf(event.relative.x):
 		var modal_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
@@ -3954,12 +4202,27 @@ func attack() -> void:
 		update_purity_hud()
 
 func eat() -> void:
-	if player.inventory.get(10,0)>0:
-		if not player.creative:
-			player.inventory[10]-=1
-		player.food=minf(100,player.food+25)
+	if not is_instance_valid(player) or int(player.inventory.get(10,0))<=0:
+		return
+	if player.creative:
+		player.hp=player.max_hp
+		player.food=100
 		refresh_hud()
-
+		return
+	if player.food>=99.9 and player.hp>=player.max_hp-0.01:
+		status.text="VIDA E FOME JÁ ESTÃO CHEIAS"
+		message_time=1.8
+		return
+	player.inventory[10]=int(player.inventory.get(10,0))-1
+	if int(player.inventory.get(10,0))<=0:
+		player.inventory.erase(10)
+	var hp_before=player.hp
+	player.food=minf(100.0,player.food+25.0)
+	player.hp=minf(player.max_hp,player.hp+18.0)
+	var healed=maxf(0.0,player.hp-hp_before)
+	status.text="CARNE · +25 FOME"+(" · +%d VIDA" % int(round(healed)) if healed>0.0 else " · VIDA CHEIA")
+	message_time=2.0
+	refresh_hud()
 func _process(delta: float) -> void:
 	if not active:
 		poll_web_login()

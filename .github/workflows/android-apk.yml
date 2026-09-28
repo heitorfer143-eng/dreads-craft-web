@@ -2,6 +2,8 @@ name: Build Android APK
 
 on:
   push:
+    branches: [main, v14-0-1-stability-sweep]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -52,10 +54,15 @@ jobs:
           godot --headless --script scripts/tools/extract_mob_pngs.gd
           godot --headless --script tests/asset_integrity.gd
           godot --headless --editor --quit
+          godot --headless --check-only --script scripts/items.gd
+          godot --headless --check-only --script scripts/save_game.gd
+          godot --headless --check-only --script scripts/device_controls.gd
+          godot --headless --check-only --script scripts/player.gd
           godot --headless --check-only --script scripts/dungeon_system.gd
           godot --headless --check-only --script scripts/dungeon_art.gd
           godot --headless --check-only --script scripts/world.gd
           godot --headless --check-only --script scripts/main.gd
+          godot --headless --script tests/assets_smoke.gd
           godot --headless --script tests/smoke.gd
           godot --headless --script tests/lake_smoke.gd
           godot --headless --script tests/dungeon_smoke.gd
@@ -66,7 +73,24 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: DreadsCraft-v0.14-Android
+          name: DreadsCraft-v14.0.1-Android
           path: build/android/DreadsCraft.apk
           if-no-files-found: error
           retention-days: 14
+
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate server and cloud storage
+        run: |
+          npm install --omit=dev
+          node --check server.js
+          node --check cloud_store.js
+          node tests/cloud_store_test.js
+          node tests/server_test.js

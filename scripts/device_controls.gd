@@ -23,13 +23,15 @@ func set_mobile(value: bool) -> void:
 
 func rebuild_regions() -> void:
 	var viewport=get_viewport_rect().size
-	var bottom_margin=maxf(18.0,viewport.y*0.025)
-	var side_margin=maxf(18.0,viewport.x*0.012)
+	var bottom_margin=maxf(14.0,viewport.y*0.025)
+	var side_margin=maxf(14.0,viewport.x*0.012)
 	var bottom=viewport.y-bottom_margin
-	# About 70% of the old button footprint: still finger-friendly, but no longer
-	# covers the player, buildings and half of the hotbar in landscape.
-	var b=clampf(viewport.y*0.145,82.0,104.0)
 	var gap=8.0
+	# Size from both height and width. The previous hard minimum made touch
+	# clusters overlap the hotbar and each other on narrow phones.
+	var height_size=clampf(viewport.y*0.18,60.0,104.0)
+	var width_limit=maxf(52.0,(viewport.x-side_margin*2.0-24.0-gap*3.0)/5.0)
+	var b=minf(height_size,width_limit)
 	var right=viewport.x-side_margin
 	regions={
 		"left":Rect2(side_margin,bottom-b,b,b),
@@ -156,11 +158,21 @@ func _draw() -> void:
 			index+=1
 		return
 
+	var compact_controls=false
+	for raw_region in regions.values():
+		var control_rect:Rect2=raw_region
+		if control_rect.size.x<72.0:
+			compact_controls=true
+			break
 	var captions={
 		"left":"","right":"",
 		"jump":"SUBIR" if game.player.creative else "PULAR",
-		"down":"DESCER","mine":"MINERAR","place":"USAR / COLOCAR",
-		"attack":"ATACAR","interact":"FALAR / ENTRAR","inventory":"MOCHILA"
+		"down":"DESCER",
+		"mine":"MINER" if compact_controls else "MINERAR",
+		"place":"USAR" if compact_controls else "USAR / COLOCAR",
+		"attack":"ATAQUE" if compact_controls else "ATACAR",
+		"interact":"FALAR" if compact_controls else "FALAR / ENTRAR",
+		"inventory":"BOLSA" if compact_controls else "MOCHILA"
 	}
 	for action in regions:
 		if action=="down" and not game.player.creative:
@@ -187,7 +199,7 @@ func _draw() -> void:
 				])
 			draw_colored_polygon(points,Color("fff1df"))
 		else:
-			var font_size=13
+			var font_size=clampi(int(round(rect.size.x*0.16)),9,13)
 			draw_string(font,rect.position+Vector2(0,rect.size.y/2+5),captions[action],HORIZONTAL_ALIGNMENT_CENTER,rect.size.x,font_size,Color("fff1df"))
 
 func style(active: bool) -> StyleBoxFlat:
