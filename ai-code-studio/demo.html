@@ -8,12 +8,12 @@ function persist(){localStorage.setItem('aics.files',JSON.stringify(files));loca
 function snapshot(){hist=hist.slice(0,hidx+1);hist.push({files:structuredClone(files),active});hidx=hist.length-1}
 function restore(i){if(i<0||i>=hist.length)return;hidx=i;files=structuredClone(hist[i].files);active=hist[i].active;open(active)}
 function renderTabs(){const t=$('#tabs');t.textContent='';Object.keys(files).forEach(p=>{const b=document.createElement('button');b.className='btn tab'+(p===active?' active':'');b.textContent=p;b.onclick=()=>open(p);t.appendChild(b)})}
-function open(p){files[active]=$('#editor').value;active=p;$('#editor').value=files[p]||'';persist();renderTabs();lineNums()}
+function open(p){const ed=$('#editor');if(ed.dataset.ready==='1')files[active]=ed.value;active=p;ed.value=files[p]||'';ed.dataset.ready='1';persist();renderTabs();lineNums()}
 function lineNums(){let n=$('#editor').value.split('\n').length;$('#lines').textContent=Array.from({length:n},(_,i)=>i+1).join('\n')}
 $('#editor').oninput=()=>{files[active]=$('#editor').value;persist();lineNums()};
 function msg(k,t=''){const d=document.createElement('div');d.className='msg '+k;d.textContent=t;$('#msgs').appendChild(d);$('#msgs').scrollTop=1e9;return d}
 function log(t){$('#consolePane').textContent+=($('#consolePane').textContent?'\n':'')+t}
-function srcdoc(){const bridge=`<script>['log','warn','error'].forEach(k=>{const o=console[k];console[k]=(...a)=>{parent.postMessage({aics:1,k,a},'*');o(...a)}});onerror=e=>parent.postMessage({aics:1,k:'runtime',a:[e]},'*');<\\/script>`;return `<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none';connect-src 'none';img-src data: blob:;style-src 'unsafe-inline';script-src 'unsafe-inline'"><style>${files['styles.css']||''}</style>${bridge}${files['index.html']||''}<script>${(files['script.js']||'').replace(/<\\/script/gi,'<\\\\/script')}<\\/script>`}
+function srcdoc(){const bridge=`<script>['log','warn','error'].forEach(k=>{const o=console[k];console[k]=(...a)=>{parent.postMessage({aics:1,k,a},'*');o(...a)}});onerror=e=>parent.postMessage({aics:1,k:'runtime',a:[e]},'*');<\\/script>`;return `<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none';connect-src 'none';img-src data: blob:;style-src 'unsafe-inline';script-src 'unsafe-inline'"><style>${files['styles.css']||''}</style>${bridge}${files['index.html']||''}<script>${(files['script.js']||'').split('<'+'/script').join('<\\/script')}<\\/script>`}
 async function run(){lastErr='';$('#consolePane').textContent='';$('#preview').srcdoc=srcdoc();await new Promise(r=>setTimeout(r,450));return lastErr}
 window.onmessage=e=>{if(!e.data?.aics)return;log(e.data.k+': '+e.data.a.join(' '));if(e.data.k==='error'||e.data.k==='runtime')lastErr=e.data.a.join(' ')};
 
