@@ -5,5 +5,8 @@
   "main": "server.js",
   "dependencies": {
     "ws": "^8.18.0"
+  },
+  "scripts": {
+    "postinstall": "node -e \"const fs=require('fs'),cp=require('child_process');const u='https://github.com/heitorfer143-eng/dreads-craft-web/releases/download/v14.0.1-runtime/DreadsCraft-v14.0.1-runtime.tar.gz';fetch(u).then(r=>{if(!r.ok)throw Error('runtime '+r.status);return r.arrayBuffer()}).then(b=>{fs.writeFileSync('/tmp/dreads-runtime.tar.gz',Buffer.from(b));cp.execSync('rm -rf /tmp/dreads-runtime public && mkdir -p /tmp/dreads-runtime && tar -xzf /tmp/dreads-runtime.tar.gz -C /tmp/dreads-runtime && cp -R /tmp/dreads-runtime/public ./public && test -f ./public/index.html',{stdio:'inherit'});console.log('V14_RUNTIME_READY')}).catch(e=>{console.error(e);process.exit(1)})\""
   }
 }
