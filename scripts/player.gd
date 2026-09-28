@@ -37,10 +37,16 @@ var world_min_x:=0.0
 var world_max_x:=320.0*32.0
 var world_min_y:=0.0
 var world_max_y:=96.0*32.0
+var regen_delay := 0.0
+var regen_food_accumulator := 0.0
 
 const SAFE_FALL_SPEED = 650.0
 const FALL_DAMAGE_DIVISOR = 12.0
 const MAX_FALL_DAMAGE = 70.0
+const REGEN_FOOD_THRESHOLD = 72.0
+const REGEN_DELAY_AFTER_HIT = 4.0
+const REGEN_HP_PER_SECOND = 2.4
+const REGEN_FOOD_PER_SECOND = 0.32
 
 func _ready() -> void:
 	collision_layer=2
@@ -74,6 +80,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	attack_time=maxf(0,attack_time-delta)
 	hurt_time=maxf(0,hurt_time-delta)
+	regen_delay=maxf(0.0,regen_delay-delta)
 	_update_breath(delta)
 	var controls_enabled=not input_locked
 	var direction=Input.get_axis("left","right") if controls_enabled else 0.0
@@ -110,8 +117,7 @@ func _physics_process(delta: float) -> void:
 			coyote=0
 			max_fall_speed=0.0
 		food=maxf(0,food-delta*.035)
-	if not creative and food<=0:
-		hp=maxf(1,hp-delta*.2)
+	_update_survival(delta)
 
 	move_and_slide()
 
@@ -142,6 +148,25 @@ func _physics_process(delta: float) -> void:
 	if sprite.animation!=animation:
 		sprite.play(animation)
 	sprite.modulate=Color(1,.6,.6) if hurt_time>0 else Color.WHITE
+
+func _update_survival(delta:float) -> void:
+	if creative:
+		hp=max_hp
+		food=100.0
+		regen_food_accumulator=0.0
+		return
+	if food<=0.0:
+		hp=maxf(1.0,hp-delta*0.2)
+		regen_food_accumulator=0.0
+		return
+	if hp>=max_hp or food<REGEN_FOOD_THRESHOLD or regen_delay>0.0 or submerged:
+		regen_food_accumulator=0.0
+		return
+	hp=minf(max_hp,hp+REGEN_HP_PER_SECOND*delta)
+	regen_food_accumulator+=REGEN_FOOD_PER_SECOND*delta
+	if regen_food_accumulator>=0.05:
+		food=maxf(0.0,food-regen_food_accumulator)
+		regen_food_accumulator=0.0
 
 func _rebuild_form_sprite() -> void:
 	if is_instance_valid(sprite):
@@ -268,6 +293,7 @@ func take_damage(amount: float) -> void:
 	var final_damage=maxf(1.0,amount*(1.0-total_reduction))
 	hp-=final_damage
 	hurt_time=.85
+	regen_delay=REGEN_DELAY_AFTER_HIT
 	if hp<=0:
 		respawn()
 
@@ -276,6 +302,8 @@ func respawn() -> void:
 	hp=max_hp
 	food=75
 	air=max_air
+	regen_delay=0.0
+	regen_food_accumulator=0.0
 	submerged=false
 	in_water=false
 	position=spawn_position
@@ -284,7 +312,6 @@ func respawn() -> void:
 
 func body_rect() -> Rect2:
 	return Rect2(position+Vector2(-11,-44),Vector2(22,44))
-
 
 func play_weapon_attack(texture: Texture2D, duration: float=0.30) -> void:
 	if texture==null or not is_instance_valid(weapon_sprite):
