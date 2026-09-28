@@ -28,6 +28,10 @@ jobs:
 
       - name: Validate and build Web runtime
         shell: bash
+        env:
+          HOME: /root
+          XDG_CONFIG_HOME: /tmp/godot-config
+          XDG_DATA_HOME: /root/.local/share
         run: |
           set -e
           mkdir -p assets/mobs/generated build/web runtime
