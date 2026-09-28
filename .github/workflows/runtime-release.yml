@@ -1,0 +1,88 @@
+name: Publish Web Runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "assets/**"
+      - "project.godot"
+      - "export_presets.cfg"
+      - "server.js"
+      - "cloud_store.js"
+      - "package.json"
+      - ".github/workflows/runtime-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-runtime:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate and build Web runtime
+        shell: bash
+        run: |
+          set -e
+          mkdir -p assets/mobs/generated build/web runtime
+          godot --version
+          godot --headless --script scripts/tools/extract_mob_pngs.gd
+          godot --headless --script tests/asset_integrity.gd
+          godot --headless --editor --quit
+          godot --headless --check-only --script scripts/items.gd
+          godot --headless --check-only --script scripts/save_game.gd
+          godot --headless --check-only --script scripts/device_controls.gd
+          godot --headless --check-only --script scripts/player.gd
+          godot --headless --check-only --script scripts/world.gd
+          godot --headless --check-only --script scripts/main.gd
+          godot --headless --script tests/assets_smoke.gd
+          godot --headless --script tests/smoke.gd
+          godot --headless --script tests/lake_smoke.gd
+          godot --headless --script tests/dungeon_smoke.gd
+          godot --headless --export-release "Web" build/web/index.html
+          cp assets/backgrounds/login_reference.jpg build/web/login_reference.jpg
+          cp assets/backgrounds/dark_castles_generated.png build/web/login_bg.png
+          mkdir -p runtime/public
+          cp -R build/web/. runtime/public/
+          cp server.js cloud_store.js package.json runtime/
+          tar -czf DreadsCraft-v14.0.1-runtime.tar.gz -C runtime .
+          test -s DreadsCraft-v14.0.1-runtime.tar.gz
+          ls -lh DreadsCraft-v14.0.1-runtime.tar.gz
+
+      - name: Upload runtime artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DreadsCraft-v14.0.1-runtime
+          path: DreadsCraft-v14.0.1-runtime.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  release-runtime:
+    needs: build-runtime
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download runtime artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: DreadsCraft-v14.0.1-runtime
+
+      - name: Publish V14.0.1 runtime release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          if gh release view v14.0.1-runtime --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v14.0.1-runtime DreadsCraft-v14.0.1-runtime.tar.gz --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create v14.0.1-runtime DreadsCraft-v14.0.1-runtime.tar.gz \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Dreads Craft V14.0.1 Runtime" \
+              --notes "Tested Web runtime package for the V14.0.1 stability update."
+          fi
