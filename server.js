@@ -18,6 +18,7 @@ const WORLD_MIN_Y = 0;
 const WORLD_MAX_Y = WORLD_HEIGHT_CELLS * 32;
 const VALID_BLOCK_IDS = new Set([0,1,2,3,4,5,6,7,8,9,14,15,16,25,28,29,30,31]);
 const VALID_ITEM_IDS = new Set(Array.from({length:41},(_,i)=>i+1));
+const API_PROXY_TARGET = String(process.env.DREADS_PROXY_API || "").replace(/\/$/,"");
 
 const mime = {
   ".html":"text/html; charset=utf-8", ".js":"application/javascript; charset=utf-8",
@@ -83,6 +84,38 @@ function bearer(req) {
   return raw.startsWith("Bearer ") ? raw.slice(7).trim() : "";
 }
 
+async function proxyApi(req,res,pathname) {
+  try {
+    const chunks=[];
+    let size=0;
+    for await (const chunk of req) {
+      size+=chunk.length;
+      if(size>10*1024*1024) {
+        return sendJson(res,413,{ok:false,message:"Payload grande demais."});
+      }
+      chunks.push(chunk);
+    }
+    const body=chunks.length ? Buffer.concat(chunks) : undefined;
+    const proxyHeaders={"Accept":"application/json"};
+    if(req.headers["content-type"]) proxyHeaders["Content-Type"]=req.headers["content-type"];
+    if(req.headers.authorization) proxyHeaders["Authorization"]=req.headers.authorization;
+    const upstream=await fetch(API_PROXY_TARGET+pathname,{
+      method:req.method,
+      headers:proxyHeaders,
+      body:(req.method==="GET"||req.method==="HEAD") ? undefined : body
+    });
+    const data=Buffer.from(await upstream.arrayBuffer());
+    res.writeHead(upstream.status,{
+      "Content-Type":upstream.headers.get("content-type")||"application/json; charset=utf-8",
+      "Cache-Control":"no-store",
+      "X-Content-Type-Options":"nosniff"
+    });
+    res.end(data);
+  } catch(err) {
+    sendJson(res,502,{ok:false,message:"Backend de conta temporariamente indisponível."});
+  }
+}
+
 async function handleApi(req,res,pathname) {
   try {
     if (req.method==="POST" && pathname==="/api/account/create") {
@@ -136,7 +169,7 @@ const serverHttp = http.createServer((req,res)=>{
     return res.end("bad request");
   }
   if (pathname.startsWith("/api/")) {
-    handleApi(req,res,pathname);
+    if (API_PROXY_TARGET) proxyApi(req,res,pathname); else handleApi(req,res,pathname);
     return;
   }
   if (pathname === "/health") {
