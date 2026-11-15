@@ -1730,11 +1730,10 @@ STABILITY BUILD",9 if mobile else 11)
 	realm_name.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	realm_name.add_theme_color_override("font_color",Color("f2e1cf"))
 	realm_copy.add_child(realm_name)
-	var realm_desc="Crie seu primeiro mundo e comece a jornada de Spike."
+	var realm_desc="Inicie a campanha de Spike e explore o Reino do Abismo."
 	if not saved.is_empty():
-		var mode_text="Criativo" if bool(saved.get("creative",false)) else "Sobrevivência"
 		realm_desc="%s
-%s · %s" % [format_saved_time(saved),mode_text,difficulty_name(int(saved.get("difficulty",1)))]
+CAMPANHA · %s" % [format_saved_time(saved),difficulty_name(int(saved.get("difficulty",1)))]
 	var realm_info=label(realm_desc,10 if mobile else 13)
 	realm_info.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	realm_info.add_theme_color_override("font_color",Color("c6b9c8"))
@@ -1768,10 +1767,9 @@ STABILITY BUILD",9 if mobile else 11)
 	menu_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER if mobile else HORIZONTAL_ALIGNMENT_LEFT
 	menu_label.add_theme_color_override("font_color",Color("c9a6dc"))
 	right.add_child(menu_label)
-	var new_button=lobby_button("NOVO MUNDO","Crie um reino e escolha seu modo.","res://assets/ui/new_world_icon.svg",show_creation,true,mobile)
-	right.add_child(new_button)
+	var campaign_button=lobby_button("CAMPANHA","Continue sua jornada de sobrevivência até zerar o jogo.","res://assets/ui/new_world_icon.svg",start_campaign,true,mobile)
+	right.add_child(campaign_button)
 	right.add_child(lobby_button("MULTIPLAYER","Crie uma sala ou entre usando um código.","res://assets/items/item_16.svg",show_multiplayer,false,mobile))
-	right.add_child(lobby_button("MEUS MUNDOS","Escolha, crie ou exclua seus mundos.","res://assets/items/item_14.svg",show_world_browser_v2,false,mobile))
 	right.add_child(lobby_button("CONFIGURAÇÕES","Tela cheia, controles e conta.","res://assets/items/menu.png",func(): show_settings(true),false,mobile))
 	var exit_button=lobby_button("SAIR","Fechar Dreads Craft.","res://assets/items/fullscreen.png",func(): get_tree().quit(),false,mobile)
 	right.add_child(exit_button)
@@ -2198,6 +2196,20 @@ func on_multiplayer_disconnected() -> void:
 		message_time=5
 
 
+func start_campaign() -> void:
+	var worlds=Saves.list_worlds()
+	if not worlds.is_empty():
+		worlds.sort_custom(func(a,b): return int(a.get("saved_at",0))>int(b.get("saved_at",0)))
+		var latest_id=str(worlds[0].get("id",""))
+		if latest_id!="":
+			Saves.select_world(latest_id)
+			load_world()
+			return
+	world_name="Campanha do Abismo"
+	Saves.active_id=""
+	start_world(false,seed_from_text(""))
+	save_world()
+
 func seed_from_text(raw:String) -> int:
 	var value=raw.strip_edges()
 	if value.is_empty():
@@ -2496,7 +2508,7 @@ func toggle_fullscreen() -> void:
 	var mode=DisplayServer.window_get_mode()
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if mode==DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
-func start_world(creative: bool, seed_value: int) -> void:
+func start_world(_creative: bool, seed_value: int) -> void:
 	if is_instance_valid(overworld) and overworld!=world:
 		overworld.queue_free()
 	overworld=null
@@ -2541,7 +2553,7 @@ func start_world(creative: bool, seed_value: int) -> void:
 	world.generate(seed_value)
 	initialize_dungeon_chests()
 	player=Player.new()
-	player.creative=creative
+	player.creative=false
 	var spawn_x=90
 	player.spawn_position=Vector2(spawn_x*32+16,world.surfaces[spawn_x]*32-2)
 	player.position=player.spawn_position
@@ -2550,14 +2562,8 @@ func start_world(creative: bool, seed_value: int) -> void:
 	apply_armor_equipment()
 	player.set_world_bounds(float(World.WORLD_MIN_X),float(World.WORLD_MAX_X),float(World.WORLD_MIN_Y),float(World.WORLD_MAX_Y))
 	player.died.connect(on_player_died)
-	if creative:
-		for id in Items.NAMES:
-			player.inventory[id]=999
-		hotbar=[2,3,4,8,9,11,16,19,22]
-		selected=2
-	else:
-		hotbar=[0,0,0,0,0,0,0,0,0]
-		selected=0
+	hotbar=[0,0,0,0,0,0,0,0,0]
+	selected=0
 	world.camera=player.camera
 	player.camera.limit_left=World.WORLD_MIN_X
 	player.camera.limit_right=World.WORLD_MAX_X
@@ -4415,17 +4421,20 @@ func _process(delta: float) -> void:
 func spawn_village_hub() -> void:
 	if not is_instance_valid(structures) or not is_instance_valid(world):
 		return
-	var defs=[
-		{"x":18,"kind":"blacksmith","name":"Forja de Borin","texture":"res://assets/structures/blacksmith.png"},
-		{"x":34,"kind":"market","name":"Casa do Mercador","texture":"res://assets/structures/market.png"},
-		{"x":50,"kind":"chapel","name":"Capela da Pureza","texture":"res://assets/structures/chapel.png"}
-	]
-	for data in defs:
-		var x=int(data.x)
-		var building=VillageStructure.new()
-		building.configure(str(data.kind),str(data.name),str(data.texture),player,self)
-		building.position=Vector2(x*32+16,world.surfaces[x]*32)
-		structures.add_child(building)
+	var kinds=["blacksmith","market","chapel"]
+	var textures=["res://assets/structures/blacksmith.png","res://assets/structures/market.png","res://assets/structures/chapel.png"]
+	var base_names=["Forja","Mercado","Capela"]
+	var regions=["Vila Inicial","Vila da Neve","Vila do Vale","Vila Distante"]
+	for village_index in range(world.village_centers.size()):
+		var center=world.village_centers[village_index]
+		for building_index in range(3):
+			var x=center-16+building_index*16
+			var building=VillageStructure.new()
+			var suffix="" if village_index==0 else " · "+regions[mini(village_index,regions.size()-1)]
+			var display_name=base_names[building_index]+suffix
+			building.configure(kinds[building_index],display_name,textures[building_index],player,self)
+			building.position=Vector2(x*32+16,world.surfaces[x]*32)
+			structures.add_child(building)
 
 func spawn_mel() -> void:
 	if not is_instance_valid(world):
@@ -5246,7 +5255,7 @@ func save_world() -> bool:
 		saved_position=lake_return_position
 	elif in_structure!="":
 		saved_position=structure_return_position
-	var data={"version":12,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":player.creative,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"armor_equipment":armor_equipment.duplicate(true),"chests":serialize_chests(),"chest_metadata":serialize_chest_metadata(),"dungeon_miniboss_defeated":dungeon_miniboss_defeated.duplicate(true),"dungeon_discovered":dungeon_discovered.duplicate(true),"dungeon_generated":true}
+	var data={"version":12,"name":world_name,"seed":saved_world.world_seed,"cells":saved_world.cells,"surfaces":saved_world.surfaces,"creative":false,"position":[saved_position.x,saved_position.y],"hp":player.hp,"food":player.food,"inventory":player.inventory,"clock":clock,"day":day,"difficulty":difficulty,"saved_at":int(Time.get_unix_time_from_system()),"boss_defeated":boss_defeated,"in_purity":in_purity,"in_purity_realm":in_purity_realm,"mel_tamed":mel_tamed,"mel_quest_started":mel_quest_started,"borin_quest_done":borin_quest_done,"monk_quest_done":monk_quest_done,"night_kills":night_kills,"polar_bear_defeated":polar_bear_defeated,"hotbar":hotbar.duplicate(),"selected":selected,"dropped_items":serialize_ground_drops(),"death_backpacks":serialize_death_backpacks(),"quest_states":quest_states.duplicate(true),"snow_reached":snow_reached,"abyss_slime_kills":abyss_slime_kills,"abyss_warden_kills":abyss_warden_kills,"lake_generated":saved_world.lake_generated,"lake_center_x":saved_world.lake_center_x,"lake_width":saved_world.lake_width,"lake_depth":saved_world.lake_depth,"lake_water_y":saved_world.lake_water_y,"lake_discovered":lake_discovered,"in_lake_temple":in_lake_temple,"lake_boss_defeated":lake_boss_defeated,"lake_boss_hp":lake_boss.hp if is_instance_valid(lake_boss) else -1.0,"forms_unlocked":forms_unlocked.duplicate(true),"current_form":current_form,"armor_equipment":armor_equipment.duplicate(true),"chests":serialize_chests(),"chest_metadata":serialize_chest_metadata(),"dungeon_miniboss_defeated":dungeon_miniboss_defeated.duplicate(true),"dungeon_discovered":dungeon_discovered.duplicate(true),"dungeon_generated":true}
 	if in_purity:
 		if in_purity_realm:
 			data["purity_position"]=[player.position.x,player.position.y]
@@ -5267,7 +5276,7 @@ func load_world() -> void:
 	var data=Saves.read_save()
 	if data.is_empty():
 		return
-	start_world(bool(data.creative),int(data.seed))
+	start_world(false,int(data.seed))
 	world_name=str(data.name)
 	world.cells=data.cells
 	world.surfaces.assign(data.surfaces)
