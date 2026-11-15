@@ -54,6 +54,13 @@ func run() -> void:
 	check(is_instance_valid(scene.login_root),"Login screen exists before entering game")
 	scene.start_world(false,42019)
 	check(absf(scene.player.position.x-(90*32+16))<1.0,"New world starts in the open meadow away from the village")
+	check(scene.world.village_centers.size()>=4,"Campaign world generates several settlements")
+	check(scene.world.village_centers[1]>90,"A village is placed ahead of the starting point")
+	check(scene.world.is_village_protected(Vector2i(scene.world.village_centers[1],scene.world.surfaces[scene.world.village_centers[1]])),"Generated villages receive protected build zones")
+	check(scene.structures.get_child_count()>=12,"Each generated village receives buildings")
+	var campaign_source=FileAccess.get_file_as_string("res://scripts/main.gd")
+	check("func start_campaign()" in campaign_source and "lobby_button(\"CAMPANHA\"" in campaign_source,"Main menu starts the survival campaign")
+	check(not "CRIAR NOVO MUNDO" in campaign_source and not "lobby_button(\"NOVO MUNDO\"" in campaign_source,"Legacy new-world menu entry is removed")
 	for spawn_check_x in range(72,120):
 		check(scene.world.get_cell(Vector2i(spawn_check_x,scene.world.surfaces[spawn_check_x]+2))!=0,"Starting meadow has no surface cave entrance")
 	await physics_frame
