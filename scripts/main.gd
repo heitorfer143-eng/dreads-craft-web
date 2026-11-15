@@ -2194,8 +2194,10 @@ func start_campaign() -> void:
 		var latest_id=str(worlds[0].get("id",""))
 		if latest_id!="":
 			Saves.select_world(latest_id)
-			load_world()
-			return
+			if not Saves.read_save().is_empty():
+				load_world()
+				return
+	Saves.active_id=""
 	world_name="Campanha do Abismo"
 	Saves.active_id=""
 	start_world(false,seed_from_text(""))
