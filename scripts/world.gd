@@ -146,7 +146,8 @@ func generate(seed_value: int) -> void:
 					cells[y][x] = 0
 	# Trees are a separate pass: later terrain columns cannot overwrite foliage.
 	for x in range(72,WIDTH-5,11):
-		if is_lake_zone(x) or desert_strength(x)>0.28:
+		# Keep the new wilderness spawn clear so the player starts in an open meadow.
+		if abs(x-90)<=8 or is_lake_zone(x) or desert_strength(x)>0.28:
 			continue
 		var blocked_by_village=false
 		for village_x in [18,34,50]:
@@ -161,11 +162,19 @@ func generate(seed_value: int) -> void:
 			for dy in range(-2,3):
 				if abs(dx)+abs(dy)<4 and cells[top+dy][x+dx]==0:
 					cells[top+dy][x+dx]=5
-	# Walkable sloping mine entrances connect the surface to the first cave.
-	for entry in [76,170,265]:
+	# Cave entrances are seeded per world and kept away from the starting meadow.
+	# This makes exploration feel different while preserving reproducibility for a seed.
+	var cave_rng=RandomNumberGenerator.new()
+	cave_rng.seed=world_seed ^ 0x43415645
+	var cave_entries=[
+		cave_rng.randi_range(176,198),
+		cave_rng.randi_range(360,382),
+		cave_rng.randi_range(448,470)
+	]
+	for entry in cave_entries:
 		for dx in range(28):
-			var x = entry+dx
-			var bottom = mini(60, surfaces[entry]+dx)
+			var x=entry+dx
+			var bottom=mini(60,surfaces[entry]+dx)
 			for y in range(bottom-3,bottom+1):
 				cells[y][x]=0
 	generate_structures()
