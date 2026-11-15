@@ -53,11 +53,10 @@ func run() -> void:
 	saves.set_account(smoke_user)
 	check(is_instance_valid(scene.login_root),"Login screen exists before entering game")
 	scene.start_world(false,42019)
-	check(absf(scene.player.position.x-(90*32+16))<1.0,"New world starts in the open meadow away from the village")
-	check(scene.world.village_centers.size()>=4,"Campaign world generates several settlements")
-	check(scene.world.village_centers[1]>90,"A village is placed ahead of the starting point")
-	check(scene.world.is_village_protected(Vector2i(scene.world.village_centers[1],scene.world.surfaces[scene.world.village_centers[1]])),"Generated villages receive protected build zones")
-	check(scene.structures.get_child_count()>=12,"Each generated village receives buildings")
+	check(absf(scene.player.position.x-(58*32+16))<1.0,"New campaign starts inside the single starting village")
+	check(scene.world.village_centers.size()==1 and scene.world.village_centers[0]==34,"World generates exactly one starting village")
+	check(scene.world.is_village_protected(Vector2i(34,scene.world.surfaces[34])),"Starting village receives a protected build zone")
+	check(scene.structures.get_child_count()==3,"Only the starting village receives its three buildings")
 	var campaign_source=FileAccess.get_file_as_string("res://scripts/main.gd")
 	check("func start_campaign()" in campaign_source and "lobby_button(\"CAMPANHA\"" in campaign_source,"Main menu starts the survival campaign")
 	check(not "CRIAR NOVO MUNDO" in campaign_source and not "lobby_button(\"NOVO MUNDO\"" in campaign_source,"Legacy new-world menu entry is removed")
@@ -74,6 +73,11 @@ func run() -> void:
 	var finite_width=scene.world.world_width()
 	scene.world.ensure_generated_to(finite_width+200)
 	check(scene.world.world_width()==finite_width,"World never grows past its finite boundary")
+	var forest_tree_count=0
+	for tree_x in range(72,320,11):
+		if scene.world.get_cell(Vector2i(tree_x,scene.world.surfaces[tree_x]-1))==4:
+			forest_tree_count+=1
+	check(forest_tree_count>=8,"Forest generation places trees outside the starting village")
 	check(scene.world.has_method("draw_village_decor"),"Village decoration pass exists")
 	check(ResourceLoader.exists("res://assets/decor/decor_atlas.png"),"Decoration atlas from supplied art exists")
 	check(load("res://assets/decor/decor_atlas.png")!=null,"Decoration atlas imports correctly")
@@ -345,12 +349,7 @@ func run() -> void:
 	scene.spawn_mob()
 	await physics_frame
 	check(scene.enemies.get_child_count()==safe_enemy_count,"Village safe zone blocks new hostile spawn")
-	var generated_village_x=scene.world.village_centers[1]
-	scene.player.position=Vector2(generated_village_x*32+16,scene.world.surfaces[generated_village_x]*32-2)
-	var generated_village_enemy_count=scene.enemies.get_child_count()
-	scene.spawn_mob()
-	await physics_frame
-	check(scene.enemies.get_child_count()==generated_village_enemy_count,"Generated settlements also block hostile spawns")
+	check(scene.world.village_centers.size()==1,"No extra villages are generated")
 	var hostile_test_x=300
 	scene.player.position=Vector2(hostile_test_x*32,scene.world.surfaces[hostile_test_x]*32-2)
 	var outside_enemy_count=scene.enemies.get_child_count()
