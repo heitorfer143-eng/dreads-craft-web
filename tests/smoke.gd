@@ -345,7 +345,7 @@ func run() -> void:
 	scene.spawn_mob()
 	await physics_frame
 	check(scene.enemies.get_child_count()==safe_enemy_count,"Village safe zone blocks new hostile spawn")
-	var hostile_test_x=180
+	var hostile_test_x=290
 	scene.player.position=Vector2(hostile_test_x*32,scene.world.surfaces[hostile_test_x]*32-2)
 	var outside_enemy_count=scene.enemies.get_child_count()
 	scene.spawn_mob()
