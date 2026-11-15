@@ -2547,7 +2547,7 @@ func start_world(_creative: bool, seed_value: int) -> void:
 	initialize_dungeon_chests()
 	player=Player.new()
 	player.creative=false
-	var spawn_x=90
+	var spawn_x=58
 	player.spawn_position=Vector2(spawn_x*32+16,world.surfaces[spawn_x]*32-2)
 	player.position=player.spawn_position
 	add_child(player)
@@ -5823,7 +5823,7 @@ func on_player_died() -> void:
 		refresh_hud()
 		return
 
-	var spawn_x=90
+	var spawn_x=58
 	player.spawn_position=Vector2(spawn_x*32+16,world.surfaces[spawn_x]*32-2)
 	if in_purity:
 		call_deferred("leave_purity")
