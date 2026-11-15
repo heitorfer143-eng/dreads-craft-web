@@ -556,7 +556,7 @@ func mobile_hotbar_slot_size(viewport_size:Vector2) -> float:
 	var button_size=minf(height_size,width_limit)
 	var left_end=side_margin+button_size*2.0+control_gap
 	var right_start=viewport_size.x-side_margin-button_size*3.0-control_gap*2.0
-	var center_width=right_start-left_end-12.0
+	var center_width=right_start-left_end-20.0
 	var available=center_width if center_width>=300.0 else viewport_size.x-24.0
 	return clampf((available-16.0)/9.0,34.0,68.0)
 
@@ -581,7 +581,7 @@ func mobile_hotbar_position(viewport_size:Vector2,slot_size:float,creative_mode:
 	var controls_top=bottom-rows*button_size-(rows-1.0)*control_gap
 	var left_end=side_margin+button_size*2.0+control_gap
 	var right_start=viewport_size.x-side_margin-button_size*3.0-control_gap*2.0
-	var center_width=right_start-left_end-12.0
+	var center_width=right_start-left_end-20.0
 	var bar_width=slot_size*9.0+2.0*8.0
 	var center_x=(left_end+right_start)/2.0 if center_width>=300.0 else viewport_size.x/2.0
 	return Vector2(center_x-bar_width/2.0,controls_top-slot_size-10.0)
