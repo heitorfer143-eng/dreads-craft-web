@@ -584,7 +584,12 @@ func mobile_hotbar_position(viewport_size:Vector2,slot_size:float,creative_mode:
 	var center_width=right_start-left_end-20.0
 	var bar_width=slot_size*9.0+2.0*8.0
 	var center_x=(left_end+right_start)/2.0 if center_width>=300.0 else viewport_size.x/2.0
-	return Vector2(center_x-bar_width/2.0,controls_top-slot_size-10.0)
+	# In landscape, the middle-bottom strip is clear because touch buttons stay on
+	# the sides. In portrait, keep the hotbar under the top HUD instead of covering
+	# the character or colliding with the large touch clusters.
+	if viewport_size.x>viewport_size.y and center_width>=300.0:
+		return Vector2(center_x-bar_width/2.0,viewport_size.y-slot_size-14.0)
+	return Vector2((viewport_size.x-bar_width)/2.0,140.0)
 
 func layout() -> void:
 	if is_instance_valid(hp_bar):
@@ -2202,7 +2207,9 @@ func on_multiplayer_disconnected() -> void:
 func seed_from_text(raw:String) -> int:
 	var value=raw.strip_edges()
 	if value.is_empty():
-		return int(Time.get_unix_time_from_system()*1000.0)+int(Time.get_ticks_msec()%100000)
+		var rng=RandomNumberGenerator.new()
+		rng.randomize()
+		return int(rng.randi())
 	if value.is_valid_int():
 		return int(value)
 	# Text seeds are deterministic: the same text always becomes the same integer seed.
@@ -2541,7 +2548,8 @@ func start_world(creative: bool, seed_value: int) -> void:
 	initialize_dungeon_chests()
 	player=Player.new()
 	player.creative=creative
-	player.spawn_position=Vector2(12*32+16,35*32-2)
+	var spawn_x=90
+	player.spawn_position=Vector2(spawn_x*32+16,world.surfaces[spawn_x]*32-2)
 	player.position=player.spawn_position
 	add_child(player)
 	player.set_form(current_form)
@@ -5819,7 +5827,8 @@ func on_player_died() -> void:
 		refresh_hud()
 		return
 
-	player.spawn_position=Vector2(12*32+16,35*32-2)
+	var spawn_x=90
+	player.spawn_position=Vector2(spawn_x*32+16,world.surfaces[spawn_x]*32-2)
 	if in_purity:
 		call_deferred("leave_purity")
 	status.text="VOCÊ CAIU · volte ao local da morte para recuperar sua mochila."
