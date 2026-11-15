@@ -22,13 +22,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     container:
       image: barichello/godot-ci:4.3
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Baixar o projeto
         uses: actions/checkout@v4
@@ -62,10 +59,31 @@ jobs:
           test -s build/web/index.html
           ls -lh build/web
 
+      - name: Guardar jogo exportado
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreads-craft-web
+          path: build/web/
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Baixar jogo exportado
+        uses: actions/download-artifact@v4
+        with:
+          name: dreads-craft-web
+          path: build/web/
+
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Enviar jogo exportado
+      - name: Enviar jogo ao Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
