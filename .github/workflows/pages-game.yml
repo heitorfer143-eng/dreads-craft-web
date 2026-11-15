@@ -1,0 +1,75 @@
+name: Publicar Dreads Craft jogável
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "scenes/**"
+      - "assets/**"
+      - "project.godot"
+      - "export_presets.cfg"
+      - ".github/workflows/pages-game.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Baixar o projeto
+        uses: actions/checkout@v4
+
+      - name: Preparar e exportar o jogo para navegador
+        shell: bash
+        env:
+          HOME: /root
+          XDG_CONFIG_HOME: /tmp/godot-config
+          XDG_DATA_HOME: /root/.local/share
+        run: |
+          set -e
+          mkdir -p assets/mobs/generated build/web
+          godot --version
+          godot --headless --script scripts/tools/extract_mob_pngs.gd
+          godot --headless --script tests/asset_integrity.gd
+          godot --headless --editor --quit
+          godot --headless --check-only --script scripts/items.gd
+          godot --headless --check-only --script scripts/save_game.gd
+          godot --headless --check-only --script scripts/device_controls.gd
+          godot --headless --check-only --script scripts/player.gd
+          godot --headless --check-only --script scripts/world.gd
+          godot --headless --check-only --script scripts/main.gd
+          godot --headless --script tests/assets_smoke.gd
+          godot --headless --script tests/smoke.gd
+          godot --headless --script tests/lake_smoke.gd
+          godot --headless --script tests/dungeon_smoke.gd
+          godot --headless --export-release "Web" build/web/index.html
+          cp assets/backgrounds/login_reference.jpg build/web/login_reference.jpg
+          cp assets/backgrounds/dark_castles_generated.png build/web/login_bg.png
+          test -s build/web/index.html
+          ls -lh build/web
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Enviar jogo exportado
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Publicar jogo
+        id: deployment
+        uses: actions/deploy-pages@v4
