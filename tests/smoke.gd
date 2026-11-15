@@ -510,6 +510,13 @@ func run() -> void:
 	check(float(paired)/(ores[6]+ores[7])>.95,"Ores form connected veins")
 	var controls=scene.device_controls
 	controls.set_mobile(true)
+	scene.refresh_hud()
+	check(scene.bar.get_child_count()==9,"Responsive hotbar keeps all nine slots")
+	var mobile_slot=scene.bar.get_child(0)
+	check(mobile_slot.custom_minimum_size.x>=34.0,"Mobile hotbar slots keep a readable minimum size")
+	check(mobile_slot.get_theme_constant("icon_max_width")>=27,"Mobile item icons use the enlarged display size")
+	var desktop_hotbar=scene.hotbar_geometry(Vector2(1280,720),false)
+	check(is_equal_approx(desktop_hotbar.x,50.0),"Desktop hotbar uses enlarged 50px slots")
 	var finger=InputEventScreenTouch.new()
 	finger.index=1
 	finger.position=controls.regions.left.get_center()
