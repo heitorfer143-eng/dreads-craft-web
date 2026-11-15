@@ -2961,7 +2961,7 @@ func refresh_hud() -> void:
 				refresh_hud()
 			)
 			var amount=int(player.inventory.get(id,0))
-			var count=label("∞" if player.creative else str(amount),clampi(int(round(hotbar_slot*0.20)),9,13) if mobile_hotbar else 10)
+			var count=label("∞" if player.creative else str(amount),clampi(int(round(hotbar_slot*0.22)),10,14) if mobile_hotbar else 11)
 			count.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 			count.vertical_alignment=VERTICAL_ALIGNMENT_BOTTOM
 			count.position=Vector2(hotbar_slot-28.0,hotbar_slot-21.0) if mobile_hotbar else Vector2(26,29)
