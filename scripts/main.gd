@@ -881,9 +881,6 @@ func show_world_browser_v2() -> void:
 		var empty=label("Nenhum mundo salvo.",16)
 		empty.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		menu_box.add_child(empty)
-	var create=button("CRIAR NOVO MUNDO",show_creation)
-	create.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
-	menu_box.add_child(create)
 	var back=button("VOLTAR",show_main)
 	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 	menu_box.add_child(back)
@@ -897,9 +894,6 @@ func show_saved_world() -> void:
 		empty.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 		empty.custom_minimum_size=Vector2(0,72)
 		menu_box.add_child(empty)
-		var create=button("CRIAR NOVO MUNDO",show_creation)
-		create.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
-		menu_box.add_child(create)
 		var back=button("VOLTAR",show_main)
 		back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 		menu_box.add_child(back)
@@ -948,9 +942,6 @@ func show_saved_world() -> void:
 		erase.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 		erase.add_theme_color_override("font_color",Color("e7a6a6"))
 		actions.add_child(erase)
-	var create=button("CRIAR NOVO MUNDO",show_creation)
-	create.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
-	menu_box.add_child(create)
 	var back=button("VOLTAR",show_main)
 	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 	menu_box.add_child(back)
