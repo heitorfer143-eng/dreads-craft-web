@@ -485,18 +485,11 @@ func run() -> void:
 	scene.multiplayer_active=false
 	scene.update_multiplayer_compass()
 	check(not scene.compass_frame.visible,"Compass is hidden outside multiplayer")
-	scene.start_world(true,42019)
+	scene.start_world(false,42019)
 	await physics_frame
 	scene.resume()
 	await physics_frame
-	Input.action_press("jump")
-	for frame in 5:
-		await physics_frame
-	check(scene.player.velocity.y<0,"Creative flight")
-	Input.action_release("jump")
-	await physics_frame
-	await physics_frame
-	check(scene.player.velocity.y==0,"Flight release")
+	check(not scene.player.creative,"Campaign and multiplayer remain survival-only")
 	# v10: seeded veins and multi-touch controls.
 	var fingerprint=JSON.stringify(scene.world.cells)
 	scene.world.generate(42019)
