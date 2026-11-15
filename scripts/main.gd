@@ -566,6 +566,20 @@ func hotbar_geometry(viewport_size:Vector2,mobile_layout:bool) -> Vector3:
 	var bar_width=slot_size*9.0+gap*8.0
 	return Vector3(slot_size,gap,bar_width)
 
+func mobile_hotbar_position(viewport_size:Vector2,slot_size:float,creative_mode:bool) -> Vector2:
+	# Keep the hotbar above the highest row of touch controls instead of underneath
+	# them. On narrow phones the old full-width fallback overlapped movement/actions.
+	var side_margin=maxf(14.0,viewport_size.x*0.012)
+	var bottom_margin=maxf(14.0,viewport_size.y*0.025)
+	var button_height=clampf(viewport_size.y*0.18,60.0,104.0)
+	var width_limit=maxf(52.0,(viewport_size.x-side_margin*2.0-24.0-8.0*3.0)/5.0)
+	var button_size=minf(button_height,width_limit)
+	var rows=3.0 if creative_mode else 2.0
+	var bottom=viewport_size.y-bottom_margin
+	var controls_top=bottom-rows*button_size-(rows-1.0)*8.0
+	var bar_width=slot_size*9.0+2.0*8.0
+	return Vector2((viewport_size.x-bar_width)/2.0,controls_top-slot_size-10.0)
+
 func layout() -> void:
 	if is_instance_valid(hp_bar):
 		hp_bar.size=Vector2(214,9)
@@ -646,14 +660,17 @@ func layout() -> void:
 	var hotbar_geo=hotbar_geometry(size,mobile_layout)
 	var hotbar_slot=hotbar_geo.x
 	var hotbar_width=hotbar_geo.z
+	var hotbar_position=Vector2((size.x-450.0)/2.0,size.y-61.0)
+	if mobile_layout:
+		hotbar_position=mobile_hotbar_position(size,hotbar_slot,is_instance_valid(player) and player.creative)
 	if is_instance_valid(hotbar_back):
 		hotbar_back.scale=Vector2.ONE
 		var frame_size=Vector2(hotbar_width+20.0,hotbar_slot+10.0) if mobile_layout else Vector2(492,58)
 		hotbar_back.size=frame_size
-		hotbar_back.position=Vector2((size.x-frame_size.x)/2.0,size.y-frame_size.y-20.0) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
+		hotbar_back.position=hotbar_position-Vector2(10.0,5.0) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
 	if is_instance_valid(bar):
 		bar.scale=Vector2.ONE
-		bar.position=Vector2((size.x-hotbar_width)/2.0,size.y-hotbar_slot-25.0) if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
+		bar.position=hotbar_position if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
 	if is_instance_valid(selected_name):
 		selected_name.visible=not mobile_layout
 		selected_name.position=Vector2((size.x-240)/2.0,size.y-92)
