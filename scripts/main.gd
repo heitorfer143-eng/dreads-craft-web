@@ -573,13 +573,18 @@ func mobile_hotbar_position(viewport_size:Vector2,slot_size:float,creative_mode:
 	var side_margin=maxf(14.0,viewport_size.x*0.012)
 	var bottom_margin=maxf(14.0,viewport_size.y*0.025)
 	var button_height=clampf(viewport_size.y*0.18,60.0,104.0)
-	var width_limit=maxf(52.0,(viewport_size.x-side_margin*2.0-24.0-8.0*3.0)/5.0)
+	var control_gap=8.0
+	var width_limit=maxf(52.0,(viewport_size.x-side_margin*2.0-24.0-control_gap*3.0)/5.0)
 	var button_size=minf(button_height,width_limit)
 	var rows=3.0 if creative_mode else 2.0
 	var bottom=viewport_size.y-bottom_margin
-	var controls_top=bottom-rows*button_size-(rows-1.0)*8.0
+	var controls_top=bottom-rows*button_size-(rows-1.0)*control_gap
+	var left_end=side_margin+button_size*2.0+control_gap
+	var right_start=viewport_size.x-side_margin-button_size*3.0-control_gap*2.0
+	var center_width=right_start-left_end-12.0
 	var bar_width=slot_size*9.0+2.0*8.0
-	return Vector2((viewport_size.x-bar_width)/2.0,controls_top-slot_size-10.0)
+	var center_x=(left_end+right_start)/2.0 if center_width>=300.0 else viewport_size.x/2.0
+	return Vector2(center_x-bar_width/2.0,controls_top-slot_size-10.0)
 
 func layout() -> void:
 	if is_instance_valid(hp_bar):
@@ -633,7 +638,7 @@ func layout() -> void:
 	if is_instance_valid(mode_frame):
 		mode_frame.visible=true
 		mode_frame.scale=Vector2(0.82,0.82) if narrow_mobile else Vector2(0.90,0.90) if mobile_layout else Vector2.ONE
-		mode_frame.position=Vector2(size.x-104.0,44.0) if narrow_mobile else Vector2(size.x-122.0,48.0) if mobile_layout else Vector2(size.x-144,56)
+		mode_frame.position=Vector2(size.x-mode_frame.size.x*mode_frame.scale.x-8.0,44.0) if narrow_mobile else Vector2(size.x-122.0,48.0) if mobile_layout else Vector2(size.x-144,56)
 		mode_frame.size=Vector2(132,32)
 	if is_instance_valid(transform_button):
 		transform_button.scale=Vector2(0.82,0.82) if narrow_mobile else Vector2(0.90,0.90) if mobile_layout else Vector2.ONE
