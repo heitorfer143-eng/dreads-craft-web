@@ -193,6 +193,10 @@ func run() -> void:
 			var controls_top=viewport_size.y-bottom_margin-rows*button_size-(rows-1.0)*8.0
 			check(mobile_position.y+mobile_geo.x<=controls_top-9.0,"Mobile hotbar stays above touch controls at "+str(viewport_size)+" creative="+str(creative_mode))
 			check(mobile_position.x>=0.0 and mobile_position.x+mobile_geo.z<=viewport_size.x,"Mobile hotbar stays inside screen at "+str(viewport_size))
+			var left_end=side_margin+button_size*2.0+8.0
+			var right_start=viewport_size.x-side_margin-button_size*3.0-16.0
+			if right_start-left_end-12.0>=300.0:
+				check(mobile_position.x>=left_end+6.0 and mobile_position.x+mobile_geo.z<=right_start-6.0,"Landscape hotbar stays between left and right touch controls at "+str(viewport_size))
 	scene.player.hp=50.0
 	scene.player.food=50.0
 	scene.player.inventory[10]=1
