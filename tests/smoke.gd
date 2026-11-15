@@ -180,6 +180,19 @@ func run() -> void:
 	check(not str(items.DETAILS[22].get("stats",[])).contains("Durabilidade"),"Item cards do not claim unimplemented durability")
 	var mobile_hotbar_geo=scene.hotbar_geometry(Vector2(360,800),true)
 	check(float(mobile_hotbar_geo.z)+20.0<=360.0,"Nine-slot mobile hotbar fits a 360px viewport")
+	for viewport_size in [Vector2(360,800),Vector2(390,844),Vector2(932,430)]:
+		var mobile_geo=scene.hotbar_geometry(viewport_size,true)
+		for creative_mode in [false,true]:
+			var mobile_position=scene.mobile_hotbar_position(viewport_size,mobile_geo.x,creative_mode)
+			var side_margin=maxf(14.0,viewport_size.x*0.012)
+			var bottom_margin=maxf(14.0,viewport_size.y*0.025)
+			var button_height=clampf(viewport_size.y*0.18,60.0,104.0)
+			var width_limit=maxf(52.0,(viewport_size.x-side_margin*2.0-24.0-8.0*3.0)/5.0)
+			var button_size=minf(button_height,width_limit)
+			var rows=3.0 if creative_mode else 2.0
+			var controls_top=viewport_size.y-bottom_margin-rows*button_size-(rows-1.0)*8.0
+			check(mobile_position.y+mobile_geo.x<=controls_top-9.0,"Mobile hotbar stays above touch controls at "+str(viewport_size)+" creative="+str(creative_mode))
+			check(mobile_position.x>=0.0 and mobile_position.x+mobile_geo.z<=viewport_size.x,"Mobile hotbar stays inside screen at "+str(viewport_size))
 	scene.player.hp=50.0
 	scene.player.food=50.0
 	scene.player.inventory[10]=1
