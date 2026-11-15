@@ -53,6 +53,9 @@ func run() -> void:
 	saves.set_account(smoke_user)
 	check(is_instance_valid(scene.login_root),"Login screen exists before entering game")
 	scene.start_world(false,42019)
+	check(absf(scene.player.position.x-(90*32+16))<1.0,"New world starts in the open meadow away from the village")
+	for spawn_check_x in range(72,120):
+		check(scene.world.get_cell(Vector2i(spawn_check_x,scene.world.surfaces[spawn_check_x]+2))!=0,"Starting meadow has no surface cave entrance")
 	await physics_frame
 	await physics_frame
 	# The starter Mel quest intentionally opens a modal dialogue and pauses the
@@ -191,12 +194,14 @@ func run() -> void:
 			var button_size=minf(button_height,width_limit)
 			var rows=3.0 if creative_mode else 2.0
 			var controls_top=viewport_size.y-bottom_margin-rows*button_size-(rows-1.0)*8.0
-			check(mobile_position.y+mobile_geo.x<=controls_top-9.0,"Mobile hotbar stays above touch controls at "+str(viewport_size)+" creative="+str(creative_mode))
 			check(mobile_position.x>=0.0 and mobile_position.x+mobile_geo.z<=viewport_size.x,"Mobile hotbar stays inside screen at "+str(viewport_size))
 			var left_end=side_margin+button_size*2.0+8.0
 			var right_start=viewport_size.x-side_margin-button_size*3.0-16.0
-			if right_start-left_end-12.0>=300.0:
+			if viewport_size.x>viewport_size.y and right_start-left_end-12.0>=300.0:
+				check(mobile_position.y+mobile_geo.x<=viewport_size.y-14.0+0.1,"Landscape hotbar stays at the bottom of the clear center strip")
 				check(mobile_position.x>=left_end+6.0 and mobile_position.x+mobile_geo.z<=right_start-6.0,"Landscape hotbar stays between left and right touch controls at "+str(viewport_size))
+			else:
+				check(mobile_position.y>=120.0 and mobile_position.y+mobile_geo.x<viewport_size.y*0.5,"Portrait hotbar stays under top HUD and clear of the character at "+str(viewport_size))
 	scene.player.hp=50.0
 	scene.player.food=50.0
 	scene.player.inventory[10]=1
