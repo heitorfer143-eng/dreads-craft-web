@@ -583,7 +583,7 @@ func mobile_hotbar_position(viewport_size:Vector2,slot_size:float,_creative_mode
 	var center_x=(left_end+right_start)/2.0 if center_width>=300.0 else viewport_size.x/2.0
 	if viewport_size.x>viewport_size.y and center_width>=300.0:
 		return Vector2(center_x-bar_width/2.0,viewport_size.y-slot_size-14.0)
-	return Vector2((viewport_size.x-bar_width)/2.0,140.0)
+	return Vector2((viewport_size.x-bar_width)/2.0,160.0)
 
 func layout() -> void:
 	if is_instance_valid(hp_bar):
@@ -680,7 +680,7 @@ func layout() -> void:
 		selected_name.position=Vector2((size.x-240)/2.0,hotbar_position.y-22.0 if mobile_layout else size.y-92.0)
 		selected_name.size=Vector2(240,18)
 	if is_instance_valid(status):
-		status.position=Vector2(12,150) if narrow_mobile else Vector2(12,118) if mobile_layout else Vector2((size.x-420)/2.0,size.y-114)
+		status.position=Vector2(12,210) if mobile_layout and size.x<=size.y else Vector2(12,118) if mobile_layout else Vector2((size.x-420)/2.0,size.y-114)
 		status.size=Vector2(size.x-24,36) if mobile_layout else Vector2(420,18)
 func clear_menu(title: String, kind: String) -> void:
 	var outer_scroll=menu.get_node_or_null("MenuScroll") if is_instance_valid(menu) else null
