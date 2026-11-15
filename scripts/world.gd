@@ -828,7 +828,7 @@ func is_village_protected(cell: Vector2i) -> bool:
 	# The village is a safe/build-protected zone. Players can walk/interact,
 	# but cannot mine or place blocks over/under its houses.
 	for center in village_centers:
-		if abs(cell.x-center)<=22:
+		if abs(cell.x-center)<=28:
 			return true
 	return false
 
