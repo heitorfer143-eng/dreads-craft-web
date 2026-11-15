@@ -467,7 +467,7 @@ func build_ui() -> void:
 	bar.add_theme_constant_override("separation",5)
 	bar.mouse_filter=Control.MOUSE_FILTER_PASS
 	ui.add_child(bar)
-	selected_name=label("",11)
+	selected_name=label("",12)
 	selected_name.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	ui.add_child(selected_name)
 	status=label("",11)
