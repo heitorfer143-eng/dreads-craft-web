@@ -461,7 +461,7 @@ func build_ui() -> void:
 
 	hotbar_back=Panel.new()
 	hotbar_back.size=Vector2(492,58)
-	hotbar_back.add_theme_stylebox_override("panel",panel_style(0.90,Color("725f78")))
+	hotbar_back.add_theme_stylebox_override("panel",panel_style(0.94,Color("9a7950")))
 	ui.add_child(hotbar_back)
 	bar=HBoxContainer.new()
 	bar.add_theme_constant_override("separation",5)
@@ -558,11 +558,12 @@ func mobile_hotbar_slot_size(viewport_size:Vector2) -> float:
 	var right_start=viewport_size.x-side_margin-button_size*3.0-control_gap*2.0
 	var center_width=right_start-left_end-12.0
 	var available=center_width if center_width>=300.0 else viewport_size.x-24.0
-	return clampf((available-16.0)/9.0,32.0,64.0)
+	return clampf((available-16.0)/9.0,34.0,68.0)
 
 func hotbar_geometry(viewport_size:Vector2,mobile_layout:bool) -> Vector3:
-	var slot_size=mobile_hotbar_slot_size(viewport_size) if mobile_layout else 48.0
-	var gap=2.0 if mobile_layout else 5.0
+	# Larger slots make item art readable on touch screens and desktop.
+	var slot_size=mobile_hotbar_slot_size(viewport_size) if mobile_layout else 50.0
+	var gap=2.0 if mobile_layout else 4.0
 	var bar_width=slot_size*9.0+gap*8.0
 	return Vector3(slot_size,gap,bar_width)
 
@@ -612,11 +613,11 @@ func layout() -> void:
 	var stats_frame=hud.get_node_or_null("StatsFrame") if is_instance_valid(hud) else null
 	if stats_frame:
 		stats_frame.position=Vector2(6,6) if mobile_layout else Vector2(12,10)
-		stats_frame.scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		stats_frame.scale=Vector2(0.84,0.84) if narrow_mobile else Vector2(0.92,0.92) if mobile_layout else Vector2.ONE
 		stats_frame.size=Vector2(236,82)
 	var clock_frame=hud.get_node_or_null("ClockFrame") if is_instance_valid(hud) else null
 	if clock_frame:
-		clock_frame.scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		clock_frame.scale=Vector2(0.84,0.84) if narrow_mobile else Vector2(0.92,0.92) if mobile_layout else Vector2.ONE
 		if narrow_mobile:
 			clock_frame.position=Vector2(6,76)
 		elif mobile_layout:
@@ -626,23 +627,23 @@ func layout() -> void:
 		clock_frame.size=Vector2(184,38)
 	if is_instance_valid(action_box):
 		action_box.visible=true
-		action_box.scale=Vector2(0.68,0.68) if narrow_mobile else Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		action_box.scale=Vector2(0.78,0.78) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
 		var actions_width=(235.0 if multiplayer_active else 175.0)*action_box.scale.x
 		action_box.position=Vector2(size.x-actions_width-8.0,8.0 if mobile_layout else 10.0)
 	if is_instance_valid(mode_frame):
 		mode_frame.visible=true
-		mode_frame.scale=Vector2(0.72,0.72) if narrow_mobile else Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		mode_frame.scale=Vector2(0.82,0.82) if narrow_mobile else Vector2(0.90,0.90) if mobile_layout else Vector2.ONE
 		mode_frame.position=Vector2(size.x-104.0,44.0) if narrow_mobile else Vector2(size.x-122.0,48.0) if mobile_layout else Vector2(size.x-144,56)
 		mode_frame.size=Vector2(132,32)
 	if is_instance_valid(transform_button):
-		transform_button.scale=Vector2(0.72,0.72) if narrow_mobile else Vector2(0.82,0.82) if mobile_layout else Vector2.ONE
+		transform_button.scale=Vector2(0.82,0.82) if narrow_mobile else Vector2(0.90,0.90) if mobile_layout else Vector2.ONE
 		transform_button.position=Vector2(size.x-42.0,76.0) if narrow_mobile else Vector2(size.x-48.0,82.0) if mobile_layout else Vector2(size.x-52.0,96.0)
 	if is_instance_valid(air_frame):
-		var stat_scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.88,0.88) if mobile_layout else Vector2.ONE
+		var stat_scale=Vector2(0.84,0.84) if narrow_mobile else Vector2(0.92,0.92) if mobile_layout else Vector2.ONE
 		air_frame.scale=stat_scale
 		air_frame.position=Vector2(6,112) if narrow_mobile else Vector2(6,80) if mobile_layout else Vector2(12,104)
 	if is_instance_valid(compass_frame):
-		compass_frame.scale=Vector2(0.74,0.74) if narrow_mobile else Vector2(0.86,0.86) if mobile_layout else Vector2.ONE
+		compass_frame.scale=Vector2(0.84,0.84) if narrow_mobile else Vector2(0.90,0.90) if mobile_layout else Vector2.ONE
 		if narrow_mobile:
 			compass_frame.position=Vector2(size.x-compass_frame.size.x*compass_frame.scale.x-8.0,112.0)
 		else:
@@ -660,20 +661,19 @@ func layout() -> void:
 	var hotbar_geo=hotbar_geometry(size,mobile_layout)
 	var hotbar_slot=hotbar_geo.x
 	var hotbar_width=hotbar_geo.z
-	var hotbar_position=Vector2((size.x-450.0)/2.0,size.y-61.0)
+	var hotbar_position=Vector2((size.x-hotbar_width)/2.0,size.y-hotbar_slot-13.0)
 	if mobile_layout:
 		hotbar_position=mobile_hotbar_position(size,hotbar_slot,is_instance_valid(player) and player.creative)
 	if is_instance_valid(hotbar_back):
 		hotbar_back.scale=Vector2.ONE
-		var frame_size=Vector2(hotbar_width+20.0,hotbar_slot+10.0) if mobile_layout else Vector2(492,58)
-		hotbar_back.size=frame_size
-		hotbar_back.position=hotbar_position-Vector2(10.0,5.0) if mobile_layout else Vector2((size.x-492)/2.0,size.y-68)
+		hotbar_back.size=Vector2(hotbar_width+20.0,hotbar_slot+10.0)
+		hotbar_back.position=hotbar_position-Vector2(10.0,5.0)
 	if is_instance_valid(bar):
 		bar.scale=Vector2.ONE
-		bar.position=hotbar_position if mobile_layout else Vector2((size.x-450)/2.0,size.y-61)
+		bar.position=hotbar_position
 	if is_instance_valid(selected_name):
-		selected_name.visible=not mobile_layout
-		selected_name.position=Vector2((size.x-240)/2.0,size.y-92)
+		selected_name.visible=true
+		selected_name.position=Vector2((size.x-240)/2.0,hotbar_position.y-22.0 if mobile_layout else size.y-92.0)
 		selected_name.size=Vector2(240,18)
 	if is_instance_valid(status):
 		status.position=Vector2(12,150) if narrow_mobile else Vector2(12,118) if mobile_layout else Vector2((size.x-420)/2.0,size.y-114)
@@ -2929,25 +2929,26 @@ func refresh_hud() -> void:
 		var id=int(hotbar[slot_index]) if slot_index<hotbar.size() else 0
 		var slot=Button.new()
 		slot.focus_mode=Control.FOCUS_NONE
-		slot.custom_minimum_size=Vector2(hotbar_slot,hotbar_slot) if mobile_hotbar else Vector2(48,48)
+		slot.custom_minimum_size=Vector2(hotbar_slot,hotbar_slot)
 		slot.expand_icon=true
-		slot.add_theme_constant_override("icon_max_width",int(round(hotbar_slot*0.66)) if mobile_hotbar else 30)
+		slot.add_theme_constant_override("icon_max_width",int(round(hotbar_slot*0.80)) if mobile_hotbar else 40)
 		slot.tooltip_text=Items.NAMES.get(id,"Slot vazio") if id!=0 else "Slot vazio"
 
 		var empty_style=StyleBoxFlat.new()
 		empty_style.bg_color=Color("08080bcc")
-		empty_style.border_color=Color("5e5962")
+		empty_style.border_color=Color("75677d")
 		empty_style.set_border_width_all(2)
-		empty_style.set_corner_radius_all(2)
+		empty_style.set_corner_radius_all(5)
 		empty_style.content_margin_left=4
 		empty_style.content_margin_right=4
 		empty_style.content_margin_top=4
 		empty_style.content_margin_bottom=4
 
 		var selected_style=empty_style.duplicate()
-		selected_style.bg_color=Color("29252ddd")
-		selected_style.border_color=Color("f4eee5")
+		selected_style.bg_color=Color("33283fee")
+		selected_style.border_color=Color("f0c477")
 		selected_style.set_border_width_all(3)
+		selected_style.set_corner_radius_all(5)
 
 		slot.add_theme_stylebox_override("normal",selected_style if id!=0 and id==selected else empty_style)
 		slot.add_theme_stylebox_override("hover",selected_style)
@@ -3302,7 +3303,7 @@ func show_inventory() -> void:
 	if not active:
 		return
 	clear_menu("Inventário","inventory")
-	var mobile=get_viewport_rect().size.x<=620
+	var mobile=get_viewport_rect().size.x<=900 or (is_instance_valid(device_controls) and bool(device_controls.mobile))
 	var subtitle=label("Itens coletados · Q também dropa 1 item no PC",12 if mobile else 14)
 	subtitle.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	subtitle.add_theme_color_override("font_color",Color("b8a5c5"))
@@ -3339,9 +3340,10 @@ func show_inventory() -> void:
 				unequip_armor_slot(s)
 				show_inventory()
 		)
-		slot_button.custom_minimum_size=Vector2(126,58) if mobile else Vector2(150,62)
+		slot_button.custom_minimum_size=Vector2(136,64) if mobile else Vector2(160,70)
 		slot_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
-		slot_button.add_theme_font_size_override("font_size",9 if mobile else 10)
+		slot_button.add_theme_font_size_override("font_size",10 if mobile else 11)
+		slot_button.add_theme_constant_override("icon_max_width",42 if mobile else 52)
 		if equipped_id>0:
 			slot_button.icon=item_display_texture(equipped_id)
 			slot_button.expand_icon=true
@@ -3372,7 +3374,9 @@ func show_inventory() -> void:
 			resume()
 		)
 		row.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		row.custom_minimum_size=Vector2(0,48 if mobile else 54)
+		row.custom_minimum_size=Vector2(0,58 if mobile else 64)
+		row.add_theme_font_size_override("font_size",12 if mobile else 14)
+		row.add_theme_constant_override("icon_max_width",42 if mobile else 52)
 		if Items.ICONS.has(id):
 			row.icon=item_display_texture(id)
 			row.expand_icon=true
@@ -3393,7 +3397,7 @@ func show_inventory() -> void:
 				show_inventory()
 			)
 			drop_button.disabled=player.creative or int(player.inventory.get(id,0))<=0 or in_purity or in_lake_temple or in_structure!=""
-		drop_button.custom_minimum_size=Vector2(0,42) if mobile else Vector2(126,54)
+		drop_button.custom_minimum_size=Vector2(0,46) if mobile else Vector2(132,56)
 		drop_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL if mobile else Control.SIZE_SHRINK_CENTER
 		line.add_child(drop_button)
 	menu_box.add_child(button("FECHAR",resume))
