@@ -5076,7 +5076,7 @@ func spawn_mob() -> void:
 	var player_cell=clampi(int(player.position.x/32),0,World.WIDTH-1)
 	# Vila/spawn é uma zona segura: hostis só podem aparecer depois de o jogador
 	# realmente deixar o povoado.
-	if player_cell<=World.VILLAGE_MAX_X+10 or world.is_lake_zone(player_cell):
+	if player_cell<=World.VILLAGE_MAX_X+10 or world.is_village_protected(Vector2i(player_cell,world.surfaces[player_cell])) or world.is_lake_zone(player_cell):
 		return
 	var cell=clampi(player_cell+(18 if randf()>.5 else -18),World.VILLAGE_MAX_X+11,world.world_width()-3)
 	if world.is_lake_zone(cell):
