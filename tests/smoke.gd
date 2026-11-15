@@ -345,6 +345,12 @@ func run() -> void:
 	scene.spawn_mob()
 	await physics_frame
 	check(scene.enemies.get_child_count()==safe_enemy_count,"Village safe zone blocks new hostile spawn")
+	var generated_village_x=scene.world.village_centers[1]
+	scene.player.position=Vector2(generated_village_x*32+16,scene.world.surfaces[generated_village_x]*32-2)
+	var generated_village_enemy_count=scene.enemies.get_child_count()
+	scene.spawn_mob()
+	await physics_frame
+	check(scene.enemies.get_child_count()==generated_village_enemy_count,"Generated settlements also block hostile spawns")
 	var hostile_test_x=300
 	scene.player.position=Vector2(hostile_test_x*32,scene.world.surfaces[hostile_test_x]*32-2)
 	var outside_enemy_count=scene.enemies.get_child_count()
