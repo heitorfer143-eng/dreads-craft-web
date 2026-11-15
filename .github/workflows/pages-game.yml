@@ -13,12 +13,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: dreads-craft-pages
   cancel-in-progress: true
 
 jobs:
@@ -67,27 +65,35 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  deploy:
+  publish:
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Baixar jogo exportado
+      - name: Baixar branch configurada no GitHub Pages
+        uses: actions/checkout@v4
+        with:
+          ref: v14-login-deploy-trigger
+          path: site
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Colocar o jogo exportado na raiz publicada
         uses: actions/download-artifact@v4
         with:
           name: dreads-craft-web
-          path: build/web/
+          path: site/
 
-      - name: Configurar GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Enviar jogo ao Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-
-      - name: Publicar jogo
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publicar os arquivos do jogo
+        working-directory: site
+        shell: bash
+        run: |
+          set -e
+          test -s index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "O jogo já está atualizado."
+          else
+            git commit -m "Publish playable Dreads Craft Web build"
+            git push origin HEAD:v14-login-deploy-trigger
+          fi
