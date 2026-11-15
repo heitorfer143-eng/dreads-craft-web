@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1794764803|4343646';
+const CACHE_VERSION = '1794765245|2820326';
 /** @type {string} */
 const CACHE_PREFIX = 'Dreads Craft-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
