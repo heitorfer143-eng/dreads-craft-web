@@ -27,7 +27,7 @@ var lake_water_y := 35
 var lake_generated := false
 var desert_start_x := 350
 var desert_end_x := 500
-var village_centers:Array[int]=[34,168,250,510]
+var village_centers:Array[int]=[34]
 var cells: Array = []
 var surfaces: Array[int] = []
 var rows: Dictionary = {}
@@ -79,12 +79,9 @@ func configure_biomes(seed_value:int) -> void:
 	desert_start_x=330+shift
 	desert_end_x=mini(WIDTH-70,desert_start_x+150)
 
-func configure_villages(seed_value:int) -> void:
-	var rng=RandomNumberGenerator.new()
-	rng.seed=seed_value ^ 0x56494C4C
-	# A vila inicial fica atrás do ponto de partida antigo; as novas ficam à frente,
-	# em regiões de floresta, neve e floresta distante.
-	village_centers=[34,rng.randi_range(164,174),rng.randi_range(244,256),rng.randi_range(500,516)]
+func configure_villages(_seed_value:int) -> void:
+	# Um único povoado inicial compartilhado por todas as campanhas.
+	village_centers=[34]
 
 func is_village_area(x:int,margin:int=24) -> bool:
 	for center in village_centers:
@@ -1176,16 +1173,6 @@ func draw_village_decor(left:int,right:int) -> void:
 		if x<left or x>=right or x<0 or x>=surfaces.size():
 			continue
 		_draw_decor_sprite(_decor_base(x),str(data[1]),float(data[2]))
-	# Cada vila adicional recebe uma combinação própria de decoração existente.
-	var village_props=["tree","well","bench","lampadao","crates","flowers","banner_red"]
-	for i in range(1,village_centers.size()):
-		var center=village_centers[i]
-		for j in range(5):
-			var px=center-20+j*10
-			if px<left or px>=right or px<0 or px>=surfaces.size():
-				continue
-			var role=village_props[(i*3+j*2)%village_props.size()]
-			_draw_decor_sprite(_decor_base(px),role,DECOR_ROLE_SCALE.get(role,1.0))
 
 func _draw_lake_trident(center:Vector2,scale:float,color:Color) -> void:
 	var width=maxf(2.0,4.0*scale)
