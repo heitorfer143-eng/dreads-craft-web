@@ -27,6 +27,7 @@ var lake_water_y := 35
 var lake_generated := false
 var desert_start_x := 350
 var desert_end_x := 500
+var village_centers:Array[int]=[34,168,250,510]
 var cells: Array = []
 var surfaces: Array[int] = []
 var rows: Dictionary = {}
@@ -78,6 +79,32 @@ func configure_biomes(seed_value:int) -> void:
 	desert_start_x=330+shift
 	desert_end_x=mini(WIDTH-70,desert_start_x+150)
 
+func configure_villages(seed_value:int) -> void:
+	var rng=RandomNumberGenerator.new()
+	rng.seed=seed_value ^ 0x56494C4C
+	# A vila inicial fica atrás do ponto de partida antigo; as novas ficam à frente,
+	# em regiões de floresta, neve e floresta distante.
+	village_centers=[34,rng.randi_range(164,174),rng.randi_range(244,256),rng.randi_range(500,516)]
+
+func is_village_area(x:int,margin:int=24) -> bool:
+	for center in village_centers:
+		if abs(x-center)<=margin:
+			return true
+	return false
+
+func flatten_village_sites() -> void:
+	for center in village_centers:
+		if center<0 or center>=surfaces.size():
+			continue
+		var ground=surfaces[center]
+		for x in range(maxi(2,center-22),mini(WIDTH-2,center+23)):
+			surfaces[x]=ground
+			for y in range(maxi(0,ground-10),ground):
+				cells[y][x]=0
+			cells[ground][x]=1
+			for y in range(ground+1,mini(ground+4,HEIGHT)):
+				cells[y][x]=2
+
 func desert_strength(x:int) -> float:
 	var transition=14.0
 	if x<desert_start_x-transition or x>desert_end_x+transition:
@@ -120,6 +147,7 @@ func generate(seed_value: int) -> void:
 	world_seed = seed_value
 	configure_biomes(seed_value)
 	configure_lake(seed_value)
+	configure_villages(seed_value)
 	var noise = FastNoiseLite.new()
 	noise.seed = world_seed
 	noise.frequency = 0.027
@@ -144,10 +172,12 @@ func generate(seed_value: int) -> void:
 			for y in range(center-3,center+4):
 				if x > 60 and x < WIDTH-3:
 					cells[y][x] = 0
+	# Flatten clearings before foliage so every settlement has a walkable center.
+	flatten_village_sites()
 	# Trees are a separate pass: later terrain columns cannot overwrite foliage.
 	for x in range(72,WIDTH-5,11):
 		# Keep the new wilderness spawn clear so the player starts in an open meadow.
-		if abs(x-90)<=8 or is_lake_zone(x) or desert_strength(x)>0.28:
+		if abs(x-90)<=8 or is_lake_zone(x) or desert_strength(x)>0.28 or is_village_area(x,24):
 			continue
 		var blocked_by_village=false
 		for village_x in [18,34,50]:
@@ -172,6 +202,8 @@ func generate(seed_value: int) -> void:
 		cave_rng.randi_range(448,470)
 	]
 	for entry in cave_entries:
+		if is_village_area(entry,24):
+			continue
 		for dx in range(28):
 			var x=entry+dx
 			var bottom=mini(60,surfaces[entry]+dx)
@@ -203,11 +235,11 @@ func generate_structures() -> void:
 			cy=clampi(cy+rng.randi_range(-3,4),45,HEIGHT-8)
 	# Estruturas visíveis são apenas sprites; não geramos minas/ruínas de blocos.
 	# Keep the image-based village completely clear of trees/blocks around each house.
-	for center_x in [18,34,50,118,238,292]:
+	for center_x in village_centers:
 		var ground=surfaces[center_x]
-		for x in range(center_x-6,center_x+7):
+		for x in range(center_x-22,center_x+23):
 			if x>1 and x<WIDTH-1:
-				for y in range(maxi(0,ground-8),ground):
+				for y in range(maxi(0,ground-10),ground):
 					if cells[y][x] in [3,4,5,8,9]:
 						cells[y][x]=0
 
@@ -616,18 +648,19 @@ func repair_lake_zone() -> void:
 
 func repair_village_zone() -> void:
 	# Upgrade old saves to the new village layout too: flat ground and no trees/blocks over houses.
-	for x in range(4,66):
-		var ground=35
-		if x>=surfaces.size():
+	for center in village_centers:
+		if center<0 or center>=surfaces.size():
 			continue
-		surfaces[x]=ground
-		for y in range(0,ground):
-			cells[y][x]=0
-		cells[ground][x]=1
-		for y in range(ground+1,mini(ground+4,HEIGHT)):
-			cells[y][x]=2
-		if ground+4<HEIGHT and cells[ground+4][x]==0:
-			cells[ground+4][x]=3
+		var ground=surfaces[center]
+		for x in range(maxi(2,center-22),mini(WIDTH-2,center+23)):
+			surfaces[x]=ground
+			for y in range(0,ground):
+				cells[y][x]=0
+			cells[ground][x]=1
+			for y in range(ground+1,mini(ground+4,HEIGHT)):
+				cells[y][x]=2
+			if ground+4<HEIGHT and cells[ground+4][x]==0:
+				cells[ground+4][x]=3
 	rebuild_collision()
 	queue_redraw()
 
@@ -797,7 +830,10 @@ func generate_purity_realm(seed_value:int) -> void:
 func is_village_protected(cell: Vector2i) -> bool:
 	# The village is a safe/build-protected zone. Players can walk/interact,
 	# but cannot mine or place blocks over/under its houses.
-	return cell.x>=VILLAGE_MIN_X and cell.x<=VILLAGE_MAX_X
+	for center in village_centers:
+		if abs(cell.x-center)<=22:
+			return true
+	return false
 
 func is_lake_zone(cell_x: int) -> bool:
 	return not purity_realm and cell_x>=lake_start_x and cell_x<=lake_end_x
@@ -1140,6 +1176,16 @@ func draw_village_decor(left:int,right:int) -> void:
 		if x<left or x>=right or x<0 or x>=surfaces.size():
 			continue
 		_draw_decor_sprite(_decor_base(x),str(data[1]),float(data[2]))
+	# Cada vila adicional recebe uma combinação própria de decoração existente.
+	var village_props=["tree","well","bench","lampadao","crates","flowers","banner_red"]
+	for i in range(1,village_centers.size()):
+		var center=village_centers[i]
+		for j in range(5):
+			var px=center-20+j*10
+			if px<left or px>=right or px<0 or px>=surfaces.size():
+				continue
+			var role=village_props[(i*3+j*2)%village_props.size()]
+			_draw_decor_sprite(_decor_base(px),role,DECOR_ROLE_SCALE.get(role,1.0))
 
 func _draw_lake_trident(center:Vector2,scale:float,color:Color) -> void:
 	var width=maxf(2.0,4.0*scale)
