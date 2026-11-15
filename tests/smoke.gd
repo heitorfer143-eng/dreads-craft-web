@@ -56,6 +56,7 @@ func run() -> void:
 	check(absf(scene.player.position.x-(58*32+16))<1.0,"New campaign starts inside the single starting village")
 	check(scene.world.village_centers.size()==1 and scene.world.village_centers[0]==34,"World generates exactly one starting village")
 	check(scene.world.is_village_protected(Vector2i(34,scene.world.surfaces[34])),"Starting village receives a protected build zone")
+	check(scene.world.is_village_protected(Vector2i(58,scene.world.surfaces[58])),"Player spawn is inside the protected starting village")
 	check(scene.structures.get_child_count()==3,"Only the starting village receives its three buildings")
 	var campaign_source=FileAccess.get_file_as_string("res://scripts/main.gd")
 	check("func start_campaign()" in campaign_source and "lobby_button(\"CAMPANHA\"" in campaign_source,"Main menu starts the survival campaign")
