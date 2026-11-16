@@ -199,7 +199,13 @@ func _ready() -> void:
 	online.failed.connect(on_multiplayer_failed)
 	online.room_ready.connect(on_multiplayer_room_ready)
 	add_child(online)
-	show_login()
+	if Accounts.restore_session():
+		current_account=Accounts.active_user
+		online_player_name=current_account
+		Saves.set_account(current_account)
+		show_main()
+	else:
+		show_login()
 	get_tree().auto_accept_quit=false
 
 func configure_input() -> void:
@@ -2199,9 +2205,7 @@ func start_campaign() -> void:
 				return
 	Saves.active_id=""
 	world_name="Campanha do Abismo"
-	Saves.active_id=""
-	start_world(false,seed_from_text(""))
-	save_world()
+	show_world_intro(false,seed_from_text(""),0)
 
 func seed_from_text(raw:String) -> int:
 	var value=raw.strip_edges()
