@@ -38,6 +38,8 @@ func _begin(payload:Dictionary) -> void:
 	socket=WebSocketPeer.new()
 	var err=socket.connect_to_url(websocket_url())
 	if err!=OK:
+		pending={}
+		pending_sent=false
 		failed.emit("Não foi possível conectar ao servidor multiplayer.")
 
 func disconnect_room(notify_game:bool=true) -> void:
