@@ -2200,8 +2200,10 @@ func start_campaign() -> void:
 		var latest_id=str(worlds[0].get("id",""))
 		if latest_id!="":
 			Saves.select_world(latest_id)
-			if not Saves.read_save().is_empty():
-				load_world()
+			var saved=Saves.read_save()
+			if not saved.is_empty():
+				world_name=str(saved.get("name","Campanha do Abismo"))
+				show_world_intro(false,int(saved.get("seed",seed_from_text(""))),0,true)
 				return
 	Saves.active_id=""
 	world_name="Campanha do Abismo"
@@ -2363,7 +2365,7 @@ func show_creation() -> void:
 	actions.add_child(create)
 	layout()
 
-func show_world_intro(creative_mode: bool, seed_value: int, page: int=0) -> void:
+func show_world_intro(creative_mode: bool, seed_value: int, page: int=0, continue_existing:bool=false) -> void:
 	clear_menu("","world_intro")
 	var lines=[
 		"Então... você acordou. Este é o Reino do Abismo, um lugar onde a luz já não alcança como antes.",
@@ -2371,11 +2373,11 @@ func show_world_intro(creative_mode: bool, seed_value: int, page: int=0) -> void
 		"Há vilas, ruínas e segredos espalhados por estas terras. Nem todo estranho é inimigo — e alguns precisarão da sua ajuda.",
 		"Seu reino começa agora. Faça aliados, fortaleça-se e descubra o que existe depois da luz."
 	]
-	var title=label("NOVO MUNDO",28)
+	var title=label("A HISTÓRIA DO REINO" if continue_existing else "NOVO MUNDO",28)
 	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color",Color("f0e4dd"))
 	menu_box.add_child(title)
-	var subtitle=label("ANTES QUE TUDO COMECE...",11)
+	var subtitle=label("ANTES DE CONTINUAR SUA JORNADA..." if continue_existing else "ANTES QUE TUDO COMECE...",11)
 	subtitle.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_color_override("font_color",Color("b898c7"))
 	menu_box.add_child(subtitle)
@@ -2419,14 +2421,17 @@ func show_world_intro(creative_mode: bool, seed_value: int, page: int=0) -> void
 	back.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	actions.add_child(back)
 	if page<lines.size()-1:
-		var next=button("CONTINUAR  ›",func(): show_world_intro(creative_mode,seed_value,page+1))
+		var next=button("CONTINUAR  ›",func(): show_world_intro(creative_mode,seed_value,page+1,continue_existing))
 		next.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		next.add_theme_stylebox_override("normal",button_style(Color("351c48e8"),Color("bf70dc")))
 		actions.add_child(next)
 	else:
-		var begin=button("COMEÇAR JORNADA",func():
-			start_world(creative_mode,seed_value)
-			save_world()
+		var begin=button("CONTINUAR CAMPANHA" if continue_existing else "COMEÇAR JORNADA",func():
+			if continue_existing:
+				load_world()
+			else:
+				start_world(creative_mode,seed_value)
+				save_world()
 		)
 		begin.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		begin.add_theme_stylebox_override("normal",button_style(Color("3c214be8"),Color("e09a6b")))
