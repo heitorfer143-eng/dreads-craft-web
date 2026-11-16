@@ -5,7 +5,10 @@ var token:=""
 var username:=""
 
 func is_enabled() -> bool:
-	return OS.has_feature("web") or OS.has_feature("android")
+	# GitHub Pages is static hosting and cannot serve /api account endpoints.
+	# Keep account creation and login on the local persistent AccountStore until
+	# the project has an explicitly approved online backend.
+	return false
 
 func is_authenticated() -> bool:
 	return token!=""
