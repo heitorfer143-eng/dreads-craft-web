@@ -17,14 +17,11 @@ var remote_players:Dictionary={}
 var send_timer:=0.0
 var connect_timeout:=0.0
 
-const PRODUCTION_WEBSOCKET_URL="wss://dreads-craft-v13-production.up.railway.app/ws"
+const PRODUCTION_WEBSOCKET_URL="wss://dreads-craft-v13-production-42b9.up.railway.app/ws"
 
 func websocket_url() -> String:
-	if OS.has_feature("web"):
-		var protocol=str(JavaScriptBridge.eval("window.location.protocol"))
-		var hostname=str(JavaScriptBridge.eval("window.location.host"))
-		return ("wss://" if protocol=="https:" else "ws://")+hostname+"/ws"
-	# APK/native must connect to the real server, never localhost on the phone.
+	# GitHub Pages is static hosting and has no /ws endpoint. Web, Android and
+	# desktop clients must all connect to the multiplayer server directly.
 	return PRODUCTION_WEBSOCKET_URL
 
 func create_room(player_name:String,seed:int,world_name:String) -> void:
@@ -94,9 +91,13 @@ func _process(delta:float) -> void:
 		pending_sent=true
 	elif state==WebSocketPeer.STATE_CLOSED and (not pending.is_empty() or active):
 		var was_active=active
+		var was_connecting=not pending.is_empty()
 		active=false
 		pending={}
-		if was_active:
+		pending_sent=false
+		if was_connecting:
+			failed.emit("Não foi possível conectar ao servidor multiplayer. Confira sua conexão e tente novamente.")
+		elif was_active:
 			failed.emit("A conexão multiplayer foi encerrada.")
 
 	while socket.get_available_packet_count()>0:
