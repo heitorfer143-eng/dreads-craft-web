@@ -1028,7 +1028,7 @@ func setup_web_login_overlay() -> void:
 					<button id="dreads-login-create" class="dc-action dc-secondary" type="button">CRIAR CONTA</button>
 					<button id="dreads-login-guest" class="dc-action dc-secondary" type="button">CONVIDADO</button>
 				</div>
-				<p class="dc-login-note">Sua conta mantém seus mundos sincronizados. O modo convidado fica somente neste dispositivo.</p>
+				<p class="dc-login-note">Sua conta e seus mundos ficam salvos somente neste dispositivo.</p>
 			</section>
 		</div>`;
 
@@ -1375,7 +1375,7 @@ func show_login() -> void:
 	guest.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	secondary.add_child(guest)
 
-	var note=label("Sua conta mantém seus mundos sincronizados. O modo convidado fica somente neste dispositivo.",10)
+	var note=label("Sua conta e seus mundos ficam salvos somente neste dispositivo.",10)
 	note.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_color_override("font_color",Color("756c79"))
@@ -1461,8 +1461,8 @@ func attempt_create_account() -> void:
 		return
 	if is_instance_valid(cloud) and cloud.is_enabled():
 		set_login_auth_busy(true)
-		login_feedback.text="Criando sua conta online..."
-		set_web_login_feedback("Criando sua conta online...")
+		login_feedback.text="Criando sua conta..."
+		set_web_login_feedback("Criando sua conta...")
 		create_cloud_account(user,password)
 		return
 	var result=Accounts.create_account(user,password)
