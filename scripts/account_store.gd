@@ -2,6 +2,7 @@ extends RefCounted
 
 const PATH="user://dreads_accounts.json"
 const BACKUP_PATH="user://dreads_accounts.json.bak"
+const SESSION_PATH="user://dreads_session.dat"
 const VERSION=1
 const HASH_ROUNDS=20000
 static var active_user:=""
@@ -63,6 +64,43 @@ static func _secure_equal(a:String,b:String) -> bool:
 		diff|=a.unicode_at(i)^b.unicode_at(i)
 	return diff==0
 
+static func _start_session(user:String,users:Dictionary,data:Dictionary) -> bool:
+	var token=Crypto.new().generate_random_bytes(32).hex_encode()
+	var record:Dictionary=users.get(user,{})
+	record["session_hash"]=token.sha256_text()
+	users[user]=record
+	data["users"]=users
+	data["last_user"]=user
+	if _write(data)!=OK:
+		return false
+	var file=FileAccess.open(SESSION_PATH,FileAccess.WRITE)
+	if file==null:
+		return false
+	file.store_string(token)
+	file.flush()
+	file.close()
+	active_user=user
+	return true
+
+static func restore_session() -> bool:
+	active_user=""
+	if not FileAccess.file_exists(SESSION_PATH):
+		return false
+	var token=FileAccess.get_file_as_string(SESSION_PATH).strip_edges()
+	if token.length()<32:
+		return false
+	var data=_read()
+	var user=_normalize_username(str(data.get("last_user","")))
+	var users:Dictionary=data.get("users",{})
+	if user=="" or not users.has(user):
+		return false
+	var record:Dictionary=users[user]
+	var expected=str(record.get("session_hash",""))
+	if expected=="" or not _secure_equal(expected,token.sha256_text()):
+		return false
+	active_user=user
+	return true
+
 static func create_account(username:String,password:String) -> Dictionary:
 	var user=_normalize_username(username)
 	if user.length()<3:
@@ -79,14 +117,9 @@ static func create_account(username:String,password:String) -> Dictionary:
 		"password_hash":_hash_password(password,salt),
 		"created_at":int(Time.get_unix_time_from_system())
 	}
-	data["users"]=users
-	data["last_user"]=user
-	var error=_write(data)
-	if error!=OK:
-		return {"ok":false,"message":"Não foi possível criar a conta local."}
-	active_user=user
+	if not _start_session(user,users,data):
+		return {"ok":false,"message":"Não foi possível salvar a conta neste dispositivo."}
 	return {"ok":true,"message":"Conta criada.","user":user}
-
 static func authenticate(username:String,password:String) -> Dictionary:
 	var user=_normalize_username(username)
 	var data=_read()
@@ -98,9 +131,7 @@ static func authenticate(username:String,password:String) -> Dictionary:
 	var actual=_hash_password(password,str(record.get("salt","")))
 	if expected=="" or not _secure_equal(expected,actual):
 		return {"ok":false,"message":"Usuário ou senha inválidos."}
-	active_user=user
-	data["last_user"]=user
-	_write(data)
+	_start_session(user,users,data)
 	return {"ok":true,"message":"Login realizado.","user":user}
 
 static func remember_user(username:String) -> void:
@@ -113,6 +144,8 @@ static func remember_user(username:String) -> void:
 
 static func logout() -> void:
 	active_user=""
+	if FileAccess.file_exists(SESSION_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SESSION_PATH))
 
 static func last_user() -> String:
 	return str(_read().get("last_user",""))
